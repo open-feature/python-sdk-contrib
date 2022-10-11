@@ -4,13 +4,17 @@ from numbers import Number
 from flagsmith.flagsmith import Flagsmith
 from open_feature_sdk.provider.provider import AbstractProvider
 from open_feature_sdk.evaluation_context.evaluation_context import EvaluationContext
-from open_feature_sdk.flag_evaluation.flag_evaluation_details import FlagEvaluationDetails
+from open_feature_sdk.exception.exception import TypeMismatchError
+from open_feature_sdk.flag_evaluation.flag_evaluation_details import (
+    FlagEvaluationDetails,
+)
 
-from open_feature_contrib.providers.flagsmith.open_feature_flagsmith.exceptions import FlagsmithConfigurationError
+from open_feature_contrib.providers.flagsmith.open_feature_flagsmith.exceptions import (
+    FlagsmithConfigurationError,
+)
 
 
 class FlagsmithProvider(AbstractProvider):
-
     def __init__(
         self,
         enable_local_evaluation: bool = False,
