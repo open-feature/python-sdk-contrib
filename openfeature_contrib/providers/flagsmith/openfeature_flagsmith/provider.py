@@ -2,21 +2,18 @@ import os
 from numbers import Number
 
 from flagsmith.flagsmith import Flagsmith
-from open_feature_sdk.provider.provider import AbstractProvider
-from open_feature_sdk.evaluation_context.evaluation_context import EvaluationContext
-from open_feature_sdk.exception.exception import TypeMismatchError
-from open_feature_sdk.flag_evaluation.flag_evaluation_details import (
-    FlagEvaluationDetails,
-)
+from open_feature.evaluation_context.evaluation_context import EvaluationContext
+from open_feature.exception.exceptions import TypeMismatchError
+from open_feature.flag_evaluation.flag_evaluation_details import FlagEvaluationDetails
+from open_feature.provider.provider import AbstractProvider
 
-from open_feature_contrib.providers.flagsmith.open_feature_flagsmith.exceptions import (
-    FlagsmithConfigurationError,
-)
+from openfeature_flagsmith.exceptions import FlagsmithConfigurationError
 
 
 class FlagsmithProvider(AbstractProvider):
     def __init__(
         self,
+        environment_key: str = None,
         enable_local_evaluation: bool = False,
         api_url: str = None,
         request_timeout_seconds: int = None,
@@ -28,11 +25,16 @@ class FlagsmithProvider(AbstractProvider):
         kwargs = {}
         if environment_key := os.environ.get("FLAGSMITH_ENVIRONMENT_KEY"):
             kwargs["environment_key"] = environment_key
+        elif environment_key:
+            kwargs["environment_key"] = environment_key
         else:
-            raise FlagsmithConfigurationError("No environment key set for Flagsmith")
+            raise FlagsmithConfigurationError(
+                error_message="No environment key set for Flagsmith"
+            )
 
         for arg in locals():
-            kwargs[arg.title] = arg
+            if arg.title not in ("environment_key", self):
+                kwargs[arg.title] = arg
 
         self.flagsmith = Flagsmith(**kwargs)
 
@@ -47,7 +49,7 @@ class FlagsmithProvider(AbstractProvider):
     ):
         flag = self._get_flag(key, default_value, evaluation_context)
         if isinstance(flag, bool):
-            return FlagEvaluationDetails(key, flag)
+            return FlagEvaluationDetails(key, flag, None)
         else:
             raise TypeMismatchError()
 
@@ -59,7 +61,7 @@ class FlagsmithProvider(AbstractProvider):
     ):
         flag = self._get_flag(key, default_value, evaluation_context)
         if isinstance(flag, str):
-            return FlagEvaluationDetails(key, flag)
+            return FlagEvaluationDetails(key, flag, None)
         else:
             raise TypeMismatchError()
 
@@ -71,7 +73,7 @@ class FlagsmithProvider(AbstractProvider):
     ):
         flag = self._get_flag(key, default_value, evaluation_context)
         if isinstance(flag, Number):
-            return FlagEvaluationDetails(key, flag)
+            return FlagEvaluationDetails(key, flag, None)
         else:
             raise TypeMismatchError()
 
@@ -83,7 +85,7 @@ class FlagsmithProvider(AbstractProvider):
     ):
         flag = self._get_flag(key, default_value, evaluation_context)
         if isinstance(flag, dict):
-            return FlagEvaluationDetails(key, flag)
+            return FlagEvaluationDetails(key, flag, None)
         else:
             raise TypeMismatchError()
 
@@ -101,8 +103,8 @@ class FlagsmithProvider(AbstractProvider):
 
     def _get_flags(self, evaluation_context: EvaluationContext = EvaluationContext()):
         kwargs = {
-            "identifier": evaluation_context.attrubutes.get("identifier"),
-            "traits": evaluation_context.attrubutes.get("traits"),
+            "identifier": evaluation_context.attributes.get("identifier"),
+            "traits": evaluation_context.attributes.get("traits"),
         }
 
         if kwargs.get("identifier") or kwargs.get("traits"):

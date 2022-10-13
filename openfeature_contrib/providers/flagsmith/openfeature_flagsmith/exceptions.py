@@ -1,3 +1,7 @@
+from open_feature.exception.exceptions import OpenFeatureError
+from open_feature.flag_evaluation.error_code import ErrorCode
+
+
 class FlagsmithConfigurationError(OpenFeatureError):
     """
     This exception should be raised when the Flagsmith provider has not been set up correctly

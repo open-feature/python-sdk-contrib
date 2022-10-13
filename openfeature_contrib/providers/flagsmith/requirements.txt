@@ -16,6 +16,8 @@ idna==3.4
     # via requests
 marshmallow==3.18.0
     # via flagsmith-flag-engine
+openfeature-sdk==0.0.1
+    # via -r open_feature_contrib/providers/flagsmith/requirements.in
 packaging==21.3
     # via marshmallow
 pyparsing==3.0.9
