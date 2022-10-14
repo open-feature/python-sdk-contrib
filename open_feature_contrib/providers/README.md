@@ -3,4 +3,3 @@ Providers are responsible for performing flag evaluation. They provide an abstra
 flag management system and OpenFeature itself. This allows providers to be changed without requiring a major 
 code refactor. Please see the [spec]("https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md") 
 for more details.
-
