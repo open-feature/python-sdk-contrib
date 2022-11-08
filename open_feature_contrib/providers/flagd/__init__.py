@@ -3,7 +3,10 @@
 #
 # -- Usage --
 # open_feature_api.set_provider(flagd_provider.FlagDProvider())
-# flag_value = open_feature_client.get_string_value(key="foo", default_value="missingflag")
+# flag_value =  open_feature_client.get_string_value(
+#                   key="foo",
+#                   default_value="missingflag"
+#               )
 # print(f"Flag Value is: {flag_value}")
 #   OR the more verbose option
 # flag = open_feature_client.get_string_details(key="foo", default_value="missingflag")
@@ -20,8 +23,8 @@
 
 import typing
 from numbers import Number
-import requests
 
+import requests
 from open_feature.evaluation_context.evaluation_context import EvaluationContext
 from open_feature.flag_evaluation.flag_evaluation_details import FlagEvaluationDetails
 from open_feature.provider.provider import AbstractProvider
@@ -46,7 +49,7 @@ class FlagDProvider(AbstractProvider):
         schema: str = "http",
         endpoint: str = "localhost",
         port: int = 8013,
-        timeout: int = 2
+        timeout: int = 2,
     ):
         """
         Initialise FlagD with endpoint details.
@@ -64,19 +67,14 @@ class FlagDProvider(AbstractProvider):
             "schema": self.schema,
             "endpoint": self.endpoint,
             "port": self.port,
-            "timeout": self.timeout
+            "timeout": self.timeout,
         }
 
     def get_name(self) -> str:
         """Returns provider name"""
         return self.provider_name
 
-    def get_flag(
-        self,
-        key,
-        default_value,
-        path
-    ):
+    def get_flag(self, key, default_value, path):
         """
         This method is equivalent to:
         curl -X POST http://localhost:8013/{path} \
@@ -84,17 +82,13 @@ class FlagDProvider(AbstractProvider):
              -d '{"flagKey": key, "context": evaluation_context}'
         """
 
-        payload = {
-            "flagKey": key
-        }
+        payload = {"flagKey": key}
 
         try:
             url_endpoint = f"{self.schema}://{self.endpoint}:{self.port}/{path}"
 
             response = requests.post(
-                url = url_endpoint,
-                timeout=self.timeout,
-                json=payload
+                url=url_endpoint, timeout=self.timeout, json=payload
             )
 
         except Exception:
@@ -107,7 +101,7 @@ class FlagDProvider(AbstractProvider):
                 key=key,
                 value=default_value,
                 reason="PROVIDER_NOT_READY",
-                variant=default_value
+                variant=default_value,
             )
 
         json_content = response.json()
@@ -121,9 +115,9 @@ class FlagDProvider(AbstractProvider):
                 # Got a valid flag value for key: {key} of: {json_content['value']}
                 return FlagEvaluationDetails(
                     key=key,
-                    value=json_content['value'],
-                    reason=json_content['reason'],
-                    variant=json_content['variant']
+                    value=json_content["value"],
+                    reason=json_content["reason"],
+                    variant=json_content["variant"],
                 )
 
         # Otherwise HTTP call worked
@@ -133,9 +127,9 @@ class FlagDProvider(AbstractProvider):
         return FlagEvaluationDetails(
             key=key,
             value=default_value,
-            reason=json_content['code'],
+            reason=json_content["code"],
             variant=default_value,
-            error_code=json_content['message']
+            error_code=json_content["message"],
         )
 
     def get_boolean_details(
@@ -155,7 +149,6 @@ class FlagDProvider(AbstractProvider):
         flag_evaluation_options: typing.Any = None,
     ):
         return self.get_flag(key, default_value, self.flagd_api_path_string)
-
 
     def get_number_details(
         self,
