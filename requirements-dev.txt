@@ -42,6 +42,8 @@ mypy-extensions==0.4.3
     # via black
 nodeenv==1.6.0
     # via pre-commit
+openfeature-sdk==0.0.9
+    # via -r requirements-dev.in
 packaging==21.3
     # via pytest
 pathspec==0.9.0
