@@ -26,6 +26,7 @@ from numbers import Number
 
 import requests
 from open_feature.evaluation_context.evaluation_context import EvaluationContext
+from open_feature.flag_evaluation.error_code import ErrorCode
 from open_feature.flag_evaluation.flag_evaluation_details import FlagEvaluationDetails
 from open_feature.provider.provider import AbstractProvider
 
@@ -33,16 +34,37 @@ from open_feature.provider.provider import AbstractProvider
 class FlagDProvider(AbstractProvider):
     """FlagD OpenFeature Provider"""
 
-    def __init__(self):
-        self.provider_name = "flagd"
-        self.schema = "http"
-        self.endpoint = "localhost"
-        self.port = 8013
-        self.timeout = 2
-        self.flagd_api_path_boolean = "schema.v1.Service/ResolveBoolean"
-        self.flagd_api_path_string = "schema.v1.Service/ResolveString"
-        self.flagd_api_path_number = "schema.v1.Service/ResolveFloat"
-        self.flagd_api_path_object = "schema.v1.Service/ResolveObject"
+    FLAGD_API_PATH_BOOLEAN = "schema.v1.Service/ResolveBoolean"
+    FLAGD_API_PATH_STRING = "schema.v1.Service/ResolveString"
+    FLAGD_API_PATH_NUMBER = "schema.v1.Service/ResolveFloat"
+    FLAGD_API_PATH_FLOAT = "schema.v1.Service/ResolveFloat"
+    FLAGD_API_PATH_INTEGER = "schema.v1.Service/ResolveInteger"
+    FLAGD_API_PATH_OBJECT = "schema.v1.Service/ResolveObject"
+
+    def __init__(
+        self,
+        name: str = "flagd",
+        schema: str = "http",
+        endpoint: str = "localhost",
+        port: int = 8013,
+        timeout: int = 2,
+    ):
+        """
+        Create an instance of the FlagDProvider
+
+        :param name: the name of the provider to be stored in metadata
+        :param schema: the schema for the transport protocol, e.g. 'http', 'https'
+        :param endpoint: the host to make requests to 
+        :param port: the port the flagd service is available on
+        :param timeout: the maximum to wait before a request times out
+        """
+        self.provider_name = name
+        self.schema = schema
+        self.endpoint = endpoint
+        self.port = port
+        self.timeout = timeout
+
+        
 
     def initialise(
         self,
@@ -53,7 +75,11 @@ class FlagDProvider(AbstractProvider):
     ):
         """
         Initialise FlagD with endpoint details.
-        Defaults to http://localhost:8013 with a timeout of 2s per API call
+
+        :param schema: the schema for the transport protocol, e.g. 'http', 'https'
+        :param endpoint: the host to make requests to 
+        :param port: the port the flagd service is available on
+        :param timeout: the maximum to wait before a request times out
         """
         self.schema = schema
         self.endpoint = endpoint
@@ -74,7 +100,67 @@ class FlagDProvider(AbstractProvider):
         """Returns provider name"""
         return self.provider_name
 
-    def get_flag(self, key, default_value, path):
+    def get_boolean_details(
+        self,
+        key: str,
+        default_value: bool,
+        evaluation_context: EvaluationContext = None,
+        flag_evaluation_options: typing.Any = None,
+    ):
+        return self.__resolve(key, default_value, self.FLAGD_API_PATH_BOOLEAN)
+
+    def get_string_details(
+        self,
+        key: str,
+        default_value: str,
+        evaluation_context: EvaluationContext = None,
+        flag_evaluation_options: typing.Any = None,
+    ):
+        return self.__resolve(key, default_value, self.FLAGD_API_PATH_STRING)
+
+    def get_number_details(
+        self,
+        key: str,
+        default_value: Number,
+        evaluation_context: EvaluationContext = None,
+        flag_evaluation_options: typing.Any = None,
+    ):
+        return self.__resolve(key, default_value, self.FLAGD_API_PATH_NUMBER)
+
+    def get_float_details(
+        self,
+        key: str,
+        default_value: Number,
+        evaluation_context: EvaluationContext = None,
+        flag_evaluation_options: typing.Any = None,
+    ):
+        return self.__resolve(key, default_value, self.FLAGD_API_PATH_NUMBER)
+
+    def get_number_details(
+        self,
+        key: str,
+        default_value: Number,
+        evaluation_context: EvaluationContext = None,
+        flag_evaluation_options: typing.Any = None,
+    ):
+        return self.__resolve(key, default_value, self.FLAGD_API_PATH_NUMBER)
+
+    def get_object_details(
+        self,
+        key: str,
+        default_value: dict,
+        evaluation_context: EvaluationContext = None,
+        flag_evaluation_options: typing.Any = None,
+    ):
+        return self.__resolve(key, default_value, self.FLAGD_API_PATH_OBJECT)
+    
+    def __resolve(
+        self,
+        key: str,
+        default_value: typing.Any,
+        evaluation_context: EvaluationContext,
+        path: str
+    ):
         """
         This method is equivalent to:
         curl -X POST http://localhost:8013/{path} \
@@ -82,7 +168,10 @@ class FlagDProvider(AbstractProvider):
              -d '{"flagKey": key, "context": evaluation_context}'
         """
 
-        payload = {"flagKey": key}
+        payload = {
+            "flagKey": key,
+            # "context": {**evaluation_context.},
+        }
 
         try:
             url_endpoint = f"{self.schema}://{self.endpoint}:{self.port}/{path}"
@@ -100,8 +189,8 @@ class FlagDProvider(AbstractProvider):
             return FlagEvaluationDetails(
                 key=key,
                 value=default_value,
-                reason="PROVIDER_NOT_READY",
-                variant=default_value,
+                reason=ErrorCode.PROVIDER_NOT_READY,
+                variant=default_value
             )
 
         json_content = response.json()
@@ -131,39 +220,3 @@ class FlagDProvider(AbstractProvider):
             variant=default_value,
             error_code=json_content["message"],
         )
-
-    def get_boolean_details(
-        self,
-        key: str,
-        default_value: bool,
-        evaluation_context: EvaluationContext = None,
-        flag_evaluation_options: typing.Any = None,
-    ):
-        return self.get_flag(key, default_value, self.flagd_api_path_boolean)
-
-    def get_string_details(
-        self,
-        key: str,
-        default_value: str,
-        evaluation_context: EvaluationContext = None,
-        flag_evaluation_options: typing.Any = None,
-    ):
-        return self.get_flag(key, default_value, self.flagd_api_path_string)
-
-    def get_number_details(
-        self,
-        key: str,
-        default_value: Number,
-        evaluation_context: EvaluationContext = None,
-        flag_evaluation_options: typing.Any = None,
-    ):
-        return self.get_flag(key, default_value, self.flagd_api_path_number)
-
-    def get_object_details(
-        self,
-        key: str,
-        default_value: dict,
-        evaluation_context: EvaluationContext = None,
-        flag_evaluation_options: typing.Any = None,
-    ):
-        return self.get_flag(key, default_value, self.flagd_api_path_object)
