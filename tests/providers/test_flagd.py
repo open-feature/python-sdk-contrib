@@ -1,13 +1,13 @@
 from numbers import Number
 
 from open_feature import open_feature_api as api
-from open_feature.provider.flagd_provider import FlagDProvider
+from open_feature_contrib.providers.flagd import FlagdProvider
 
 
 def setup():
-    api.set_provider(FlagDProvider())
+    api.set_provider(FlagdProvider())
     provider = api.get_provider()
-    assert isinstance(provider, FlagDProvider)
+    assert isinstance(provider, FlagdProvider)
 
 
 def test_should_get_boolean_flag_from_flagd(flagd_provider_client):
