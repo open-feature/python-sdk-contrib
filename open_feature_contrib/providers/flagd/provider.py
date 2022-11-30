@@ -37,7 +37,7 @@ from .web_api_url_factory import WebApiUrlFactory
 
 
 class FlagdProvider(AbstractProvider):
-    """FlagD OpenFeature Provider"""
+    """Flagd OpenFeature Provider"""
 
     def __init__(
         self,
