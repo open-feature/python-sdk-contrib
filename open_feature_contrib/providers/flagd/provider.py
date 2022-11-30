@@ -94,21 +94,13 @@ class FlagdProvider(AbstractProvider):
     ):
         return self.__resolve(key, FlagType.STRING, default_value, evaluation_context)
 
-    def get_number_details(
-        self,
-        key: str,
-        default_value: Number,
-        evaluation_context: EvaluationContext = None,
-    ):
-        return self.__resolve(key, FlagType.NUMBER, default_value, evaluation_context)
-
     def get_float_details(
         self,
         key: str,
         default_value: Number,
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.NUMBER, default_value, evaluation_context)
+        return self.__resolve(key, FlagType.FLOAT, default_value, evaluation_context)
 
     def get_int_details(
         self,
@@ -116,7 +108,7 @@ class FlagdProvider(AbstractProvider):
         default_value: Number,
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.NUMBER, default_value, evaluation_context)
+        return self.__resolve(key, FlagType.INTEGER, default_value, evaluation_context)
 
     def get_object_details(
         self,
