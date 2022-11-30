@@ -62,7 +62,7 @@ class FlagdProvider(AbstractProvider):
         self.port = port
         self.timeout = timeout
 
-        self.url_factory = WebApiUrlFactory(self.__build_url_root())
+        self.url_factory = WebApiUrlFactory(self.schema, self.host, self.port)
 
     def get_metadata(self):
         """Returns provider metadata"""
@@ -159,7 +159,7 @@ class FlagdProvider(AbstractProvider):
             # So return a stock, generic answer.
 
             return FlagEvaluationDetails(
-                key=flag_key,
+                flag_key=flag_key,
                 value=default_value,
                 reason=ErrorCode.PROVIDER_NOT_READY,
                 variant=default_value,
@@ -175,7 +175,7 @@ class FlagdProvider(AbstractProvider):
             if "value" in json_content:
                 # Got a valid flag value for key: {key} of: {json_content['value']}
                 return FlagEvaluationDetails(
-                    key=flag_key,
+                    flag_key=flag_key,
                     value=json_content["value"],
                     reason=json_content["reason"],
                     variant=json_content["variant"],
@@ -186,10 +186,9 @@ class FlagdProvider(AbstractProvider):
         # eg. Expecting a string but this value is a boolean.
         # Return whatever we got from the backend.
         return FlagEvaluationDetails(
-            key=flag_key,
+            flag_key=flag_key,
             value=default_value,
             reason=json_content["code"],
             variant=default_value,
             error_code=json_content["message"],
         )
-
