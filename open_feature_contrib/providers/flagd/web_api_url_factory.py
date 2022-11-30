@@ -27,19 +27,19 @@ class WebApiUrlFactory:
         return self.__format_url(self.OBJECT)
 
     def get_path_for(self, flag_type: FlagType):
-        if (flag_type == FlagType.BOOLEAN):
+        if flag_type == FlagType.BOOLEAN:
             return self.get_boolean_path()
 
-        if (flag_type == FlagType.STRING):
+        if flag_type == FlagType.STRING:
             return self.get_string_path()
 
-        if (flag_type == FlagType.FLOAT):
+        if flag_type == FlagType.FLOAT:
             return self.get_float_path()
 
-        if (flag_type == FlagType.INTEGER):
+        if flag_type == FlagType.INTEGER:
             return self.get_integer_path()
 
-        if (flag_type == FlagType.OBJECT):
+        if flag_type == FlagType.OBJECT:
             return self.get_object_path()
 
         raise Exception("Invalid flag type passed to WebApiUrlFactory")
