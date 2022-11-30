@@ -1,6 +1,7 @@
 from numbers import Number
 
 from open_feature import open_feature_api as api
+
 from open_feature_contrib.providers.flagd import FlagdProvider
 
 
@@ -13,17 +14,27 @@ def setup():
 def test_should_get_boolean_flag_from_flagd(flagd_provider_client):
     # Given
     # When
-    flag = flagd_provider_client.get_boolean_details(key="Key", default_value=True)
+    flag = flagd_provider_client.get_boolean_details(flag_key="Key", default_value=True)
     # Then
     assert flag is not None
     assert flag.value
     assert isinstance(flag.value, bool)
 
 
-def test_should_get_number_flag_from_flagd(flagd_provider_client):
+def test_should_get_integer_flag_from_flagd(flagd_provider_client):
     # Given
     # When
-    flag = flagd_provider_client.get_number_details(key="Key", default_value=100)
+    flag = flagd_provider_client.get_integer_details(flag_key="Key", default_value=100)
+    # Then
+    assert flag is not None
+    assert flag.value == 100
+    assert isinstance(flag.value, Number)
+
+
+def test_should_get_float_flag_from_flagd(flagd_provider_client):
+    # Given
+    # When
+    flag = flagd_provider_client.get_float_details(flag_key="Key", default_value=100)
     # Then
     assert flag is not None
     assert flag.value == 100
@@ -33,7 +44,9 @@ def test_should_get_number_flag_from_flagd(flagd_provider_client):
 def test_should_get_string_flag_from_flagd(flagd_provider_client):
     # Given
     # When
-    flag = flagd_provider_client.get_string_details(key="Key", default_value="String")
+    flag = flagd_provider_client.get_string_details(
+        flag_key="Key", default_value="String"
+    )
     # Then
     assert flag is not None
     assert flag.value == "String"
@@ -49,7 +62,7 @@ def test_should_get_object_flag_from_flagd(flagd_provider_client):
     }
     # When
     flag = flagd_provider_client.get_string_details(
-        key="Key", default_value=return_value
+        flag_key="Key", default_value=return_value
     )
     # Then
     assert flag is not None
