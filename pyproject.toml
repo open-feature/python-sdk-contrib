@@ -1,0 +1,30 @@
+# pyproject.toml
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openfeature_sdk_contrib"
+version = "0.1.0"
+description = "Contributions around the Python OpenFeature SDK, such as providers and hooks"
+readme = "readme.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = []
+dependencies = []
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = ["black", "flake8", "isort", "pip-tools", "pytest", "pre-commit"]
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
