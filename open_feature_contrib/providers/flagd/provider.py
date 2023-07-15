@@ -113,7 +113,7 @@ class FlagdProvider(AbstractProvider):
     def get_object_details(
         self,
         key: str,
-        default_value: dict,
+        default_value: typing.Union[dict, list],
         evaluation_context: EvaluationContext = None,
     ):
         return self.__resolve(key, FlagType.OBJECT, default_value, evaluation_context)
