@@ -11,10 +11,8 @@ class EvaluationContextSerializer:
                 **(EvaluationContextSerializer.__extract_key(ctx)),
             }
             if ctx
-            else dict()
+            else {}
         )
 
     def __extract_key(ctx: EvaluationContext):
-        return (
-            {"targetingKey": ctx.targeting_key} if ctx.targeting_key is str else dict()
-        )
+        return {"targetingKey": ctx.targeting_key} if ctx.targeting_key is str else {}
