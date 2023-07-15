@@ -43,13 +43,13 @@ git clone https://github.com/open-feature/python-sdk-contrib.git openfeature-pyt
 Navigate to the repository folder
 
 ```bash
-cd openfeature-python-sdk
+cd openfeature-python-sdk-contrib
 ```
 
 Add your fork as an origin
 
 ```bash
-git remote add fork https://github.com/YOUR_GITHUB_USERNAME/python-sdk.git
+git remote add fork https://github.com/YOUR_GITHUB_USERNAME/python-sdk-contrib.git
 ```
 
 Ensure your development environment is all set up by building and testing
@@ -67,7 +67,7 @@ git commit
 git push fork feat/NAME_OF_FEATURE
 ```
 
-Open a pull request against the main js-sdk repository.
+Open a pull request against the main python-sdk-contrib repository.
 
 ### How to Receive Comments
 
