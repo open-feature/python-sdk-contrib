@@ -8,3 +8,4 @@ flake8
 pytest-mock
 coverage
 openfeature-sdk
+opentelemetry-api
