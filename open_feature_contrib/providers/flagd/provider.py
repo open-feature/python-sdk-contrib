@@ -78,7 +78,7 @@ class FlagdProvider(AbstractProvider):
         """Returns provider name"""
         return self.provider_name
 
-    def get_boolean_details(
+    def resolve_boolean_details(
         self,
         key: str,
         default_value: bool,
@@ -86,7 +86,7 @@ class FlagdProvider(AbstractProvider):
     ):
         return self.__resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
 
-    def get_string_details(
+    def resolve_string_details(
         self,
         key: str,
         default_value: str,
@@ -94,7 +94,7 @@ class FlagdProvider(AbstractProvider):
     ):
         return self.__resolve(key, FlagType.STRING, default_value, evaluation_context)
 
-    def get_float_details(
+    def resolve_float_details(
         self,
         key: str,
         default_value: Number,
@@ -102,7 +102,7 @@ class FlagdProvider(AbstractProvider):
     ):
         return self.__resolve(key, FlagType.FLOAT, default_value, evaluation_context)
 
-    def get_int_details(
+    def resolve_int_details(
         self,
         key: str,
         default_value: Number,
@@ -110,7 +110,7 @@ class FlagdProvider(AbstractProvider):
     ):
         return self.__resolve(key, FlagType.INTEGER, default_value, evaluation_context)
 
-    def get_object_details(
+    def resolve_object_details(
         self,
         key: str,
         default_value: typing.Union[dict, list],
