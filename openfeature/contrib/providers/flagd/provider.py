@@ -25,10 +25,10 @@ import typing
 from numbers import Number
 
 import requests
-from open_feature.evaluation_context.evaluation_context import EvaluationContext
-from open_feature.exception.error_code import ErrorCode
-from open_feature.flag_evaluation.flag_evaluation_details import FlagEvaluationDetails
-from open_feature.provider.provider import AbstractProvider
+from openfeature.evaluation_context import EvaluationContext
+from openfeature.exception import ErrorCode
+from openfeature.flag_evaluation import FlagEvaluationDetails
+from openfeature.provider.provider import AbstractProvider
 
 from .defaults import Defaults
 from .evaluation_context_serializer import EvaluationContextSerializer
