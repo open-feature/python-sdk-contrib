@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
-from openfeature.contrib.hooks.otel import OTelTracesHook
+from openfeature.contrib.hooks.otel import TracingHook
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagEvaluationDetails, FlagType
 from openfeature.hook import HookContext
@@ -16,7 +16,7 @@ def mock_get_current_span(monkeypatch):
 
 def test_before(mock_get_current_span):
     # Given
-    hook = OTelTracesHook()
+    hook = TracingHook()
     hook_context = HookContext(
         flag_key="flag_key",
         flag_type=FlagType.BOOLEAN,
@@ -50,7 +50,7 @@ def test_before(mock_get_current_span):
 
 def test_error(mock_get_current_span):
     # Given
-    hook = OTelTracesHook()
+    hook = TracingHook()
     hook_context = HookContext(
         flag_key="flag_key",
         flag_type=FlagType.BOOLEAN,

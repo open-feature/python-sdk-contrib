@@ -14,7 +14,7 @@ class EventAttributes:
     PROVIDER_NAME = f"{OTEL_EVENT_NAME}.provider_name"
 
 
-class OTelTracesHook(Hook):
+class TracingHook(Hook):
     def after(
         self, hook_context: HookContext, details: FlagEvaluationDetails, hints: dict
     ):
