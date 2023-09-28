@@ -1,6 +1,6 @@
 import typing
 
-from open_feature.evaluation_context.evaluation_context import EvaluationContext
+from openfeature.evaluation_context import EvaluationContext
 
 
 class EvaluationContextSerializer:

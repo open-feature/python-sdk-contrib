@@ -1,8 +1,8 @@
 from numbers import Number
 
-from open_feature import open_feature_api as api
+from openfeature import api
 
-from open_feature_contrib.providers.flagd import FlagdProvider
+from openfeature.contrib.providers.flagd import FlagdProvider
 
 
 def setup():
