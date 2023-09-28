@@ -10,8 +10,8 @@ This repository is intended for OpenFeature contributions which are not included
 
 The project includes:
 
-- [Providers](./open_feature_contrib/providers)
-- [Hooks](./open_feature_contrib/hooks)
+- [Providers](./openfeature/contrib/providers)
+- [Hooks](./openfeature/contrib/hooks)
 
 ## License
 
