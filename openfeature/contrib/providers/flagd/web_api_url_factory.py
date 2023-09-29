@@ -37,11 +37,10 @@ class WebApiUrlFactory:
         return self._format_url(self.OBJECT)
 
     def get_path_for(self, flag_type: FlagType):
-        return self[
-            WebApiUrlFactory.__mapping.get(
-                flag_type, WebApiUrlFactory.__default_mapping_key
-            )
-        ]()
+        method_name = self.__mapping.get(
+            flag_type, WebApiUrlFactory.__default_mapping_key
+        )
+        return getattr(self, method_name)()
 
     def _format_url(self, path: str):
         return f"{self.root}/{path}"
