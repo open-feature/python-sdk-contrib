@@ -7,14 +7,14 @@ name: Merge
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        container: [ "python:3.8", "python:3.9", "python:3.10" ]
+        container: ["python:3.8", "python:3.9", "python:3.10", "python:3.11"]
     container:
       image: ${{ matrix.container }}
 
@@ -25,15 +25,14 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.venv
-          key: ${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          key: ${{ hashFiles('requirements.txt') }}
 
       - name: Upgrade pip
         run: pip install --upgrade pip
 
       - name: Create and activate Virtualenv
         run: |
-          pip install virtualenv
-          [ ! -d ".venv" ] && virtualenv .venv
+          [ ! -d ".venv" ] && python -m venv .venv
           . .venv/bin/activate
 
       - name: Initialize CodeQL
@@ -42,7 +41,7 @@ jobs:
           languages: python
 
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: pip install -r requirements.txt
 
       - name: Run black formatter check
         run: black --check .
