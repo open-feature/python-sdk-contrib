@@ -1,6 +1,6 @@
 import pytest
-from openfeature import api
 
+from openfeature import api
 from openfeature.contrib.providers.flagd import FlagdProvider
 
 

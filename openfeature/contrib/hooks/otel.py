@@ -4,7 +4,6 @@ from openfeature.flag_evaluation import FlagEvaluationDetails
 from openfeature.hook import Hook, HookContext
 from opentelemetry import trace
 
-
 OTEL_EVENT_NAME = "feature_flag"
 
 

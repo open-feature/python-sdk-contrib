@@ -162,7 +162,6 @@ class FlagdProvider(AbstractProvider):
         # If lookup worked (200 response) get flag (or empty)
         # This is the "ideal" case.
         if response.status_code == 200:
-
             # Got a valid flag and valid type. Return it.
             if "value" in json_content:
                 # Got a valid flag value for key: {key} of: {json_content['value']}

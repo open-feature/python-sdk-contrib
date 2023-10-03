@@ -1,12 +1,13 @@
 from unittest.mock import Mock
 
 import pytest
-from openfeature.contrib.hooks.otel import TracingHook
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagEvaluationDetails, FlagType
 from openfeature.hook import HookContext
 from opentelemetry import trace
 from opentelemetry.trace import Span
+
+from openfeature.contrib.hooks.otel import TracingHook
 
 
 @pytest.fixture
