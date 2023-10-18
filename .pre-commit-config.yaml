@@ -5,12 +5,14 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
+        exclude: ^openfeature/contrib/providers/flagd/proto/(.*)
 
   - repo: https://github.com/psf/black
     rev: 23.9.1
     hooks:
       - id: black
         language_version: python3.9
+        exclude: ^openfeature/contrib/providers/flagd/proto/(.*)
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.0.1
@@ -26,3 +28,4 @@ repos:
       - id: flake8
         additional_dependencies:
           ["flake8-print", "flake8-builtins", "flake8-functions==0.0.4"]
+        exclude: ^openfeature/contrib/providers/flagd/proto/(.*)

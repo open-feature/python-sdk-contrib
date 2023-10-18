@@ -8,7 +8,7 @@ PYTHON = ${VENV_NAME}/bin/python3
 .PHONY: help
 help:
 	@echo "Targets:"
-	@echo "  requirements    Installs dependencies
+	@echo "  requirements    Installs dependencies"
 	@echo "  venv            Creates a virtual environment and install dependencies"
 	@echo "  test            Run pytest on the tests/ directory"
 	@echo "  lint            Check code with flake8 and black"
@@ -17,6 +17,15 @@ help:
 .PHONY: requirements
 requirements:
 	$(VENV_ACTIVATE); pip install -r requirements.txt
+
+.PHONY: grpc
+grpc:
+	$(VENV_ACTIVATE); cd schemas && buf generate buf.build/open-feature/flagd --template protobuf/buf.gen.python.yaml
+	rm -rf openfeature/contrib/providers/flagd/proto
+	mv proto/python openfeature/contrib/providers/flagd/proto
+	sed -i.bak 's/^from schema.v1 import/from . import/' openfeature/contrib/providers/flagd/proto/schema/v1/*.py
+	rm openfeature/contrib/providers/flagd/proto/schema/v1/*.bak
+	rmdir proto
 
 .PHONY: venv
 venv: $(VENV_NAME)
