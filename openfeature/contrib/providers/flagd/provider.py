@@ -27,7 +27,13 @@ from numbers import Number
 import grpc
 from google.protobuf.struct_pb2 import Struct
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode
+from openfeature.exception import (
+    FlagNotFoundError,
+    GeneralError,
+    InvalidContextError,
+    ParseError,
+    TypeMismatchError,
+)
 from openfeature.flag_evaluation import FlagEvaluationDetails
 from openfeature.provider.provider import AbstractProvider
 
@@ -163,12 +169,16 @@ class FlagdProvider(AbstractProvider):
                 raise ValueError(f"Unknown flag type: {flag_type}")
 
         except grpc.RpcError as e:
-            return FlagEvaluationDetails(
-                flag_key=flag_key,
-                value=default_value,
-                reason=self._map_error(e),
-                variant=default_value,
-            )
+            code = e.code()
+            message = f"received grpc status code {code}"
+
+            if code == grpc.StatusCode.NOT_FOUND:
+                raise FlagNotFoundError(message)
+            elif code == grpc.StatusCode.INVALID_ARGUMENT:
+                raise TypeMismatchError(message)
+            elif code == grpc.StatusCode.DATA_LOSS:
+                raise ParseError(message)
+            raise GeneralError(message)
 
         # Got a valid flag and valid type. Return it.
         return FlagEvaluationDetails(
@@ -181,17 +191,11 @@ class FlagdProvider(AbstractProvider):
     def _convert_context(self, evaluation_context: EvaluationContext):
         s = Struct()
         if evaluation_context:
-            s.update(evaluation_context.attributes)
+            try:
+                s.update(evaluation_context.attributes)
+            except ValueError as exc:
+                message = (
+                    "could not serialize evaluation context to google.protobuf.Struct"
+                )
+                raise InvalidContextError(message) from exc
         return s
-
-    def _map_error(self, error: grpc.RpcError) -> ErrorCode:
-        code = error.code()
-
-        if code == grpc.StatusCode.NOT_FOUND:
-            return ErrorCode.FLAG_NOT_FOUND
-        elif code == grpc.StatusCode.INVALID_ARGUMENT:
-            return ErrorCode.TYPE_MISMATCH
-        elif code == grpc.StatusCode.DATA_LOSS:
-            return ErrorCode.PARSE_ERROR
-        else:
-            return ErrorCode.GENERAL
