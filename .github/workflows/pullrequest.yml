@@ -23,6 +23,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: bufbuild/buf-setup-action@v1.27.1
+        with:
+          github_token: ${{ github.token }}
 
       - name: Cache virtualenvironment
         uses: actions/cache@v2
@@ -54,6 +60,17 @@ jobs:
 
       - name: Run isort formatter check
         run: isort .
+
+      - name: Generate flagd protobuf files
+        run: |
+          cd schemas
+          buf generate buf.build/open-feature/flagd --template protobuf/buf.gen.python.yaml
+          cd ../
+          rm -rf openfeature/contrib/providers/flagd/proto
+          mv proto/python openfeature/contrib/providers/flagd/proto
+          sed -i.bak 's/^from schema.v1 import/from . import/' openfeature/contrib/providers/flagd/proto/schema/v1/*.py
+          rm openfeature/contrib/providers/flagd/proto/schema/v1/*.bak
+          rmdir proto
 
       - name: Test with pytest
         run: coverage run --omit="*/test*" -m pytest

@@ -8,3 +8,5 @@ black==23.9.1
 pre-commit==3.4.0
 flake8==6.1.0
 coverage==7.3.2
+grpcio==1.59.0
+grpcio-tools==1.59.0
