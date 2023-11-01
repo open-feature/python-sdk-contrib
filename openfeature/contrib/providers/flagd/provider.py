@@ -24,16 +24,22 @@
 import typing
 from numbers import Number
 
-import requests
+import grpc
+from google.protobuf.struct_pb2 import Struct
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode
+from openfeature.exception import (
+    FlagNotFoundError,
+    GeneralError,
+    InvalidContextError,
+    ParseError,
+    TypeMismatchError,
+)
 from openfeature.flag_evaluation import FlagEvaluationDetails
 from openfeature.provider.provider import AbstractProvider
 
 from .defaults import Defaults
-from .evaluation_context_serializer import EvaluationContextSerializer
 from .flag_type import FlagType
-from .web_api_url_factory import WebApiUrlFactory
+from .proto.schema.v1 import schema_pb2, schema_pb2_grpc
 
 
 class FlagdProvider(AbstractProvider):
@@ -62,7 +68,14 @@ class FlagdProvider(AbstractProvider):
         self.port = port
         self.timeout = timeout
 
-        self.url_factory = WebApiUrlFactory(self.schema, self.host, self.port)
+        channel_factory = (
+            grpc.insecure_channel if schema == "http" else grpc.secure_channel
+        )
+        self.channel = channel_factory(f"{self.host}:{self.port}")
+        self.stub = schema_pb2_grpc.ServiceStub(self.channel)
+
+    def shutdown(self):
+        self.channel.close()
 
     def get_metadata(self):
         """Returns provider metadata"""
@@ -84,7 +97,7 @@ class FlagdProvider(AbstractProvider):
         default_value: bool,
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
+        return self._resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
 
     def resolve_string_details(
         self,
@@ -92,7 +105,7 @@ class FlagdProvider(AbstractProvider):
         default_value: str,
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.STRING, default_value, evaluation_context)
+        return self._resolve(key, FlagType.STRING, default_value, evaluation_context)
 
     def resolve_float_details(
         self,
@@ -100,15 +113,15 @@ class FlagdProvider(AbstractProvider):
         default_value: Number,
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.FLOAT, default_value, evaluation_context)
+        return self._resolve(key, FlagType.FLOAT, default_value, evaluation_context)
 
-    def resolve_int_details(
+    def resolve_integer_details(
         self,
         key: str,
         default_value: Number,
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.INTEGER, default_value, evaluation_context)
+        return self._resolve(key, FlagType.INTEGER, default_value, evaluation_context)
 
     def resolve_object_details(
         self,
@@ -116,70 +129,73 @@ class FlagdProvider(AbstractProvider):
         default_value: typing.Union[dict, list],
         evaluation_context: EvaluationContext = None,
     ):
-        return self.__resolve(key, FlagType.OBJECT, default_value, evaluation_context)
+        return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
-    def __resolve(
+    def _resolve(
         self,
         flag_key: str,
         flag_type: FlagType,
         default_value: typing.Any,
         evaluation_context: EvaluationContext,
     ):
-        """
-        This method is equivalent to:
-        curl -X POST http://localhost:8013/{path} \
-             -H "Content-Type: application/json" \
-             -d '{"flagKey": key, "context": evaluation_context}'
-        """
-
-        payload = {
-            "flagKey": flag_key,
-            "context": EvaluationContextSerializer.to_dict(evaluation_context),
-        }
-
+        context = self._convert_context(evaluation_context)
         try:
-            url_endpoint = self.url_factory.get_path_for(flag_type)
-
-            response = requests.post(
-                url=url_endpoint, timeout=self.timeout, json=payload
-            )
-
-        except Exception:
-            # Perhaps a timeout? Return the default as an error.
-            # The return above and this are separate because in the case of a timeout,
-            # the JSON is not available
-            # So return a stock, generic answer.
-
-            return FlagEvaluationDetails(
-                flag_key=flag_key,
-                value=default_value,
-                reason=ErrorCode.PROVIDER_NOT_READY,
-                variant=default_value,
-            )
-
-        json_content = response.json()
-
-        # If lookup worked (200 response) get flag (or empty)
-        # This is the "ideal" case.
-        if response.status_code == 200:
-            # Got a valid flag and valid type. Return it.
-            if "value" in json_content:
-                # Got a valid flag value for key: {key} of: {json_content['value']}
-                return FlagEvaluationDetails(
-                    flag_key=flag_key,
-                    value=json_content["value"],
-                    reason=json_content["reason"],
-                    variant=json_content["variant"],
+            if flag_type == FlagType.BOOLEAN:
+                request = schema_pb2.ResolveBooleanRequest(
+                    flag_key=flag_key, context=context
                 )
+                response = self.stub.ResolveBoolean(request)
+            elif flag_type == FlagType.STRING:
+                request = schema_pb2.ResolveStringRequest(
+                    flag_key=flag_key, context=context
+                )
+                response = self.stub.ResolveString(request)
+            elif flag_type == FlagType.OBJECT:
+                request = schema_pb2.ResolveObjectRequest(
+                    flag_key=flag_key, context=context
+                )
+                response = self.stub.ResolveObject(request)
+            elif flag_type == FlagType.FLOAT:
+                request = schema_pb2.ResolveFloatRequest(
+                    flag_key=flag_key, context=context
+                )
+                response = self.stub.ResolveFloat(request)
+            elif flag_type == FlagType.INTEGER:
+                request = schema_pb2.ResolveIntRequest(
+                    flag_key=flag_key, context=context
+                )
+                response = self.stub.ResolveInt(request)
+            else:
+                raise ValueError(f"Unknown flag type: {flag_type}")
 
-        # Otherwise HTTP call worked
-        # However, flag either doesn't exist or doesn't match the type
-        # eg. Expecting a string but this value is a boolean.
-        # Return whatever we got from the backend.
+        except grpc.RpcError as e:
+            code = e.code()
+            message = f"received grpc status code {code}"
+
+            if code == grpc.StatusCode.NOT_FOUND:
+                raise FlagNotFoundError(message)
+            elif code == grpc.StatusCode.INVALID_ARGUMENT:
+                raise TypeMismatchError(message)
+            elif code == grpc.StatusCode.DATA_LOSS:
+                raise ParseError(message)
+            raise GeneralError(message)
+
+        # Got a valid flag and valid type. Return it.
         return FlagEvaluationDetails(
             flag_key=flag_key,
-            value=default_value,
-            reason=json_content["code"],
-            variant=default_value,
-            error_code=json_content["message"],
+            value=response.value,
+            reason=response.reason,
+            variant=response.variant,
         )
+
+    def _convert_context(self, evaluation_context: EvaluationContext):
+        s = Struct()
+        if evaluation_context:
+            try:
+                s.update(evaluation_context.attributes)
+            except ValueError as exc:
+                message = (
+                    "could not serialize evaluation context to google.protobuf.Struct"
+                )
+                raise InvalidContextError(message) from exc
+        return s

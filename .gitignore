@@ -19,6 +19,10 @@ var/
 .installed.cfg
 *.egg
 
+# Protobuf files
+*_pb2.py
+*_pb2_grpc.py
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
