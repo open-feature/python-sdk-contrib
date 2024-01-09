@@ -37,10 +37,9 @@ test: venv ## Run pytest on the tests/ directory
 	$(VENV_ACTIVATE); pytest tests/
 
 .PHONY: lint
-lint: venv ## Check code with flake8 and black
-	$(VENV_ACTIVATE); flake8 .
-	$(VENV_ACTIVATE); black --check .
+lint: venv ## Check code with ruff
+	$(VENV_ACTIVATE); pre-commit run -a
 
 .PHONY: format
 format: venv ## Format code with black
-	$(VENV_ACTIVATE); black .
+	$(VENV_ACTIVATE); pre-commit run -a ruff-format
