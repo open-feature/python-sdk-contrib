@@ -26,6 +26,7 @@ from numbers import Number
 
 import grpc
 from google.protobuf.struct_pb2 import Struct
+
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
     FlagNotFoundError,
@@ -173,12 +174,12 @@ class FlagdProvider(AbstractProvider):
             message = f"received grpc status code {code}"
 
             if code == grpc.StatusCode.NOT_FOUND:
-                raise FlagNotFoundError(message)
+                raise FlagNotFoundError(message) from e
             elif code == grpc.StatusCode.INVALID_ARGUMENT:
-                raise TypeMismatchError(message)
+                raise TypeMismatchError(message) from e
             elif code == grpc.StatusCode.DATA_LOSS:
-                raise ParseError(message)
-            raise GeneralError(message)
+                raise ParseError(message) from e
+            raise GeneralError(message) from e
 
         # Got a valid flag and valid type. Return it.
         return FlagEvaluationDetails(
