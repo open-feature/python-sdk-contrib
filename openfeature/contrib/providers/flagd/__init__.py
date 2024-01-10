@@ -1,3 +1,3 @@
 from .provider import FlagdProvider
 
-FlagdProvider
+__all__ = ["FlagdProvider"]
