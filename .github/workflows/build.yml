@@ -39,21 +39,13 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: make venv
 
       - name: Generate flagd protobuf files
-        run: |
-          cd schemas
-          buf generate buf.build/open-feature/flagd --template protobuf/buf.gen.python.yaml
-          cd ../
-          rm -rf openfeature/contrib/providers/flagd/proto
-          mv proto/python openfeature/contrib/providers/flagd/proto
-          sed -i.bak 's/^from schema.v1 import/from . import/' openfeature/contrib/providers/flagd/proto/schema/v1/*.py
-          rm openfeature/contrib/providers/flagd/proto/schema/v1/*.bak
-          rmdir proto
+        run: make grpc
 
       - name: Test with pytest
-        run: coverage run --omit="*/test*" -m pytest
+        run: make testcov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@e0fbd592d323cb2991fb586fdd260734fcb41fcb

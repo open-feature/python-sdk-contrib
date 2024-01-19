@@ -1,7 +1,7 @@
 from numbers import Number
 
 from openfeature import api
-from openfeature.contrib.providers.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd import FlagdProvider
 
 
 def setup():

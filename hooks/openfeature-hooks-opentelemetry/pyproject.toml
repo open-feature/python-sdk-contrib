@@ -1,0 +1,28 @@
+# pyproject.toml
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openfeature-hooks-opentelemetry"
+version = "0.1.0"
+description = "OpenTelemetry hooks for the OpenFeature Python SDK"
+readme = "readme.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = []
+dependencies = []
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+tests = [
+  'pytest',
+]
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
