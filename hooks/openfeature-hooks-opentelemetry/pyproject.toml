@@ -1,13 +1,13 @@
 # pyproject.toml
 [build-system]
-requires      = ["setuptools>=61.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "openfeature-hooks-opentelemetry"
 version = "0.1.0"
 description = "OpenTelemetry hooks for the OpenFeature Python SDK"
-readme = "readme.md"
+readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
 license = { file = "LICENSE" }
 classifiers = [
@@ -16,13 +16,38 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = []
-dependencies = []
-requires-python = ">=3.8"
-
-[project.optional-dependencies]
-tests = [
-  'pytest',
+dependencies = [
+    "openfeature-sdk>=0.4.0",
+    "opentelemetry-api",
 ]
+requires-python = ">=3.8"
 
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+[tool.hatch]
+
+[tool.hatch.envs.default]
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+  "coverage xml",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".gitignore",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openfeature"]
