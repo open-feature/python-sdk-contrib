@@ -12,13 +12,15 @@ Python 3.8 and above are supported by the SDK.
 
 ### Installation and Dependencies
 
-A [`Makefile`](./Makefile) has been included in the project which should make it straightforward to start the project locally. We utilize virtual environments (see [`virtualenv`](https://docs.python.org/3/tutorial/venv.html)) in order to provide isolated development environments for the project. This reduces the risk of invalid or corrupt global packages. It also integrates nicely with Make, which will detect changes in the `requirements.txt` file and update the virtual environment if any occur.
+We use [Hatch](https://hatch.pypa.io/) to manage the project. Hatch is does not have built-in support for monorepos yet, so you must run it inside each package directory.
 
-Run `make init` to initialize the project's virtual environment and install all dev dependencies.
+To install Hatch, just run `pip install hatch`.
+
+You will also need to setup the `pre-commit` hooks. Run `pre-commit install` in the root directory of the repository. If you don't have `pre-commit` installed, you can install it with `pip install pre-commit`.
 
 ### Testing
 
-Run tests with `make test`.
+Run tests by entering the package directory and running `hatch run test`.
 
 We use `pytest` for our unit testing, making use of `parametrized` to inject cases at scale.
 
@@ -28,7 +30,10 @@ These are planned once the SDK has been stabilized and a Flagd provider implemen
 
 ### Packaging
 
-We publish to the PyPI repository, where you can find this package at [openfeature-sdk-contrib](https://pypi.org/project/openfeature-sdk-contrib/).
+We publish to the PyPI repository, where you can find each individual package:
+
+- [openfeature-provider-flagd](https://pypi.org/project/openfeature-provider-flagd/)
+- [openfeature-hooks-opentelemetry](https://pypi.org/project/openfeature-hooks-opentelemetry/)
 
 ## Pull Request
 
@@ -55,7 +60,8 @@ git remote add fork https://github.com/YOUR_GITHUB_USERNAME/python-sdk-contrib.g
 Ensure your development environment is all set up by building and testing
 
 ```bash
-make
+cd <package>
+hatch run test
 ```
 
 To start working on a new feature or bugfix, create a new branch and start working on it.
