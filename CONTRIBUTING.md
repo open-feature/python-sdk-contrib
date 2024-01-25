@@ -12,7 +12,7 @@ Python 3.8 and above are supported by the SDK.
 
 ### Installation and Dependencies
 
-We use [Hatch](https://hatch.pypa.io/) to manage the project. Hatch is does not have built-in support for monorepos yet, so you must run it inside each package directory.
+We use [Hatch](https://hatch.pypa.io/) to manage the project. Hatch does not have built-in support for monorepos yet, so you must run it inside each package directory.
 
 To install Hatch, just run `pip install hatch`.
 
