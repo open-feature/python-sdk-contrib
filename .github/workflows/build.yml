@@ -22,6 +22,9 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        package:
+          - "hooks/openfeature-hooks-opentelemetry"
+          - "providers/openfeature-provider-flagd"
 
     steps:
       - uses: actions/checkout@v4
@@ -38,28 +41,19 @@ jobs:
         with:
           github_token: ${{ github.token }}
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Generate flagd protobuf files
-        run: |
-          cd schemas
-          buf generate buf.build/open-feature/flagd --template protobuf/buf.gen.python.yaml
-          cd ../
-          rm -rf openfeature/contrib/providers/flagd/proto
-          mv proto/python openfeature/contrib/providers/flagd/proto
-          sed -i.bak 's/^from schema.v1 import/from . import/' openfeature/contrib/providers/flagd/proto/schema/v1/*.py
-          rm openfeature/contrib/providers/flagd/proto/schema/v1/*.bak
-          rmdir proto
+      - name: Install hatch
+        run: pip install hatch
 
       - name: Test with pytest
-        run: coverage run --omit="*/test*" -m pytest
+        run: hatch run cov
+        working-directory: ${{ matrix.package }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@e0fbd592d323cb2991fb586fdd260734fcb41fcb
+        uses: codecov/codecov-action@v3
         with:
           flags: unittests # optional
           name: coverage # optional
+          directory: ${{ matrix.package }}
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
 
