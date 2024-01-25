@@ -28,13 +28,6 @@ We use `pytest` for our unit testing, making use of `parametrized` to inject cas
 
 These are planned once the SDK has been stabilized and a Flagd provider implemented. At that point, we will utilize the [gherkin integration tests](https://github.com/open-feature/test-harness/blob/main/features/evaluation.feature) to validate against a live, seeded Flagd instance.
 
-### Packaging
-
-We publish to the PyPI repository, where you can find each individual package:
-
-- [openfeature-provider-flagd](https://pypi.org/project/openfeature-provider-flagd/)
-- [openfeature-hooks-opentelemetry](https://pypi.org/project/openfeature-hooks-opentelemetry/)
-
 ## Pull Request
 
 All contributions to the OpenFeature project are welcome via GitHub pull requests.
@@ -42,13 +35,13 @@ All contributions to the OpenFeature project are welcome via GitHub pull request
 To create a new PR, you will need to first fork the GitHub repository and clone upstream.
 
 ```bash
-git clone https://github.com/open-feature/python-sdk-contrib.git openfeature-python-sdk-contrib
+git clone https://github.com/open-feature/python-sdk-contrib.git
 ```
 
 Navigate to the repository folder
 
 ```bash
-cd openfeature-python-sdk-contrib
+cd python-sdk-contrib
 ```
 
 Add your fork as an origin
