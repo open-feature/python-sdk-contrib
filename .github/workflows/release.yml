@@ -1,6 +1,9 @@
 name: Run Release Please
 
 on:
+  workflow_dispatch:
+    inputs:
+
   push:
     branches:
       - main
@@ -15,62 +18,49 @@ jobs:
         id: release
         with:
           command: manifest
-          token: ${{secrets.RELEASE_PLEASE_ACTION_TOKEN}}
+          token: ${{secrets.GITHUB_TOKEN}}
           default-branch: main
           signoff: "OpenFeature Bot <109696520+openfeaturebot@users.noreply.github.com>"
+      - name: Dump Release Please Output
+        env:
+          RELEASE_PLEASE_OUTPUT: ${{ toJson(steps.release.outputs) }}
+        run: |
+          echo "$RELEASE_PLEASE_OUTPUT"
     outputs:
       release_created: ${{ steps.release.outputs.releases_created }}
       all: ${{ toJSON(steps.release.outputs) }}
       paths_released: ${{ steps.release.outputs.paths_released }}
 
-  # pypi-release:
-  #   needs: release-please
-  #   runs-on: ubuntu-latest
-  #   if: ${{ needs.release-please.outputs.release_created }}
-  #   environment: release
-  #   permissions:
-  #     # IMPORTANT: this permission is mandatory for trusted publishing to pypi
-  #     id-token: write
-  #   container:
-  #     image: "python:3.12"
+  pypi-release:
+    needs: release-please
+    runs-on: ubuntu-latest
+    if: ${{ needs.release-please.outputs.release_created }}
+    strategy:
+      matrix:
+        path: ${{ fromJSON(needs.release-please.outputs.paths_released) }}
+    environment: release
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing to pypi
+      id-token: write
+    container:
+      image: "python:3.12"
 
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         submodules: recursive
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-  #     - name: Cache virtualenvironment
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.venv
-  #         key: ${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+      - name: Upgrade pip
+        run: pip install --upgrade pip
 
-  #     - name: Upgrade pip
-  #       run: pip install --upgrade pip
+      - name: Install hatch
+        run: pip install hatch
 
-  #     - name: Create and activate Virtualenv
-  #       run: |
-  #         [ ! -d ".venv" ] && python -m venv .venv
-  #         . .venv/bin/activate
+      - name: Build a binary wheel and a source tarball
+        run: hatch build
+        working-directory: ${{ matrix.path }}
 
-  #     - name: Install dependencies
-  #       run: pip install -r requirements.txt
-
-  #     - name: Install pypa/build
-  #       run: >-
-  #         python -m
-  #         pip install
-  #         build
-  #         --user
-
-  #     - name: Build a binary wheel and a source tarball
-  #       run: >-
-  #         python -m
-  #         build
-  #         --sdist
-  #         --wheel
-  #         --outdir dist/
-  #         .
-
-  #     - name: Publish a Python distribution to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish a Python distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ matrix.path }}
