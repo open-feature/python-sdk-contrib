@@ -37,7 +37,6 @@ select = [
 ignore = [
     "E501", # the formatter will handle any too long line
 ]
-preview = true
 
 [lint.isort]
 known-first-party = ["openfeature"]
