@@ -1,6 +1,6 @@
 # pyproject.toml
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-build-scripts"]
 build-backend = "hatchling.build"
 
 [project]
@@ -49,10 +49,22 @@ cov = [
 ]
 
 [tool.hatch.build.targets.sdist]
+ignore-vcs = true
 exclude = [
   ".gitignore",
   "schemas",
 ]
 
+[[tool.hatch.build.hooks.build-scripts.scripts]]
+commands = [
+  "./scripts/gen_protos.sh",
+]
+artifacts = [
+  "",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/openfeature"]
+artifacts = [
+  "src/openfeature/contrib/provider/flagd/proto/**/*.py",
+]
