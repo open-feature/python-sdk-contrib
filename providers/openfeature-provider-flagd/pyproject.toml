@@ -1,6 +1,6 @@
 # pyproject.toml
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-build-scripts"]
 build-backend = "hatchling.build"
 
 [project]
@@ -28,13 +28,21 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
 [tool.hatch]
 
+[[tool.hatch.build.hooks.build-scripts.scripts]]
+commands = [
+  "./scripts/gen_protos.sh",
+]
+artifacts = ["proto/**/*.py"]
+out_dir = "src/openfeature/contrib/provider/flagd"
+
 [tool.hatch.envs.default]
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
 ]
 post-install-commands = [
-  "./scripts/gen_protos.sh"
+  "./scripts/gen_protos.sh",
+  "rm -r src/openfeature/contrib/provider/flagd/proto && mv proto src/openfeature/contrib/provider/flagd",
 ]
 
 [tool.hatch.envs.default.scripts]
