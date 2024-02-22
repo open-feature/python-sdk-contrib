@@ -35,7 +35,7 @@ All contributions to the OpenFeature project are welcome via GitHub pull request
 To create a new PR, you will need to first fork the GitHub repository and clone upstream.
 
 ```bash
-git clone https://github.com/open-feature/python-sdk-contrib.git
+git clone https://github.com/open-feature/python-sdk-contrib.git openfeature-python-sdk-contrib
 ```
 
 Navigate to the repository folder
