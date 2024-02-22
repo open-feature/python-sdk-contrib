@@ -8,7 +8,7 @@
   "tag-separator": "/",
   "packages": {
     "providers/openfeature-provider-flagd": {
-      "package-name": "providers/flagd",
+      "package-name": "openfeature-provider-flagd",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "versioning": "default",
@@ -17,7 +17,7 @@
       ]
     },
     "hooks/openfeature-hooks-opentelemetry": {
-      "package-name": "hooks/opentelemetry",
+      "package-name": "openfeature-hooks-opentelemetry",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "versioning": "default",
