@@ -22,6 +22,7 @@
 """
 
 import typing
+from dataclasses import dataclass
 from numbers import Number
 
 import grpc
@@ -43,12 +44,16 @@ from .flag_type import FlagType
 from .proto.schema.v1 import schema_pb2, schema_pb2_grpc
 
 
+@dataclass
+class Metadata:
+    name: str
+
+
 class FlagdProvider(AbstractProvider):
     """Flagd OpenFeature Provider"""
 
     def __init__(
         self,
-        name: str = "flagd",
         schema: str = Defaults.SCHEMA,
         host: str = Defaults.HOST,
         port: int = Defaults.PORT,
@@ -57,13 +62,11 @@ class FlagdProvider(AbstractProvider):
         """
         Create an instance of the FlagdProvider
 
-        :param name: the name of the provider to be stored in metadata
         :param schema: the schema for the transport protocol, e.g. 'http', 'https'
         :param host: the host to make requests to
         :param port: the port the flagd service is available on
         :param timeout: the maximum to wait before a request times out
         """
-        self.provider_name = name
         self.schema = schema
         self.host = host
         self.port = port
@@ -80,17 +83,7 @@ class FlagdProvider(AbstractProvider):
 
     def get_metadata(self):
         """Returns provider metadata"""
-        return {
-            "name": self.get_name(),
-            "schema": self.schema,
-            "host": self.host,
-            "port": self.port,
-            "timeout": self.timeout,
-        }
-
-    def get_name(self) -> str:
-        """Returns provider name"""
-        return self.provider_name
+        return Metadata(name="FlagdProvider")
 
     def resolve_boolean_details(
         self,
