@@ -56,3 +56,9 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openfeature"]
+
+[tool.coverage.run]
+omit = [
+  # exclude generated files
+  "src/openfeature/contrib/provider/flagd/proto/*",
+]
