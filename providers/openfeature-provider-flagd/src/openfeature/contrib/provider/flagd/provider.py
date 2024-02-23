@@ -193,6 +193,7 @@ class FlagdProvider(AbstractProvider):
         s = Struct()
         if evaluation_context:
             try:
+                s["targetingKey"] = evaluation_context.targeting_key
                 s.update(evaluation_context.attributes)
             except ValueError as exc:
                 message = (
