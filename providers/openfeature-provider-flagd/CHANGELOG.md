@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.1.2...openfeature-provider-flagd/v0.1.3) (2024-02-23)
+
+
+### 🐛 Bug Fixes
+
+* include proto file in build for openfeature-provider-flagd ([#45](https://github.com/open-feature/python-sdk-contrib/issues/45)) ([7783cc8](https://github.com/open-feature/python-sdk-contrib/commit/7783cc8e7fb8fe0f9b812938efcd1f4c07e3ff68))
+
 ## [0.1.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd-v0.1.1...openfeature-provider-flagd/v0.1.2) (2024-02-22)
 
 

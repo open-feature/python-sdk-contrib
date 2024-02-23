@@ -1,4 +1,4 @@
 {
   "hooks/openfeature-hooks-opentelemetry": "0.1.0",
-  "providers/openfeature-provider-flagd": "0.1.2"
+  "providers/openfeature-provider-flagd": "0.1.3"
 }
