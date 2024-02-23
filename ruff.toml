@@ -3,7 +3,7 @@ exclude = [
     ".venv",
     "__pycache__",
     "venv",
-    "openfeature/contrib/providers/flagd/proto/*"
+    "providers/openfeature-provider-flagd/src/openfeature/contrib/provider/flagd/proto/*"
 ]
 target-version = "py38"
 
