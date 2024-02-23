@@ -18,7 +18,7 @@ More information on hooks can be found in the [OpenFeature documentation][hook-c
 
 ### Register Globally
 
-The `TracingHook` can be set on the OpenFeature singleton. This will ensure that every flag evaluation will always create a span event, if am active span is available.
+The `TracingHook` can be set globally. This will ensure that every flag evaluation will always create a span event, if an active span is available.
 
 ```python
 from openfeature import api
@@ -29,7 +29,7 @@ api.add_hooks(TracingHook())
 
 ### Register Per Client
 
-The `TracingHook` can be set on an individual client. This should only be done if it wasn't set globally and other clients shouldn't use this hook. Setting the hook on the client will ensure that every flag evaluation performed by this client will always create a span event, if an active span is available.
+The `TracingHook` can also be set on an individual client. This should only be done if it wasn't set globally and other clients shouldn't use this hook. Setting the hook on the client will ensure that every flag evaluation performed by this client will always create a span event, if an active span is available.
 
 ```python
 from openfeature import api
