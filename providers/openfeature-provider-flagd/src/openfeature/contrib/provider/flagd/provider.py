@@ -133,32 +133,33 @@ class FlagdProvider(AbstractProvider):
         evaluation_context: EvaluationContext,
     ):
         context = self._convert_context(evaluation_context)
+        call_args = {"timeout": self.timeout}
         try:
             if flag_type == FlagType.BOOLEAN:
                 request = schema_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context
                 )
-                response = self.stub.ResolveBoolean(request)
+                response = self.stub.ResolveBoolean(request, **call_args)
             elif flag_type == FlagType.STRING:
                 request = schema_pb2.ResolveStringRequest(
                     flag_key=flag_key, context=context
                 )
-                response = self.stub.ResolveString(request)
+                response = self.stub.ResolveString(request, **call_args)
             elif flag_type == FlagType.OBJECT:
                 request = schema_pb2.ResolveObjectRequest(
                     flag_key=flag_key, context=context
                 )
-                response = self.stub.ResolveObject(request)
+                response = self.stub.ResolveObject(request, **call_args)
             elif flag_type == FlagType.FLOAT:
                 request = schema_pb2.ResolveFloatRequest(
                     flag_key=flag_key, context=context
                 )
-                response = self.stub.ResolveFloat(request)
+                response = self.stub.ResolveFloat(request, **call_args)
             elif flag_type == FlagType.INTEGER:
                 request = schema_pb2.ResolveIntRequest(
                     flag_key=flag_key, context=context
                 )
-                response = self.stub.ResolveInt(request)
+                response = self.stub.ResolveInt(request, **call_args)
             else:
                 raise ValueError(f"Unknown flag type: {flag_type}")
 
