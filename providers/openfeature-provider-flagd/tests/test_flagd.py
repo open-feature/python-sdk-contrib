@@ -1,5 +1,7 @@
 from numbers import Number
 
+from openfeature.contrib.provider.flagd import FlagdProvider
+
 
 def test_should_get_boolean_flag_from_flagd(flagd_provider_client):
     # Given
@@ -69,3 +71,9 @@ def test_should_get_object_flag_from_flagd(flagd_provider_client):
     assert flag is not None
     assert flag.value == return_value
     assert isinstance(flag.value, dict)
+
+
+def test_get_metadata_returns_metadata_object_with_name():
+    provider = FlagdProvider()
+    metadata = provider.get_metadata()
+    assert metadata.name == "FlagdProvider"
