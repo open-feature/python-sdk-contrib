@@ -39,7 +39,7 @@ from openfeature.exception import (
 from openfeature.flag_evaluation import FlagEvaluationDetails
 from openfeature.provider.provider import AbstractProvider
 
-from .defaults import Defaults
+from .config import Config
 from .flag_type import FlagType
 from .proto.schema.v1 import schema_pb2, schema_pb2_grpc
 
@@ -54,10 +54,10 @@ class FlagdProvider(AbstractProvider):
 
     def __init__(
         self,
-        host: str = Defaults.HOST,
-        port: int = Defaults.PORT,
-        tls: bool = Defaults.TLS,
-        timeout: int = Defaults.TIMEOUT,
+        host: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
+        tls: typing.Optional[bool] = None,
+        timeout: typing.Optional[int] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -67,13 +67,15 @@ class FlagdProvider(AbstractProvider):
         :param tls: enable/disable secure TLS connectivity
         :param timeout: the maximum to wait before a request times out
         """
-        self.host = host
-        self.port = port
-        self.tls = tls
-        self.timeout = timeout
+        self.config = Config(
+            host=host,
+            port=port,
+            tls=tls,
+            timeout=timeout,
+        )
 
         channel_factory = grpc.secure_channel if tls else grpc.insecure_channel
-        self.channel = channel_factory(f"{host}:{port}")
+        self.channel = channel_factory(f"{self.config.host}:{self.config.port}")
         self.stub = schema_pb2_grpc.ServiceStub(self.channel)
 
     def shutdown(self):
@@ -131,7 +133,7 @@ class FlagdProvider(AbstractProvider):
         evaluation_context: EvaluationContext,
     ):
         context = self._convert_context(evaluation_context)
-        call_args = {"timeout": self.timeout}
+        call_args = {"timeout": self.config.timeout}
         try:
             if flag_type == FlagType.BOOLEAN:
                 request = schema_pb2.ResolveBooleanRequest(
