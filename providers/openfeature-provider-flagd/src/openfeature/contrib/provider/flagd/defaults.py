@@ -1,5 +1,5 @@
 class Defaults:
     HOST = "localhost"
     PORT = 8013
-    SCHEMA = "http"
+    TLS = False
     TIMEOUT = 2  # seconds

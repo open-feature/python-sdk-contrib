@@ -54,28 +54,26 @@ class FlagdProvider(AbstractProvider):
 
     def __init__(
         self,
-        schema: str = Defaults.SCHEMA,
         host: str = Defaults.HOST,
         port: int = Defaults.PORT,
+        tls: bool = Defaults.TLS,
         timeout: int = Defaults.TIMEOUT,
     ):
         """
         Create an instance of the FlagdProvider
 
-        :param schema: the schema for the transport protocol, e.g. 'http', 'https'
         :param host: the host to make requests to
         :param port: the port the flagd service is available on
+        :param tls: enable/disable secure TLS connectivity
         :param timeout: the maximum to wait before a request times out
         """
-        self.schema = schema
         self.host = host
         self.port = port
+        self.tls = tls
         self.timeout = timeout
 
-        channel_factory = (
-            grpc.insecure_channel if schema == "http" else grpc.secure_channel
-        )
-        self.channel = channel_factory(f"{self.host}:{self.port}")
+        channel_factory = grpc.secure_channel if tls else grpc.insecure_channel
+        self.channel = channel_factory(f"{host}:{port}")
         self.stub = schema_pb2_grpc.ServiceStub(self.channel)
 
     def shutdown(self):
