@@ -4,7 +4,7 @@ import pytest
 from opentelemetry import trace
 from opentelemetry.trace import Span
 
-from openfeature.contrib.hooks.opentelemetry import TracingHook
+from openfeature.contrib.hook.opentelemetry import TracingHook
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagEvaluationDetails, FlagType
 from openfeature.hook import HookContext
