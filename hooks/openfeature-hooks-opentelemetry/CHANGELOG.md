@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.1...openfeature-hooks-opentelemetry/v0.1.2) (2024-03-13)
+
+
+### 📚 Documentation
+
+* update OTel hook readme with correct import paths ([#65](https://github.com/open-feature/python-sdk-contrib/issues/65)) ([689662b](https://github.com/open-feature/python-sdk-contrib/commit/689662b59ac6117314d707322f26ab4f7b216cc0))
+
 ## [0.1.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry-v0.1.0...openfeature-hooks-opentelemetry/v0.1.1) (2024-03-11)
 
 
