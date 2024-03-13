@@ -42,3 +42,7 @@ client.add_hooks(TracingHook())
 ## License
 
 Apache 2.0 - See [LICENSE](./LICENSE) for more information.
+
+
+[otel-spec]: https://opentelemetry.io/docs/reference/specification/trace/semantic_conventions/feature-flags/
+[hook-concept]: https://openfeature.dev/docs/reference/concepts/hooks
