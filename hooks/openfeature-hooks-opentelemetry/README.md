@@ -22,7 +22,7 @@ The `TracingHook` can be set globally. This will ensure that every flag evaluati
 
 ```python
 from openfeature import api
-from openfeature.contrib.hooks.otel import TracingHook
+from openfeature.contrib.hook.opentelemetry import TracingHook
 
 api.add_hooks(TracingHook())
 ```
@@ -33,7 +33,7 @@ The `TracingHook` can also be set on an individual client. This should only be d
 
 ```python
 from openfeature import api
-from openfeature.contrib.hooks.otel import TracingHook
+from openfeature.contrib.hook.opentelemetry import TracingHook
 
 client = api.get_client("my-app")
 client.add_hooks(TracingHook())
