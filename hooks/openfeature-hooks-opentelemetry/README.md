@@ -24,7 +24,7 @@ The `TracingHook` can be set globally. This will ensure that every flag evaluati
 from openfeature import api
 from openfeature.contrib.hook.opentelemetry import TracingHook
 
-api.add_hooks(TracingHook())
+api.add_hooks([TracingHook()])
 ```
 
 ### Register Per Client
@@ -36,7 +36,7 @@ from openfeature import api
 from openfeature.contrib.hook.opentelemetry import TracingHook
 
 client = api.get_client("my-app")
-client.add_hooks(TracingHook())
+client.add_hooks([TracingHook()])
 ```
 
 ## License
