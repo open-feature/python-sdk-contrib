@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.2...openfeature-hooks-opentelemetry/v0.1.3) (2024-03-17)
+
+
+### 📚 Documentation
+
+* fix add_hooks call in otel hooks README ([#68](https://github.com/open-feature/python-sdk-contrib/issues/68)) ([8f26275](https://github.com/open-feature/python-sdk-contrib/commit/8f26275a1504086effeb1ca92817671bf9ac27ff))
+
 ## [0.1.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.1...openfeature-hooks-opentelemetry/v0.1.2) (2024-03-13)
 
 
