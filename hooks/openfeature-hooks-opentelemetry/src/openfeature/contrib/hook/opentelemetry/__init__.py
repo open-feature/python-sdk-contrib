@@ -32,9 +32,9 @@ class TracingHook(Hook):
         }
 
         if hook_context.provider_metadata:
-            event_attributes[
-                EventAttributes.PROVIDER_NAME
-            ] = hook_context.provider_metadata.name
+            event_attributes[EventAttributes.PROVIDER_NAME] = (
+                hook_context.provider_metadata.name
+            )
 
         current_span.add_event(OTEL_EVENT_NAME, event_attributes)
 
