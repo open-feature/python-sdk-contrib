@@ -22,8 +22,6 @@
 """
 
 import typing
-from dataclasses import dataclass
-from numbers import Number
 
 import grpc
 from google.protobuf.struct_pb2 import Struct
@@ -36,17 +34,15 @@ from openfeature.exception import (
     ParseError,
     TypeMismatchError,
 )
-from openfeature.flag_evaluation import FlagEvaluationDetails
+from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.provider.metadata import Metadata
 from openfeature.provider.provider import AbstractProvider
 
 from .config import Config
 from .flag_type import FlagType
 from .proto.schema.v1 import schema_pb2, schema_pb2_grpc
 
-
-@dataclass
-class Metadata:
-    name: str
+T = typing.TypeVar("T")
 
 
 class FlagdProvider(AbstractProvider):
@@ -78,10 +74,10 @@ class FlagdProvider(AbstractProvider):
         self.channel = channel_factory(f"{self.config.host}:{self.config.port}")
         self.stub = schema_pb2_grpc.ServiceStub(self.channel)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.channel.close()
 
-    def get_metadata(self):
+    def get_metadata(self) -> Metadata:
         """Returns provider metadata"""
         return Metadata(name="FlagdProvider")
 
@@ -89,74 +85,74 @@ class FlagdProvider(AbstractProvider):
         self,
         key: str,
         default_value: bool,
-        evaluation_context: EvaluationContext = None,
-    ):
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[bool]:
         return self._resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
 
     def resolve_string_details(
         self,
         key: str,
         default_value: str,
-        evaluation_context: EvaluationContext = None,
-    ):
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[str]:
         return self._resolve(key, FlagType.STRING, default_value, evaluation_context)
 
     def resolve_float_details(
         self,
         key: str,
-        default_value: Number,
-        evaluation_context: EvaluationContext = None,
-    ):
+        default_value: float,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[float]:
         return self._resolve(key, FlagType.FLOAT, default_value, evaluation_context)
 
     def resolve_integer_details(
         self,
         key: str,
-        default_value: Number,
-        evaluation_context: EvaluationContext = None,
-    ):
+        default_value: int,
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[int]:
         return self._resolve(key, FlagType.INTEGER, default_value, evaluation_context)
 
     def resolve_object_details(
         self,
         key: str,
         default_value: typing.Union[dict, list],
-        evaluation_context: EvaluationContext = None,
-    ):
+        evaluation_context: typing.Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[typing.Union[dict, list]]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
     def _resolve(
         self,
         flag_key: str,
         flag_type: FlagType,
-        default_value: typing.Any,
-        evaluation_context: EvaluationContext,
-    ):
+        default_value: T,
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> FlagResolutionDetails[T]:
         context = self._convert_context(evaluation_context)
         call_args = {"timeout": self.config.timeout}
         try:
             if flag_type == FlagType.BOOLEAN:
-                request = schema_pb2.ResolveBooleanRequest(
+                request = schema_pb2.ResolveBooleanRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveBoolean(request, **call_args)
             elif flag_type == FlagType.STRING:
-                request = schema_pb2.ResolveStringRequest(
+                request = schema_pb2.ResolveStringRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveString(request, **call_args)
             elif flag_type == FlagType.OBJECT:
-                request = schema_pb2.ResolveObjectRequest(
+                request = schema_pb2.ResolveObjectRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveObject(request, **call_args)
             elif flag_type == FlagType.FLOAT:
-                request = schema_pb2.ResolveFloatRequest(
+                request = schema_pb2.ResolveFloatRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveFloat(request, **call_args)
             elif flag_type == FlagType.INTEGER:
-                request = schema_pb2.ResolveIntRequest(
+                request = schema_pb2.ResolveIntRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveInt(request, **call_args)
@@ -176,14 +172,15 @@ class FlagdProvider(AbstractProvider):
             raise GeneralError(message) from e
 
         # Got a valid flag and valid type. Return it.
-        return FlagEvaluationDetails(
-            flag_key=flag_key,
+        return FlagResolutionDetails(
             value=response.value,
             reason=response.reason,
             variant=response.variant,
         )
 
-    def _convert_context(self, evaluation_context: EvaluationContext):
+    def _convert_context(
+        self, evaluation_context: typing.Optional[EvaluationContext]
+    ) -> Struct:
         s = Struct()
         if evaluation_context:
             try:

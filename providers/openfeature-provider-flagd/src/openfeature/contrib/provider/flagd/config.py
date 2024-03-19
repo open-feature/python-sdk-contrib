@@ -1,23 +1,27 @@
 import os
 import typing
 
+T = typing.TypeVar("T")
+
 
 def str_to_bool(val: str) -> bool:
     return val.lower() == "true"
 
 
-def env_or_default(env_var, default, cast=None):
+def env_or_default(
+    env_var: str, default: T, cast: typing.Optional[typing.Callable] = None
+) -> T:
     val = os.environ.get(env_var)
     if val is None:
         return default
-    return val if cast is None else cast(val)
+    return val if cast is None else cast(val)  # type:ignore[no-any-return]
 
 
 class Config:
     def __init__(
         self,
         host: typing.Optional[str] = None,
-        port: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
     ):
