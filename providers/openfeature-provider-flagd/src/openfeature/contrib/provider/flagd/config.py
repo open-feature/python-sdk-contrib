@@ -9,12 +9,12 @@ def str_to_bool(val: str) -> bool:
 
 
 def env_or_default(
-    env_var: str, default: T, cast: typing.Optional[typing.Callable] = None
-) -> T:
+    env_var: str, default: T, cast: typing.Optional[typing.Callable[[str], T]] = None
+) -> typing.Union[str, T]:
     val = os.environ.get(env_var)
     if val is None:
         return default
-    return val if cast is None else cast(val)  # type:ignore[no-any-return]
+    return val if cast is None else cast(val)
 
 
 class Config:
