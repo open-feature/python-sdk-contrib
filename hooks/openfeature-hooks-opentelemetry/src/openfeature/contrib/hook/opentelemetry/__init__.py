@@ -16,7 +16,7 @@ class EventAttributes:
 class TracingHook(Hook):
     def after(
         self, hook_context: HookContext, details: FlagEvaluationDetails, hints: dict
-    ):
+    ) -> None:
         current_span = trace.get_current_span()
 
         variant = details.variant
@@ -38,6 +38,8 @@ class TracingHook(Hook):
 
         current_span.add_event(OTEL_EVENT_NAME, event_attributes)
 
-    def error(self, hook_context: HookContext, exception: Exception, hints: dict):
+    def error(
+        self, hook_context: HookContext, exception: Exception, hints: dict
+    ) -> None:
         current_span = trace.get_current_span()
         current_span.record_exception(exception)
