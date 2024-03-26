@@ -1,7 +1,7 @@
 import json
 
 from openfeature.flag_evaluation import FlagEvaluationDetails
-from openfeature.hook import Hook, HookContext
+from openfeature.hook import Hook, HookContext, HookHints
 from opentelemetry import trace
 
 OTEL_EVENT_NAME = "feature_flag"
@@ -15,7 +15,10 @@ class EventAttributes:
 
 class TracingHook(Hook):
     def after(
-        self, hook_context: HookContext, details: FlagEvaluationDetails, hints: dict
+        self,
+        hook_context: HookContext,
+        details: FlagEvaluationDetails,
+        hints: HookHints,
     ) -> None:
         current_span = trace.get_current_span()
 
@@ -39,7 +42,7 @@ class TracingHook(Hook):
         current_span.add_event(OTEL_EVENT_NAME, event_attributes)
 
     def error(
-        self, hook_context: HookContext, exception: Exception, hints: dict
+        self, hook_context: HookContext, exception: Exception, hints: HookHints
     ) -> None:
         current_span = trace.get_current_span()
         current_span.record_exception(exception)
