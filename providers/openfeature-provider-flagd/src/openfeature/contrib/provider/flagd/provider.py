@@ -29,7 +29,7 @@ from openfeature.provider.metadata import Metadata
 from openfeature.provider.provider import AbstractProvider
 
 from .config import Config, ResolverType
-from .resolvers.grpc import GrpcResolver
+from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver
 
 T = typing.TypeVar("T")
 
@@ -37,13 +37,14 @@ T = typing.TypeVar("T")
 class FlagdProvider(AbstractProvider):
     """Flagd OpenFeature Provider"""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
         resolver_type: typing.Optional[ResolverType] = None,
+        offline_flag_source_path: typing.Optional[str] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -59,12 +60,20 @@ class FlagdProvider(AbstractProvider):
             tls=tls,
             timeout=timeout,
             resolver_type=resolver_type,
+            offline_flag_source_path=offline_flag_source_path,
         )
 
+        self.resolver = self.setup_resolver()
+
+    def setup_resolver(self) -> AbstractResolver:
         if self.config.resolver_type == ResolverType.GRPC:
-            self.resolver = GrpcResolver(self.config)
+            return GrpcResolver(self.config)
+        elif self.config.resolver_type == ResolverType.IN_PROCESS:
+            return InProcessResolver(self.config)
         else:
-            raise ValueError("`resolver_type` parameter invalid")
+            raise ValueError(
+                f"`resolver_type` parameter invalid: {self.config.resolver_type}"
+            )
 
     def shutdown(self) -> None:
         if self.resolver:

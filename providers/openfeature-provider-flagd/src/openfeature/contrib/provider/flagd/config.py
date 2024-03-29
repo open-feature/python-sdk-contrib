@@ -24,13 +24,14 @@ class ResolverType(Enum):
 
 
 class Config:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
         resolver_type: typing.Optional[ResolverType] = None,
+        offline_flag_source_path: typing.Optional[str] = None,
     ):
         self.host = env_or_default("FLAGD_HOST", "localhost") if host is None else host
         self.port = (
@@ -44,4 +45,9 @@ class Config:
             ResolverType(env_or_default("FLAGD_RESOLVER_TYPE", "grpc"))
             if resolver_type is None
             else resolver_type
+        )
+        self.offline_flag_source_path = (
+            env_or_default("FLAGD_OFFLINE_FLAG_SOURCE_PATH", None)
+            if offline_flag_source_path is None
+            else offline_flag_source_path
         )
