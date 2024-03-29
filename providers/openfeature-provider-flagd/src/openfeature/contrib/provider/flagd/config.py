@@ -1,5 +1,6 @@
 import os
 import typing
+from enum import Enum
 
 T = typing.TypeVar("T")
 
@@ -17,6 +18,11 @@ def env_or_default(
     return val if cast is None else cast(val)
 
 
+class ResolverType(Enum):
+    GRPC = "grpc"
+    IN_PROCESS = "in-process"
+
+
 class Config:
     def __init__(
         self,
@@ -24,6 +30,7 @@ class Config:
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
+        resolver_type: typing.Optional[ResolverType] = None,
     ):
         self.host = env_or_default("FLAGD_HOST", "localhost") if host is None else host
         self.port = (
@@ -33,3 +40,8 @@ class Config:
             env_or_default("FLAGD_TLS", False, cast=str_to_bool) if tls is None else tls
         )
         self.timeout = 5 if timeout is None else timeout
+        self.resolver_type = (
+            ResolverType(env_or_default("FLAGD_RESOLVER_TYPE", "grpc"))
+            if resolver_type is None
+            else resolver_type
+        )
