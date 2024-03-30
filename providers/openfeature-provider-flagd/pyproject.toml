@@ -22,6 +22,7 @@ dependencies = [
   "protobuf>=4.25.2",
   "mmh3>=4.1.0",
   "panzi-json-logic>=1.0.1",
+  "semver>=3,<4"
 ]
 requires-python = ">=3.8"
 
@@ -45,6 +46,7 @@ test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
 cov-report = [
   "coverage xml",
+  "coverage html",
 ]
 cov = [
   "test-cov",

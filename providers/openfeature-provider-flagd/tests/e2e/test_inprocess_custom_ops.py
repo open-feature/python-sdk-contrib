@@ -17,11 +17,6 @@ def flag_file(tmp_path):
 #     """Errors and edge cases."""
 
 
-# @scenario( "../../test-harness/gherkin/flagd-json-evaluator.feature", "Evaluator reuse")
-# def test_evaluator_reuse():
-#     """Evaluator reuse."""
-
-
 @scenario(
     "../../test-harness/gherkin/flagd-json-evaluator.feature", "Fractional operator"
 )
@@ -29,20 +24,20 @@ def test_fractional_operator():
     """Fractional operator."""
 
 
-# @scenario(
-#      "../../test-harness/gherkin/flagd-json-evaluator.feature",
-#     "Semantic version operator numeric comparison",
-# )
-# def test_semantic_version_operator_numeric_comparison():
-#     """Semantic version operator numeric comparison."""
+@scenario(
+    "../../test-harness/gherkin/flagd-json-evaluator.feature",
+    "Semantic version operator numeric comparison",
+)
+def test_semantic_version_operator_numeric_comparison():
+    """Semantic version operator numeric comparison."""
 
 
-# @scenario(
-#      "../../test-harness/gherkin/flagd-json-evaluator.feature",
-#     "Semantic version operator semantic comparison",
-# )
-# def test_semantic_version_operator_semantic_comparison():
-#     """Semantic version operator semantic comparison."""
+@scenario(
+    "../../test-harness/gherkin/flagd-json-evaluator.feature",
+    "Semantic version operator semantic comparison",
+)
+def test_semantic_version_operator_semantic_comparison():
+    """Semantic version operator semantic comparison."""
 
 
 @scenario(

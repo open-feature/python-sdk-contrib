@@ -9,7 +9,7 @@ from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
 from ..flag_type import FlagType
-from .process.custom_ops import ends_with, fractional, starts_with
+from .process.custom_ops import ends_with, fractional, sem_ver, starts_with
 from .process.file_watcher import FileWatcherFlagStore
 
 T = typing.TypeVar("T")
@@ -21,6 +21,7 @@ class InProcessResolver:
         "fractional": fractional,
         "starts_with": starts_with,
         "ends_with": ends_with,
+        "sem_ver": sem_ver,
     }
 
     def __init__(self, config: Config, provider: AbstractProvider):
