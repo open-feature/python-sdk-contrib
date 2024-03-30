@@ -1,3 +1,4 @@
+import time
 import typing
 
 from json_logic import builtins, jsonLogic
@@ -97,7 +98,7 @@ class InProcessResolver:
             return FlagResolutionDetails(default, reason=Reason.STATIC)
 
         json_logic_context = evaluation_context.attributes if evaluation_context else {}
-        json_logic_context["$flagd"] = {"flagKey": key}
+        json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}
         variant = jsonLogic(flag["targeting"], json_logic_context, self.OPERATORS)
 
         value = flag["variants"].get(variant, default)

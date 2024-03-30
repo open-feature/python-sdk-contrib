@@ -56,6 +56,12 @@ def setup_provider(flag_file) -> OpenFeatureClient:
 )
 @when(
     parsers.cfparse(
+        'an integer flag with key "{key}" is evaluated with default value {default:d}',
+    ),
+    target_fixture="key_and_default",
+)
+@when(
+    parsers.cfparse(
         'a zero-value float flag with key "{key}" is evaluated with default value {default:f}',
     ),
     target_fixture="key_and_default",
@@ -91,7 +97,7 @@ def assert_boolean_value(
     client: OpenFeatureClient,
     key_and_default: tuple,
     expected_value: bool,
-    evaluation_context=None,
+    evaluation_context: EvaluationContext,
 ):
     key, default = key_and_default
     evaluation_result = client.get_boolean_value(key, default, evaluation_context)
@@ -103,11 +109,12 @@ def assert_boolean_value(
         "the resolved integer zero-value should be {expected_value:d}",
     )
 )
+@then(parsers.cfparse("the returned value should be {expected_value:d}"))
 def assert_integer_value(
     client: OpenFeatureClient,
     key_and_default: tuple,
     expected_value: bool,
-    evaluation_context=None,
+    evaluation_context: EvaluationContext,
 ):
     key, default = key_and_default
     evaluation_result = client.get_integer_value(key, default, evaluation_context)
@@ -123,7 +130,7 @@ def assert_float_value(
     client: OpenFeatureClient,
     key_and_default: tuple,
     expected_value: bool,
-    evaluation_context=None,
+    evaluation_context: EvaluationContext,
 ):
     key, default = key_and_default
     evaluation_result = client.get_float_value(key, default, evaluation_context)
@@ -150,7 +157,7 @@ def assert_string_value(
 def assert_empty_string(
     client: OpenFeatureClient,
     key_and_default: tuple,
-    evaluation_context=None,
+    evaluation_context: EvaluationContext,
 ):
     key, default = key_and_default
     evaluation_result = client.get_string_value(key, default, evaluation_context)

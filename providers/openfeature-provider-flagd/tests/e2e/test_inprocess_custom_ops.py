@@ -52,11 +52,6 @@ def test_substring_operators():
 #     """Targeting by targeting key."""
 
 
-# @scenario( "../../test-harness/gherkin/flagd-json-evaluator.feature", "Time-based operations")
-# def test_timebased_operations():
-#     """Time-based operations."""
-
-
 @when('a context containing a key "id", with value <id>')
 def _():
     """a context containing a key "id", with value <id>."""
@@ -100,31 +95,7 @@ def _():
     raise NotImplementedError
 
 
-@when('a string flag with key <key> is evaluated with default value "fallback"')
-def _():
-    """a string flag with key <key> is evaluated with default value "fallback"."""
-    raise NotImplementedError
-
-
-@when('an integer flag with key "timestamp-flag" is evaluated with default value 0')
-def _():
-    """an integer flag with key "timestamp-flag" is evaluated with default value 0."""
-    raise NotImplementedError
-
-
-@when("an integer flag with key <key> is evaluated with default value 3")
-def _():
-    """an integer flag with key <key> is evaluated with default value 3."""
-    raise NotImplementedError
-
-
 @then("the returned reason should be <reason>")
 def _():
     """the returned reason should be <reason>."""
-    raise NotImplementedError
-
-
-@then("the returned value should be <value>")
-def _():
-    """the returned value should be <value>."""
     raise NotImplementedError
