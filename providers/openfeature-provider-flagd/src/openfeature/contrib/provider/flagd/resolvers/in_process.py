@@ -94,7 +94,7 @@ class InProcessResolver:
 
         variants = flag["variants"]
         default = variants.get(flag.get("defaultVariant"), default_value)
-        if "targeting" not in flag:
+        if "targeting" not in flag or not flag["targeting"]:
             return FlagResolutionDetails(default, reason=Reason.STATIC)
 
         json_logic_context = evaluation_context.attributes if evaluation_context else {}
@@ -103,11 +103,15 @@ class InProcessResolver:
             evaluation_context.targeting_key if evaluation_context else None
         )
         variant = jsonLogic(flag["targeting"], json_logic_context, self.OPERATORS)
+        if variant is None:
+            return FlagResolutionDetails(default, reason=Reason.DEFAULT)
+        if isinstance(variant, bool):
+            variant = str(variant).lower()
 
         value = flag["variants"].get(variant)
         # TODO: Check type matches
         if not value:
-            return FlagResolutionDetails(default, reason=Reason.DEFAULT)
+            raise ValueError(f"Variant {variant} not in variants config.")
 
         return FlagResolutionDetails(
             value,
