@@ -8,11 +8,6 @@ def flag_file(tmp_path):
     return setup_flag_file(tmp_path, "custom-ops.json")
 
 
-# @scenario( "../../test-harness/gherkin/flagd-json-evaluator.feature", "Errors and edge cases")
-# def test_errors_and_edge_cases():
-#     """Errors and edge cases."""
-
-
 @scenario(
     "../../test-harness/gherkin/flagd-json-evaluator.feature", "Fractional operator"
 )

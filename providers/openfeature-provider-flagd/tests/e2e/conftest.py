@@ -90,7 +90,7 @@ def assign_targeting_context(evaluation_context: EvaluationContext, targeting_ke
 )
 def update_context(
     evaluation_context: EvaluationContext, key: str, value: JsonPrimitive
-) -> EvaluationContext:
+):
     """a context containing a key and value."""
     evaluation_context.attributes[key] = value
 
@@ -99,19 +99,22 @@ def update_context(
     parsers.cfparse(
         'a context containing a nested property with outer key "{outer}" and inner key "{inner}", with value "{value}"'
     ),
-    target_fixture="evaluation_context",
 )
 @when(
     parsers.cfparse(
         'a context containing a nested property with outer key "{outer}" and inner key "{inner}", with value {value:d}'
     ),
-    target_fixture="evaluation_context",
 )
 def update_context_nested(
-    outer: str, inner: str, value: typing.Union[str, int]
-) -> EvaluationContext:
+    evaluation_context: EvaluationContext,
+    outer: str,
+    inner: str,
+    value: typing.Union[str, int],
+):
     """a context containing a nested property with outer key, and inner key, and value."""
-    return EvaluationContext(attributes={outer: {inner: value}})
+    if outer not in evaluation_context.attributes:
+        evaluation_context.attributes[outer] = {}
+    evaluation_context.attributes[outer][inner] = value
 
 
 @then(
