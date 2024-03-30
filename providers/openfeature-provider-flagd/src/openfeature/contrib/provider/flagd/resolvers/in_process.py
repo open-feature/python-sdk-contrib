@@ -99,10 +99,15 @@ class InProcessResolver:
 
         json_logic_context = evaluation_context.attributes if evaluation_context else {}
         json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}
+        json_logic_context["targetingKey"] = (
+            evaluation_context.targeting_key if evaluation_context else None
+        )
         variant = jsonLogic(flag["targeting"], json_logic_context, self.OPERATORS)
 
-        value = flag["variants"].get(variant, default)
+        value = flag["variants"].get(variant)
         # TODO: Check type matches
+        if not value:
+            return FlagResolutionDetails(default, reason=Reason.DEFAULT)
 
         return FlagResolutionDetails(
             value,

@@ -73,18 +73,45 @@ def setup_key_and_default(
 
 
 @when(
+    parsers.cfparse(
+        'a context containing a targeting key with value "{targeting_key}"'
+    ),
+)
+def assign_targeting_context(evaluation_context: EvaluationContext, targeting_key: str):
+    """a context containing a targeting key with value <targeting key>."""
+    evaluation_context.targeting_key = targeting_key
+
+
+@when(
     parsers.cfparse('a context containing a key "{key}", with value "{value}"'),
-    target_fixture="evaluation_context",
 )
 @when(
     parsers.cfparse('a context containing a key "{key}", with value {value:d}'),
-    target_fixture="evaluation_context",
 )
 def update_context(
     evaluation_context: EvaluationContext, key: str, value: JsonPrimitive
 ) -> EvaluationContext:
     """a context containing a key and value."""
     evaluation_context.attributes[key] = value
+
+
+@when(
+    parsers.cfparse(
+        'a context containing a nested property with outer key "{outer}" and inner key "{inner}", with value "{value}"'
+    ),
+    target_fixture="evaluation_context",
+)
+@when(
+    parsers.cfparse(
+        'a context containing a nested property with outer key "{outer}" and inner key "{inner}", with value {value:d}'
+    ),
+    target_fixture="evaluation_context",
+)
+def update_context_nested(
+    outer: str, inner: str, value: typing.Union[str, int]
+) -> EvaluationContext:
+    """a context containing a nested property with outer key, and inner key, and value."""
+    return EvaluationContext(attributes={outer: {inner: value}})
 
 
 @then(
@@ -162,3 +189,16 @@ def assert_empty_string(
     key, default = key_and_default
     evaluation_result = client.get_string_value(key, default, evaluation_context)
     assert evaluation_result == ""
+
+
+@then(parsers.cfparse('the returned reason should be "{reason}"'))
+def assert_reason(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+    reason: str,
+):
+    """the returned reason should be <reason>."""
+    key, default = key_and_default
+    evaluation_result = client.get_string_details(key, default, evaluation_context)
+    assert evaluation_result.reason.value == reason

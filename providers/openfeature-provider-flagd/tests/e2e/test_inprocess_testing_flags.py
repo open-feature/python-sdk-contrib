@@ -14,3 +14,11 @@ def flag_file(tmp_path):
 )
 def test_timebased_operations():
     """Time-based operations."""
+
+
+@scenario(
+    "../../test-harness/gherkin/flagd-json-evaluator.feature",
+    "Targeting by targeting key",
+)
+def test_targeting_by_targeting_key():
+    """Targeting by targeting key."""
