@@ -14,7 +14,8 @@ def fractional(data: dict, *arr: tuple[str, int]) -> typing.Optional[str]:
     if not bucket_by:
         return None
 
-    hash_key = data.get("$flagd", {}).get("flagKey", "") + bucket_by
+    seed = data.get("$flagd", {}).get("flagKey", "")
+    hash_key = seed + bucket_by
     hash_ratio = abs(mmh3.hash(hash_key)) / (2**31 - 1)
     bucket = int(hash_ratio * 100)
 

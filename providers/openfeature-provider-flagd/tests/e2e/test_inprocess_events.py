@@ -1,30 +1,27 @@
 import logging
-import os
 import time
 
 import pytest
-from pytest_bdd import given, parsers, scenario, then, when
+from pytest_bdd import parsers, scenario, then, when
+from tests.conftest import setup_flag_file
 
-from openfeature import api
 from openfeature.client import OpenFeatureClient, ProviderEvent
-from openfeature.contrib.provider.flagd import FlagdProvider
-from openfeature.contrib.provider.flagd.config import ResolverType
 
 
 @scenario("../../test-harness/gherkin/flagd.feature", "Provider ready event")
-@scenario("../../test-harness/gherkin/flagd.feature", "Flag change event")
-def test_event_scenarios(caplog):
+def test_ready_event(caplog):
+    """Provider ready event"""
     caplog.set_level(logging.DEBUG)
+
+
+@scenario("../../test-harness/gherkin/flagd.feature", "Flag change event")
+def test_change_event():
+    """Flag change event"""
 
 
 @pytest.fixture
 def flag_file(tmp_path):
-    with open("test-harness/flags/changing-flag-bar.json") as src_file:
-        contents = src_file.read()
-    dst_path = os.path.join(tmp_path, "changing-flag-bar.json")
-    with open(dst_path, "w") as dst_file:
-        dst_file.write(contents)
-    return dst_path
+    return setup_flag_file(tmp_path, "changing-flag-bar.json")
 
 
 @pytest.fixture
@@ -32,18 +29,6 @@ def handles() -> list:
     return []
 
 
-@given("a flagd provider is set", target_fixture="client")
-def setup_provider(flag_file) -> OpenFeatureClient:
-    api.set_provider(
-        FlagdProvider(
-            resolver_type=ResolverType.IN_PROCESS,
-            offline_flag_source_path=flag_file,
-        )
-    )
-    return api.get_client()
-
-
-# events
 @when(
     parsers.cfparse(
         "a {event_type:ProviderEvent} handler is added",
