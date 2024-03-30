@@ -5,7 +5,7 @@ import mmh3
 import semver
 
 JsonPrimitive = typing.Union[str, bool, float, int]
-JsonLogicArg = typing.Union[JsonPrimitive, tuple[JsonPrimitive]]
+JsonLogicArg = typing.Union[JsonPrimitive, typing.Sequence[JsonPrimitive]]
 
 
 def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
