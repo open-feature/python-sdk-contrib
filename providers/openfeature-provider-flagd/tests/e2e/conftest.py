@@ -1,4 +1,4 @@
-from typing import Any
+import typing
 
 import pytest
 from pytest_bdd import given, parsers, then, when
@@ -9,6 +9,8 @@ from openfeature.client import OpenFeatureClient
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 from openfeature.evaluation_context import EvaluationContext
+
+JsonPrimitive = typing.Union[str, bool, float, int]
 
 
 @pytest.fixture
@@ -58,7 +60,9 @@ def setup_provider(flag_file) -> OpenFeatureClient:
     ),
     target_fixture="key_and_default",
 )
-def setup_key_and_default(key: str, default: Any) -> tuple[str, Any]:
+def setup_key_and_default(
+    key: str, default: JsonPrimitive
+) -> tuple[str, JsonPrimitive]:
     return (key, default)
 
 
@@ -66,10 +70,14 @@ def setup_key_and_default(key: str, default: Any) -> tuple[str, Any]:
     parsers.cfparse('a context containing a key "{key}", with value "{value}"'),
     target_fixture="evaluation_context",
 )
+@when(
+    parsers.cfparse('a context containing a key "{key}", with value {value:d}'),
+    target_fixture="evaluation_context",
+)
 def update_context(
-    evaluation_context: EvaluationContext, key: str, value: str
+    evaluation_context: EvaluationContext, key: str, value: JsonPrimitive
 ) -> EvaluationContext:
-    """a context containing a key "email", with value "ballmer@macrosoft.com"."""
+    """a context containing a key and value."""
     evaluation_context.attributes[key] = value
 
 

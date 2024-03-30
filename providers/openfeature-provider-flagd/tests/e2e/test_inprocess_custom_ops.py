@@ -45,9 +45,11 @@ def test_fractional_operator():
 #     """Semantic version operator semantic comparison."""
 
 
-# @scenario( "../../test-harness/gherkin/flagd-json-evaluator.feature", "Substring operators")
-# def test_substring_operators():
-#     """Substring operators."""
+@scenario(
+    "../../test-harness/gherkin/flagd-json-evaluator.feature", "Substring operators"
+)
+def test_substring_operators():
+    """Substring operators."""
 
 
 # @scenario( "../../test-harness/gherkin/flagd-json-evaluator.feature", "Targeting by targeting key")
