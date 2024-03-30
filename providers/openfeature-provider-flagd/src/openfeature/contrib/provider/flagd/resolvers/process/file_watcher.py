@@ -5,10 +5,14 @@ import threading
 import time
 import typing
 
+from openfeature.event import ProviderEventDetails
+from openfeature.provider.provider import AbstractProvider
+
 
 class FileWatcherFlagStore:
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, provider: AbstractProvider):
         self.file_path = file_path
+        self.provider = provider
         self.last_modified = 0.0
         self.load_data()
         self.thread = threading.Thread(target=self.refresh_file, daemon=True)
@@ -33,4 +37,7 @@ class FileWatcherFlagStore:
         with open(self.file_path) as file:
             self.flag_data: dict = json.load(file).get("flags", {})
             logging.debug(f"{self.flag_data=}")
+            self.provider.emit_provider_configuration_changed(
+                ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
+            )
         self.last_modified = modified_time or os.path.getmtime(self.file_path)

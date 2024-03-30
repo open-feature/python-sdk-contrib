@@ -69,7 +69,7 @@ class FlagdProvider(AbstractProvider):
         if self.config.resolver_type == ResolverType.GRPC:
             return GrpcResolver(self.config)
         elif self.config.resolver_type == ResolverType.IN_PROCESS:
-            return InProcessResolver(self.config)
+            return InProcessResolver(self.config, self)
         else:
             raise ValueError(
                 f"`resolver_type` parameter invalid: {self.config.resolver_type}"

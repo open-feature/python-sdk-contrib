@@ -34,6 +34,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "pytest-bdd",
 ]
 post-install-commands = [
   "./scripts/gen_protos.sh"

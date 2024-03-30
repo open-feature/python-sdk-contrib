@@ -5,6 +5,7 @@ from json_logic import builtins, jsonLogic
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import FlagNotFoundError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
 from ..flag_type import FlagType
@@ -15,13 +16,16 @@ T = typing.TypeVar("T")
 
 
 class InProcessResolver:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, provider: AbstractProvider):
         self.config = config
+        self.provider = provider
         if not self.config.offline_flag_source_path:
             raise ValueError(
                 "offline_flag_source_path must be provided when using in-process resolver"
             )
-        self.flag_store = FileWatcherFlagStore(self.config.offline_flag_source_path)
+        self.flag_store = FileWatcherFlagStore(
+            self.config.offline_flag_source_path, self.provider
+        )
 
     def shutdown(self) -> None:
         self.flag_store.shutdown()
@@ -79,16 +83,18 @@ class InProcessResolver:
         if flag["state"] != "ENABLED":
             return FlagResolutionDetails(default_value, reason=Reason.DISABLED)
 
+        variants = flag["variants"]
+        default = variants.get(flag.get("defaultVariant"), default_value)
+        if "targeting" not in flag:
+            return FlagResolutionDetails(default, reason=Reason.STATIC)
+
         ops = {**builtins.BUILTINS, "fractional": fractional}
 
         json_logic_context = evaluation_context.attributes if evaluation_context else {}
         json_logic_context["$flagd"] = {"flagKey": key}
         variant = jsonLogic(flag["targeting"], json_logic_context, ops)
 
-        variants = flag["variants"]
-        value = flag["variants"].get(
-            variant, variants.get(flag.get("defaultVariant"), default_value)
-        )
+        value = flag["variants"].get(variant, default)
         # TODO: Check type matches
 
         return FlagResolutionDetails(
