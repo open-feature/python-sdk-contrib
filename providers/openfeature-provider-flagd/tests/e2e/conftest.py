@@ -62,6 +62,17 @@ def setup_key_and_default(key: str, default: Any) -> tuple[str, Any]:
     return (key, default)
 
 
+@when(
+    parsers.cfparse('a context containing a key "{key}", with value "{value}"'),
+    target_fixture="evaluation_context",
+)
+def update_context(
+    evaluation_context: EvaluationContext, key: str, value: str
+) -> EvaluationContext:
+    """a context containing a key "email", with value "ballmer@macrosoft.com"."""
+    evaluation_context.attributes[key] = value
+
+
 @then(
     parsers.cfparse(
         'the resolved boolean zero-value should be "{expected_value:bool}"',

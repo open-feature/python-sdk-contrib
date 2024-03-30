@@ -9,13 +9,15 @@ from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
 from ..flag_type import FlagType
+from .process.custom_ops import fractional
 from .process.file_watcher import FileWatcherFlagStore
-from .process.fractional_op import fractional
 
 T = typing.TypeVar("T")
 
 
 class InProcessResolver:
+    OPERATORS: typing.ClassVar[dict] = {**builtins.BUILTINS, "fractional": fractional}
+
     def __init__(self, config: Config, provider: AbstractProvider):
         self.config = config
         self.provider = provider
@@ -88,11 +90,9 @@ class InProcessResolver:
         if "targeting" not in flag:
             return FlagResolutionDetails(default, reason=Reason.STATIC)
 
-        ops = {**builtins.BUILTINS, "fractional": fractional}
-
         json_logic_context = evaluation_context.attributes if evaluation_context else {}
         json_logic_context["$flagd"] = {"flagKey": key}
-        variant = jsonLogic(flag["targeting"], json_logic_context, ops)
+        variant = jsonLogic(flag["targeting"], json_logic_context, self.OPERATORS)
 
         value = flag["variants"].get(variant, default)
         # TODO: Check type matches

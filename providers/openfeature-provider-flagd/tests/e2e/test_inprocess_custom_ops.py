@@ -60,12 +60,6 @@ def test_fractional_operator():
 #     """Time-based operations."""
 
 
-@when('a context containing a key "email", with value "ballmer@macrosoft.com"')
-def _():
-    """a context containing a key "email", with value "ballmer@macrosoft.com"."""
-    raise NotImplementedError
-
-
 @when('a context containing a key "id", with value <id>')
 def _():
     """a context containing a key "id", with value <id>."""
