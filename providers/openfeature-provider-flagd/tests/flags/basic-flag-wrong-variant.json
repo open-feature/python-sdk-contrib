@@ -1,0 +1,12 @@
+{
+  "flags": {
+    "basic-flag": {
+      "state": "ENABLED",
+      "variants": {
+        "true": true,
+        "false": false
+      },
+      "defaultVariant": "a-variant"
+    }
+  }
+}

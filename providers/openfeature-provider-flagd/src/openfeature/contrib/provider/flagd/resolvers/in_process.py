@@ -4,12 +4,11 @@ import typing
 from json_logic import builtins, jsonLogic
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import FlagNotFoundError
+from openfeature.exception import FlagNotFoundError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
-from ..flag_type import FlagType
 from .process.custom_ops import ends_with, fractional, sem_ver, starts_with
 from .process.file_watcher import FileWatcherFlagStore
 
@@ -45,7 +44,7 @@ class InProcessResolver:
         default_value: bool,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
-        return self._resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
+        return self._resolve(key, default_value, evaluation_context)
 
     def resolve_string_details(
         self,
@@ -53,7 +52,7 @@ class InProcessResolver:
         default_value: str,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[str]:
-        return self._resolve(key, FlagType.STRING, default_value, evaluation_context)
+        return self._resolve(key, default_value, evaluation_context)
 
     def resolve_float_details(
         self,
@@ -61,7 +60,7 @@ class InProcessResolver:
         default_value: float,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
-        return self._resolve(key, FlagType.FLOAT, default_value, evaluation_context)
+        return self._resolve(key, default_value, evaluation_context)
 
     def resolve_integer_details(
         self,
@@ -69,7 +68,7 @@ class InProcessResolver:
         default_value: int,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[int]:
-        return self._resolve(key, FlagType.INTEGER, default_value, evaluation_context)
+        return self._resolve(key, default_value, evaluation_context)
 
     def resolve_object_details(
         self,
@@ -77,44 +76,45 @@ class InProcessResolver:
         default_value: typing.Union[dict, list],
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[typing.Union[dict, list]]:
-        return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
+        return self._resolve(key, default_value, evaluation_context)
 
     def _resolve(
         self,
         key: str,
-        flag_type: FlagType,
         default_value: T,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[T]:
         flag = self.flag_store.get_flag(key)
         if not flag:
             raise FlagNotFoundError(f"Flag with key {key} not present in flag store.")
-        if flag["state"] != "ENABLED":
+
+        if flag.state == "DISABLED":
             return FlagResolutionDetails(default_value, reason=Reason.DISABLED)
 
-        variants = flag["variants"]
-        default = variants.get(flag.get("defaultVariant"), default_value)
-        if "targeting" not in flag or not flag["targeting"]:
-            return FlagResolutionDetails(default, reason=Reason.STATIC)
+        if not flag.targeting:
+            variant, value = flag.default
+            return FlagResolutionDetails(value, variant=variant, reason=Reason.STATIC)
 
         json_logic_context = evaluation_context.attributes if evaluation_context else {}
         json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}
         json_logic_context["targetingKey"] = (
             evaluation_context.targeting_key if evaluation_context else None
         )
-        variant = jsonLogic(flag["targeting"], json_logic_context, self.OPERATORS)
+        variant = jsonLogic(flag.targeting, json_logic_context, self.OPERATORS)
         if variant is None:
-            return FlagResolutionDetails(default, reason=Reason.DEFAULT)
-        if isinstance(variant, bool):
-            variant = str(variant).lower()
+            variant, value = flag.default
+            return FlagResolutionDetails(value, variant=variant, reason=Reason.DEFAULT)
+        if not isinstance(variant, (str, bool)):
+            raise ParseError(
+                "Parsed JSONLogic targeting did not return a string or bool"
+            )
 
-        value = flag["variants"].get(variant)
-        # TODO: Check type matches
+        variant, value = flag.get_variant(variant)
         if not value:
-            raise ValueError(f"Variant {variant} not in variants config.")
+            raise ParseError(f"Resolved variant {variant} not in variants config.")
 
         return FlagResolutionDetails(
             value,
-            reason=Reason.TARGETING_MATCH,
             variant=variant,
+            reason=Reason.TARGETING_MATCH,
         )

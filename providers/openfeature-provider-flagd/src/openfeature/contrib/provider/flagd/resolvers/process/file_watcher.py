@@ -6,8 +6,12 @@ import threading
 import time
 import typing
 
+import yaml
+
 from openfeature.event import ProviderEventDetails
 from openfeature.provider.provider import AbstractProvider
+
+from .flags import Flag
 
 
 class FileWatcherFlagStore:
@@ -15,6 +19,7 @@ class FileWatcherFlagStore:
         self.file_path = file_path
         self.provider = provider
         self.last_modified = 0.0
+        self.flag_data: dict[str, Flag] = {}
         self.load_data()
         self.thread = threading.Thread(target=self.refresh_file, daemon=True)
         self.thread.start()
@@ -22,7 +27,7 @@ class FileWatcherFlagStore:
     def shutdown(self) -> None:
         pass
 
-    def get_flag(self, key: str) -> typing.Optional[dict]:
+    def get_flag(self, key: str) -> typing.Optional[Flag]:
         return self.flag_data.get(key)
 
     def refresh_file(self) -> None:
@@ -34,14 +39,21 @@ class FileWatcherFlagStore:
                 self.load_data(last_modified)
 
     def load_data(self, modified_time: typing.Optional[float] = None) -> None:
-        # TODO: error handling
-        with open(self.file_path) as file:
-            self.flag_data: dict = self.parse_flags(json.load(file))
-            logging.debug(f"{self.flag_data=}")
-            self.provider.emit_provider_configuration_changed(
-                ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
-            )
-        self.last_modified = modified_time or os.path.getmtime(self.file_path)
+        try:
+            with open(self.file_path) as file:
+                if self.file_path.endswith(".yaml"):
+                    data = yaml.safe_load(file)
+                else:
+                    data = json.load(file)
+
+                self.flag_data = self.parse_flags(data)
+                logging.debug(f"{self.flag_data=}")
+                self.provider.emit_provider_configuration_changed(
+                    ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
+                )
+            self.last_modified = modified_time or os.path.getmtime(self.file_path)
+        except Exception:
+            logging.exception("Could not read flags from file")
 
     def parse_flags(self, flags_data: dict) -> dict:
         flags = flags_data.get("flags", {})
@@ -56,4 +68,4 @@ class FileWatcherFlagStore:
 
         if not isinstance(flags, dict):
             raise ValueError("`flags` key of configuration must be a dictionary")
-        return flags
+        return {key: Flag.from_dict(key, data) for key, data in flags.items()}

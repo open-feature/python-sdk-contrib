@@ -1,0 +1,13 @@
+{
+    "flags": {
+      "basic-flag": {
+        "state": "DISABLED",
+        "variants": {
+          "true": true,
+          "false": false
+        },
+        "defaultVariant": "false",
+        "targeting": {}
+      }
+    }
+  }

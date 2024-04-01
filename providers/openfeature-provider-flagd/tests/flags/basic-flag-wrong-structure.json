@@ -1,0 +1,11 @@
+{
+  "basic-flag": {
+    "state": "ENABLED",
+    "variants": {
+      "true": true,
+      "false": false
+    },
+    "defaultVariant": "false",
+    "targeting": {}
+  }
+}

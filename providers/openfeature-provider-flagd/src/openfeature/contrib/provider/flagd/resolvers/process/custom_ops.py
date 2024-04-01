@@ -10,7 +10,8 @@ JsonLogicArg = typing.Union[JsonPrimitive, typing.Sequence[JsonPrimitive]]
 
 def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     if not args:
-        raise ValueError("No arguments provided to fractional operator.")
+        logging.error("No arguments provided to fractional operator.")
+        return None
 
     bucket_by = None
     if isinstance(args[0], str):
@@ -34,7 +35,8 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
             or not isinstance(arg[0], str)
             or not isinstance(arg[1], int)
         ):
-            raise ValueError("Fractional variant weights must be (str, int) tuple")
+            logging.error("Fractional variant weights must be (str, int) tuple")
+            return None
     variant_weights: tuple[tuple[str, int]] = args  # type: ignore[assignment]
 
     range_end = 0
@@ -46,14 +48,14 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     return None
 
 
-def starts_with(data: dict, *args: JsonLogicArg) -> bool:
+def starts_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
     def f(s1: str, s2: str) -> bool:
         return s1.startswith(s2)
 
     return string_comp(f, data, *args)
 
 
-def ends_with(data: dict, *args: JsonLogicArg) -> bool:
+def ends_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
     def f(s1: str, s2: str) -> bool:
         return s1.endswith(s2)
 
@@ -62,11 +64,13 @@ def ends_with(data: dict, *args: JsonLogicArg) -> bool:
 
 def string_comp(
     comparator: typing.Callable[[str, str], bool], data: dict, *args: JsonLogicArg
-) -> bool:
+) -> typing.Optional[bool]:
     if not args:
-        raise ValueError("No arguments provided to string_comp operator.")
+        logging.error("No arguments provided to string_comp operator.")
+        return None
     if len(args) != 2:
-        raise ValueError("Exactly 2 args expected for string_comp operator.")
+        logging.error("Exactly 2 args expected for string_comp operator.")
+        return None
     arg1, arg2 = args
     if not isinstance(arg1, str):
         logging.debug(f"incorrect argument for first argument, expected string: {arg1}")
@@ -80,11 +84,13 @@ def string_comp(
     return comparator(arg1, arg2)
 
 
-def sem_ver(data: dict, *args: JsonLogicArg) -> bool:  # noqa: C901
+def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: C901
     if not args:
-        raise ValueError("No arguments provided to sem_ver operator.")
+        logging.error("No arguments provided to sem_ver operator.")
+        return None
     if len(args) != 3:
-        raise ValueError("Exactly 3 args expected for sem_ver operator.")
+        logging.error("Exactly 3 args expected for sem_ver operator.")
+        return None
 
     arg1, op, arg2 = args
 
@@ -93,7 +99,7 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> bool:  # noqa: C901
         v2 = semver.Version.parse(arg2)
     except ValueError as e:
         logging.exception(e)
-        return False
+        return None
 
     if op == "=":
         return v1 == v2  # type: ignore[no-any-return]
@@ -112,4 +118,5 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> bool:  # noqa: C901
     elif op == "~":
         return v1.major == v2.major and v1.minor == v2.minor  # type: ignore[no-any-return]
     else:
-        raise ValueError(f"Op not supported by sem_ver: {op}")
+        logging.error(f"Op not supported by sem_ver: {op}")
+        return None
