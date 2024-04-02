@@ -22,9 +22,13 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     else:
         seed = data.get("$flagd", {}).get("flagKey", "")
         targeting_key = data.get("targetingKey")
+        if not targeting_key:
+            logger.error("No targetingKey provided for fractional shorthand syntax.")
+            return None
         bucket_by = seed + targeting_key
 
     if not bucket_by:
+        logger.error("No hashKey value resolved")
         return None
 
     hash_ratio = abs(mmh3.hash(bucket_by)) / (2**31 - 1)
