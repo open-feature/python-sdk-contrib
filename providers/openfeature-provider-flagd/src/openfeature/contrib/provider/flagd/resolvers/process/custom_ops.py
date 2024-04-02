@@ -20,14 +20,14 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
         bucket_by = args[0]
         args = args[1:]
     else:
-        bucket_by = data.get("targetingKey")
+        seed = data.get("$flagd", {}).get("flagKey", "")
+        targeting_key = data.get("targetingKey")
+        bucket_by = seed + targeting_key
 
     if not bucket_by:
         return None
 
-    seed = data.get("$flagd", {}).get("flagKey", "")
-    hash_key = seed + bucket_by
-    hash_ratio = abs(mmh3.hash(hash_key)) / (2**31 - 1)
+    hash_ratio = abs(mmh3.hash(bucket_by)) / (2**31 - 1)
     bucket = int(hash_ratio * 100)
 
     for arg in args:
