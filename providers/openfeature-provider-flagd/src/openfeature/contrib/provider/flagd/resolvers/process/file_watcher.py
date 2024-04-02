@@ -9,6 +9,7 @@ import typing
 import yaml
 
 from openfeature.event import ProviderEventDetails
+from openfeature.exception import ParseError
 from openfeature.provider.provider import AbstractProvider
 
 from .flags import Flag
@@ -61,6 +62,14 @@ class FileWatcherFlagStore:
                     ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
                 )
             self.last_modified = modified_time or os.path.getmtime(self.file_path)
+        except FileNotFoundError:
+            logger.exception("Provided file path not valid")
+        except json.JSONDecodeError:
+            logger.exception("Could not parse JSON flag data from file")
+        except yaml.error.YAMLError:
+            logger.exception("Could not parse YAML flag data from file")
+        except ParseError:
+            logger.exception("Could not parse flag data using flagd syntax")
         except Exception:
             logger.exception("Could not read flags from file")
 
@@ -76,5 +85,5 @@ class FileWatcherFlagStore:
             flags = json.loads(transposed)
 
         if not isinstance(flags, dict):
-            raise ValueError("`flags` key of configuration must be a dictionary")
+            raise ParseError("`flags` key of configuration must be a dictionary")
         return {key: Flag.from_dict(key, data) for key, data in flags.items()}
