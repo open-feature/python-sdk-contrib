@@ -7,10 +7,12 @@ import semver
 JsonPrimitive = typing.Union[str, bool, float, int]
 JsonLogicArg = typing.Union[JsonPrimitive, typing.Sequence[JsonPrimitive]]
 
+logger = logging.getLogger("openfeature.contrib")
+
 
 def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     if not args:
-        logging.error("No arguments provided to fractional operator.")
+        logger.error("No arguments provided to fractional operator.")
         return None
 
     bucket_by = None
@@ -35,7 +37,7 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
             or not isinstance(arg[0], str)
             or not isinstance(arg[1], int)
         ):
-            logging.error("Fractional variant weights must be (str, int) tuple")
+            logger.error("Fractional variant weights must be (str, int) tuple")
             return None
     variant_weights: tuple[tuple[str, int]] = args  # type: ignore[assignment]
 
@@ -66,19 +68,17 @@ def string_comp(
     comparator: typing.Callable[[str, str], bool], data: dict, *args: JsonLogicArg
 ) -> typing.Optional[bool]:
     if not args:
-        logging.error("No arguments provided to string_comp operator.")
+        logger.error("No arguments provided to string_comp operator.")
         return None
     if len(args) != 2:
-        logging.error("Exactly 2 args expected for string_comp operator.")
+        logger.error("Exactly 2 args expected for string_comp operator.")
         return None
     arg1, arg2 = args
     if not isinstance(arg1, str):
-        logging.debug(f"incorrect argument for first argument, expected string: {arg1}")
+        logger.debug(f"incorrect argument for first argument, expected string: {arg1}")
         return False
     if not isinstance(arg2, str):
-        logging.debug(
-            f"incorrect argument for second argument, expected string: {arg2}"
-        )
+        logger.debug(f"incorrect argument for second argument, expected string: {arg2}")
         return False
 
     return comparator(arg1, arg2)
@@ -86,10 +86,10 @@ def string_comp(
 
 def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: C901
     if not args:
-        logging.error("No arguments provided to sem_ver operator.")
+        logger.error("No arguments provided to sem_ver operator.")
         return None
     if len(args) != 3:
-        logging.error("Exactly 3 args expected for sem_ver operator.")
+        logger.error("Exactly 3 args expected for sem_ver operator.")
         return None
 
     arg1, op, arg2 = args
@@ -98,7 +98,7 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: 
         v1 = semver.Version.parse(arg1)
         v2 = semver.Version.parse(arg2)
     except ValueError as e:
-        logging.exception(e)
+        logger.exception(e)
         return None
 
     if op == "=":
@@ -118,5 +118,5 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: 
     elif op == "~":
         return v1.major == v2.major and v1.minor == v2.minor  # type: ignore[no-any-return]
     else:
-        logging.error(f"Op not supported by sem_ver: {op}")
+        logger.error(f"Op not supported by sem_ver: {op}")
         return None

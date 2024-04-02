@@ -13,6 +13,8 @@ from openfeature.provider.provider import AbstractProvider
 
 from .flags import Flag
 
+logger = logging.getLogger("openfeature.contrib")
+
 
 class FileWatcherFlagStore:
     def __init__(
@@ -40,7 +42,7 @@ class FileWatcherFlagStore:
     def refresh_file(self) -> None:
         while True:
             time.sleep(self.poll_interval_seconds)
-            logging.debug("checking for new flag store contents from file")
+            logger.debug("checking for new flag store contents from file")
             last_modified = os.path.getmtime(self.file_path)
             if last_modified > self.last_modified:
                 self.load_data(last_modified)
@@ -54,13 +56,13 @@ class FileWatcherFlagStore:
                     data = json.load(file)
 
                 self.flag_data = self.parse_flags(data)
-                logging.debug(f"{self.flag_data=}")
+                logger.debug(f"{self.flag_data=}")
                 self.provider.emit_provider_configuration_changed(
                     ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
                 )
             self.last_modified = modified_time or os.path.getmtime(self.file_path)
         except Exception:
-            logging.exception("Could not read flags from file")
+            logger.exception("Could not read flags from file")
 
     def parse_flags(self, flags_data: dict) -> dict:
         flags = flags_data.get("flags", {})
