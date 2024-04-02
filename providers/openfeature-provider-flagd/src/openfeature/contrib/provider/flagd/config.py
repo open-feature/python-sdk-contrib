@@ -32,6 +32,7 @@ class Config:
         timeout: typing.Optional[int] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
+        offline_poll_interval_seconds: typing.Optional[float] = None,
     ):
         self.host = env_or_default("FLAGD_HOST", "localhost") if host is None else host
         self.port = (
@@ -50,4 +51,9 @@ class Config:
             env_or_default("FLAGD_OFFLINE_FLAG_SOURCE_PATH", None)
             if offline_flag_source_path is None
             else offline_flag_source_path
+        )
+        self.offline_poll_interval_seconds = (
+            float(env_or_default("FLAGD_OFFLINE_POLL_INTERVAL_SECONDS", 1.0))
+            if offline_poll_interval_seconds is None
+            else offline_poll_interval_seconds
         )

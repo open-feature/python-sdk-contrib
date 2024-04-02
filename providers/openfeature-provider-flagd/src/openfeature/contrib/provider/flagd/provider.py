@@ -45,6 +45,7 @@ class FlagdProvider(AbstractProvider):
         timeout: typing.Optional[int] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
+        offline_poll_interval_seconds: typing.Optional[float] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -61,6 +62,7 @@ class FlagdProvider(AbstractProvider):
             timeout=timeout,
             resolver_type=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
+            offline_poll_interval_seconds=offline_poll_interval_seconds,
         )
 
         self.resolver = self.setup_resolver()

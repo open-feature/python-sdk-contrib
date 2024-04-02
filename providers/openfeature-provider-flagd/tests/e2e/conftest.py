@@ -24,6 +24,7 @@ def setup_provider(flag_file) -> OpenFeatureClient:
         FlagdProvider(
             resolver_type=ResolverType.IN_PROCESS,
             offline_flag_source_path=flag_file,
+            offline_poll_interval_seconds=0.1,
         )
     )
     return api.get_client()

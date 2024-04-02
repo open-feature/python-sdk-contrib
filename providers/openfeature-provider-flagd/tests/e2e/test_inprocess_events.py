@@ -58,8 +58,14 @@ def add_event_handler(
     )
 )
 def assert_handler_run(handles, event_type: ProviderEvent):
-    if all(h["type"] != event_type for h in handles):
-        time.sleep(2)
+    max_wait = 0.3
+    poll_interval = 0.1
+    while max_wait > 0:
+        if all(h["type"] != event_type for h in handles):
+            max_wait -= poll_interval
+            time.sleep(poll_interval)
+            continue
+        break
 
     assert any(h["type"] == event_type for h in handles)
 

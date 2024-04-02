@@ -15,9 +15,16 @@ from .flags import Flag
 
 
 class FileWatcherFlagStore:
-    def __init__(self, file_path: str, provider: AbstractProvider):
+    def __init__(
+        self,
+        file_path: str,
+        provider: AbstractProvider,
+        poll_interval_seconds: float = 1.0,
+    ):
         self.file_path = file_path
         self.provider = provider
+        self.poll_interval_seconds = poll_interval_seconds
+
         self.last_modified = 0.0
         self.flag_data: dict[str, Flag] = {}
         self.load_data()
@@ -32,7 +39,7 @@ class FileWatcherFlagStore:
 
     def refresh_file(self) -> None:
         while True:
-            time.sleep(1)
+            time.sleep(self.poll_interval_seconds)
             logging.debug("checking for new flag store contents from file")
             last_modified = os.path.getmtime(self.file_path)
             if last_modified > self.last_modified:

@@ -32,7 +32,9 @@ class InProcessResolver:
                 "offline_flag_source_path must be provided when using in-process resolver"
             )
         self.flag_store = FileWatcherFlagStore(
-            self.config.offline_flag_source_path, self.provider
+            self.config.offline_flag_source_path,
+            self.provider,
+            self.config.offline_poll_interval_seconds,
         )
 
     def shutdown(self) -> None:
