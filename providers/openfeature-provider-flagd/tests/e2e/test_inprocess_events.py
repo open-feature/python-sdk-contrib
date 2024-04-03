@@ -72,6 +72,7 @@ def assert_handler_run(handles, event_type: ProviderEvent):
 
 @when(parsers.cfparse('a flag with key "{key}" is modified'))
 def modify_flag(flag_file, key):
+    time.sleep(0.1)  # guard against race condition
     with open("test-harness/flags/changing-flag-foo.json") as src_file:
         contents = src_file.read()
     with open(flag_file, "w") as f:
