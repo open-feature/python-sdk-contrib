@@ -19,6 +19,19 @@ from openfeature.contrib.provider.flagd import FlagdProvider
 api.set_provider(FlagdProvider())
 ```
 
+To use in-process evaluation in offline mode with a file as source:
+
+```python
+from openfeature import api
+from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.config import ResolverType
+
+api.set_provider(FlagdProvider(
+    resolver_type=ResolverType.IN_PROCESS,
+    offline_flag_source_path="my-flag.json",
+))
+```
+
 ### Configuration options
 
 The default options can be defined in the FlagdProvider constructor.
