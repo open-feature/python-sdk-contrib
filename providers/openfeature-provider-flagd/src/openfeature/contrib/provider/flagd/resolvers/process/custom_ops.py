@@ -39,7 +39,7 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
         ):
             logger.error("Fractional variant weights must be (str, int) tuple")
             return None
-    variant_weights: tuple[tuple[str, int]] = args  # type: ignore[assignment]
+    variant_weights: typing.Tuple[typing.Tuple[str, int]] = args  # type: ignore[assignment]
 
     range_end = 0
     for variant, weight in variant_weights:
@@ -95,28 +95,28 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: 
     arg1, op, arg2 = args
 
     try:
-        v1 = semver.Version.parse(arg1)
-        v2 = semver.Version.parse(arg2)
+        v1 = semver.Version.parse(str(arg1))
+        v2 = semver.Version.parse(str(arg2))
     except ValueError as e:
         logger.exception(e)
         return None
 
     if op == "=":
-        return v1 == v2  # type: ignore[no-any-return]
+        return v1 == v2
     elif op == "!=":
-        return v1 != v2  # type: ignore[no-any-return]
+        return v1 != v2
     elif op == "<":
-        return v1 < v2  # type: ignore[no-any-return]
+        return v1 < v2
     elif op == "<=":
-        return v1 <= v2  # type: ignore[no-any-return]
+        return v1 <= v2
     elif op == ">":
-        return v1 > v2  # type: ignore[no-any-return]
+        return v1 > v2
     elif op == ">=":
-        return v1 >= v2  # type: ignore[no-any-return]
+        return v1 >= v2
     elif op == "^":
-        return v1.major == v2.major  # type: ignore[no-any-return]
+        return v1.major == v2.major
     elif op == "~":
-        return v1.major == v2.major and v1.minor == v2.minor  # type: ignore[no-any-return]
+        return v1.major == v2.major and v1.minor == v2.minor
     else:
         logger.error(f"Op not supported by sem_ver: {op}")
         return None

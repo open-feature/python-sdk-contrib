@@ -19,9 +19,13 @@ repos:
     rev: v1.9.0
     hooks:
       - id: mypy
+        args: [--python-version=3.8]
         additional_dependencies:
           - openfeature-sdk>=0.4.0
           - opentelemetry-api
           - types-protobuf
           - types-PyYAML
+          - mmh3
+          - semver
+          - panzi-json-logic
         exclude: proto|tests

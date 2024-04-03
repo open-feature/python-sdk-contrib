@@ -69,7 +69,7 @@ def setup_provider(flag_file) -> OpenFeatureClient:
 )
 def setup_key_and_default(
     key: str, default: JsonPrimitive
-) -> tuple[str, JsonPrimitive]:
+) -> typing.Tuple[str, JsonPrimitive]:
     return (key, default)
 
 

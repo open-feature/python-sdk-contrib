@@ -29,7 +29,7 @@ class FileWatcherFlagStore:
         self.poll_interval_seconds = poll_interval_seconds
 
         self.last_modified = 0.0
-        self.flag_data: dict[str, Flag] = {}
+        self.flag_data: typing.Mapping[str, Flag] = {}
         self.load_data()
         self.thread = threading.Thread(target=self.refresh_file, daemon=True)
         self.thread.start()

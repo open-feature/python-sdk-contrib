@@ -1,7 +1,7 @@
 import time
 import typing
 
-from json_logic import builtins, jsonLogic
+from json_logic import builtins, jsonLogic  # type: ignore[import-untyped]
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import FlagNotFoundError, ParseError
