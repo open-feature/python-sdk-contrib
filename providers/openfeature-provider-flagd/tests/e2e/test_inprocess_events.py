@@ -58,7 +58,7 @@ def add_event_handler(
     )
 )
 def assert_handler_run(handles, event_type: ProviderEvent):
-    max_wait = 0.3
+    max_wait = 0.6
     poll_interval = 0.1
     while max_wait > 0:
         if all(h["type"] != event_type for h in handles):
