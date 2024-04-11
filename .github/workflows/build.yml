@@ -50,13 +50,13 @@ jobs:
         working-directory: ${{ matrix.package }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4.3.0
         with:
-          flags: unittests # optional
-          name: coverage # optional
+          name: Code Coverage for ${{ matrix.package }} on Python ${{ matrix.python-version }}
           directory: ${{ matrix.package }}
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
+          token: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
 
   lint:
     runs-on: ubuntu-latest
