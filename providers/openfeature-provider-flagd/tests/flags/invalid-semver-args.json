@@ -1,0 +1,16 @@
+{
+  "flags": {
+    "basic-flag": {
+      "state": "ENABLED",
+      "variants": {
+        "default": "default",
+        "true": "true",
+        "false": "false"
+      },
+      "defaultVariant": "default",
+      "targeting": {
+        "sem_ver": ["1.0.0", "similar to", "1.0.0", "2.0.0"]
+      }
+    }
+  }
+}

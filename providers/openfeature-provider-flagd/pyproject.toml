@@ -20,6 +20,10 @@ dependencies = [
   "openfeature-sdk>=0.4.0",
   "grpcio>=1.60.0",
   "protobuf>=4.25.2",
+  "mmh3>=4.1.0",
+  "panzi-json-logic>=1.0.1",
+  "semver>=3,<4",
+  "pyyaml>=6.0.1",
 ]
 requires-python = ">=3.8"
 
@@ -32,6 +36,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "pytest-bdd",
 ]
 post-install-commands = [
   "./scripts/gen_protos.sh"
@@ -42,6 +47,7 @@ test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
 cov-report = [
   "coverage xml",
+  "coverage html",
 ]
 cov = [
   "test-cov",
@@ -61,4 +67,5 @@ packages = ["src/openfeature"]
 omit = [
   # exclude generated files
   "src/openfeature/contrib/provider/flagd/proto/*",
+  "tests/**",
 ]

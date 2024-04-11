@@ -1,0 +1,13 @@
+{
+  "flags": {
+    "basic-flag": {
+      "state": 3,
+      "variants": {
+        "true": true,
+        "false": false
+      },
+      "defaultVariant": "false",
+      "targeting": {}
+    }
+  }
+}
