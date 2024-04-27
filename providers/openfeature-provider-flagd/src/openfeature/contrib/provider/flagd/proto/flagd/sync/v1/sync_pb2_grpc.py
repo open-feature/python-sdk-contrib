@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from flagd.sync.v1 import sync_pb2 as flagd_dot_sync_dot_v1_dot_sync__pb2
+from . import sync_pb2 as flagd_dot_sync_dot_v1_dot_sync__pb2
 
 
 class FlagSyncServiceStub(object):

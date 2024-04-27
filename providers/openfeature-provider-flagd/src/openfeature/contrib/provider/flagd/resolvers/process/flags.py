@@ -1,7 +1,17 @@
+import json
+import re
 import typing
 from dataclasses import dataclass
 
 from openfeature.exception import ParseError
+
+
+class FlagStore(typing.Protocol):
+    def get_flag(self, key: str) -> typing.Optional["Flag"]:
+        pass
+
+    def shutdown(self) -> None:
+        pass
 
 
 @dataclass
@@ -49,3 +59,19 @@ class Flag:
             variant_key = str(variant_key).lower()
 
         return variant_key, self.variants.get(variant_key)
+
+    @classmethod
+    def parse_flags(cls, flags_data: dict) -> typing.Dict[str, "Flag"]:
+        flags = flags_data.get("flags", {})
+        evaluators: typing.Optional[dict] = flags_data.get("$evaluators")
+        if evaluators:
+            transposed = json.dumps(flags)
+            for name, rule in evaluators.items():
+                transposed = re.sub(
+                    rf"{{\s*\"\$ref\":\s*\"{name}\"\s*}}", json.dumps(rule), transposed
+                )
+            flags = json.loads(transposed)
+
+        if not isinstance(flags, dict):
+            raise ParseError("`flags` key of configuration must be a dictionary")
+        return {key: Flag.from_dict(key, data) for key, data in flags.items()}

@@ -1,13 +1,13 @@
 from unittest.mock import Mock
 
 import pytest
-from src.openfeature.contrib.provider.flagd.resolvers.process.file_watcher import (
-    FileWatcherFlagStore,
-)
-from src.openfeature.contrib.provider.flagd.resolvers.process.flags import Flag
 
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher import (
+    FileWatcherFlagStore,
+)
+from openfeature.contrib.provider.flagd.resolvers.process.flags import Flag
 from openfeature.provider.provider import AbstractProvider
 
 

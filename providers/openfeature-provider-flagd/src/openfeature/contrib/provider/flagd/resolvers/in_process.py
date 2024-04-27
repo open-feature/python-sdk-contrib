@@ -9,8 +9,10 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
+from .process.connector.file_watcher import FileWatcherFlagStore
+from .process.connector.grpc_watcher import GrpcWatcherFlagStore
 from .process.custom_ops import ends_with, fractional, sem_ver, starts_with
-from .process.file_watcher import FileWatcherFlagStore
+from .process.flags import FlagStore
 
 T = typing.TypeVar("T")
 
@@ -27,14 +29,14 @@ class InProcessResolver:
     def __init__(self, config: Config, provider: AbstractProvider):
         self.config = config
         self.provider = provider
-        if not self.config.offline_flag_source_path:
-            raise ValueError(
-                "offline_flag_source_path must be provided when using in-process resolver"
+        self.flag_store: FlagStore = (
+            FileWatcherFlagStore(
+                self.config.offline_flag_source_path,
+                self.provider,
+                self.config.offline_poll_interval_seconds,
             )
-        self.flag_store = FileWatcherFlagStore(
-            self.config.offline_flag_source_path,
-            self.provider,
-            self.config.offline_poll_interval_seconds,
+            if self.config.offline_flag_source_path
+            else GrpcWatcherFlagStore(self.config, self.provider)
         )
 
     def shutdown(self) -> None:

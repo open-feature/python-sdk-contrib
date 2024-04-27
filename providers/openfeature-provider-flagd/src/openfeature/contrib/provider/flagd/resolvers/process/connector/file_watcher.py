@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 import threading
 import time
 import typing
@@ -12,12 +11,12 @@ from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError
 from openfeature.provider.provider import AbstractProvider
 
-from .flags import Flag
+from ..flags import Flag, FlagStore
 
 logger = logging.getLogger("openfeature.contrib")
 
 
-class FileWatcherFlagStore:
+class FileWatcherFlagStore(FlagStore):
     def __init__(
         self,
         file_path: str,
@@ -56,7 +55,7 @@ class FileWatcherFlagStore:
                 else:
                     data = json.load(file)
 
-                self.flag_data = self.parse_flags(data)
+                self.flag_data = Flag.parse_flags(data)
                 logger.debug(f"{self.flag_data=}")
                 self.provider.emit_provider_configuration_changed(
                     ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
@@ -72,18 +71,3 @@ class FileWatcherFlagStore:
             logger.exception("Could not parse flag data using flagd syntax")
         except Exception:
             logger.exception("Could not read flags from file")
-
-    def parse_flags(self, flags_data: dict) -> dict:
-        flags = flags_data.get("flags", {})
-        evaluators: typing.Optional[dict] = flags_data.get("$evaluators")
-        if evaluators:
-            transposed = json.dumps(flags)
-            for name, rule in evaluators.items():
-                transposed = re.sub(
-                    rf"{{\s*\"\$ref\":\s*\"{name}\"\s*}}", json.dumps(rule), transposed
-                )
-            flags = json.loads(transposed)
-
-        if not isinstance(flags, dict):
-            raise ParseError("`flags` key of configuration must be a dictionary")
-        return {key: Flag.from_dict(key, data) for key, data in flags.items()}
