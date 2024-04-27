@@ -1,23 +1,14 @@
-import logging
 import time
 
 import pytest
-from pytest_bdd import parsers, scenario, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
 from openfeature.client import OpenFeatureClient, ProviderEvent
 
 GHERKIN_FOLDER = "../../../../test-harness/gherkin/"
 
-
-@scenario(f"{GHERKIN_FOLDER}flagd.feature", "Provider ready event")
-def test_ready_event(caplog):
-    """Provider ready event"""
-    caplog.set_level(logging.DEBUG)
-
-
-@scenario(f"{GHERKIN_FOLDER}flagd.feature", "Flag change event")
-def test_change_event():
-    """Flag change event"""
+scenarios(f"{GHERKIN_FOLDER}flagd-json-evaluator.feature")
+scenarios(f"{GHERKIN_FOLDER}flagd.feature")
 
 
 @pytest.fixture
@@ -69,14 +60,6 @@ def assert_handler_run(handles, event_type: ProviderEvent):
 @when(parsers.cfparse('a flag with key "{key}" is modified'))
 def modify_flag(key):
     pass
-
-
-# def modify_flag(flag_file, key):
-#     time.sleep(0.1)  # guard against race condition
-#     with open("test-harness/flags/changing-flag-foo.json") as src_file:
-#         contents = src_file.read()
-#     with open(flag_file, "w") as f:
-#         f.write(contents)
 
 
 @then(parsers.cfparse('the event details must indicate "{key}" was altered'))
