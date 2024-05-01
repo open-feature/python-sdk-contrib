@@ -67,11 +67,15 @@ class Flag:
 
     @classmethod
     def from_dict(cls, key: str, data: dict) -> "Flag":
-        data["default_variant"] = data["defaultVariant"]
-        del data["defaultVariant"]
-        flag = cls(key=key, **data)
+        if "defaultVariant" in data:
+            data["default_variant"] = data["defaultVariant"]
+            del data["defaultVariant"]
 
-        return flag
+        try:
+            flag = cls(key=key, **data)
+            return flag
+        except Exception as err:
+            raise ParseError from err
 
     @property
     def default(self) -> typing.Tuple[str, typing.Any]:

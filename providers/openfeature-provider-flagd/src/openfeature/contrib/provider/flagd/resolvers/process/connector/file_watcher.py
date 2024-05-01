@@ -53,13 +53,13 @@ class FileWatcher(FlagStateConnector):
         while self.active:
             time.sleep(self.poll_interval_seconds)
             logger.debug("checking for new flag store contents from file")
+            self.safe_load_data()
+
+    def safe_load_data(self) -> None:
+        try:
             last_modified = os.path.getmtime(self.file_path)
             if last_modified > self.last_modified:
-                self.safe_load_data(last_modified)
-
-    def safe_load_data(self, modified_time: typing.Optional[float] = None) -> None:
-        try:
-            self._load_data(modified_time)
+                self._load_data(last_modified)
         except FileNotFoundError:
             self.handle_error("Provided file path not valid")
         except json.JSONDecodeError:
