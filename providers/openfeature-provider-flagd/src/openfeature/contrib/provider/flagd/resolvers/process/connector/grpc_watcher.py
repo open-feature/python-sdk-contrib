@@ -19,7 +19,6 @@ logger = logging.getLogger("openfeature.contrib")
 
 
 class GrpcWatcher(FlagStateConnector):
-    INIT_BACK_OFF = 2
     MAX_BACK_OFF = 120
 
     def __init__(
@@ -30,10 +29,11 @@ class GrpcWatcher(FlagStateConnector):
         channel_factory = grpc.secure_channel if config.tls else grpc.insecure_channel
         self.channel = channel_factory(f"{config.host}:{config.port}")
         self.stub = sync_pb2_grpc.FlagSyncServiceStub(self.channel)
+        self.timeout = config.timeout
+        self.retry_backoff_seconds = config.retry_backoff_seconds
+        self.selector = config.selector
 
         self.connected = False
-
-        # TODO: Add selector
 
     def initialize(self, context: EvaluationContext) -> None:
         self.active = True
@@ -41,9 +41,7 @@ class GrpcWatcher(FlagStateConnector):
         self.thread.start()
 
         ## block until ready or deadline reached
-
-        # TODO: get deadline from user
-        deadline = 2 + time.time()
+        deadline = self.timeout + time.time()
         while not self.connected and time.time() < deadline:
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
@@ -57,9 +55,9 @@ class GrpcWatcher(FlagStateConnector):
         self.active = False
 
     def sync_flags(self) -> None:
-        request = sync_pb2.SyncFlagsRequest()  # type:ignore[attr-defined]
+        request = sync_pb2.SyncFlagsRequest(selector=self.selector)  # type:ignore[attr-defined]
 
-        retry_delay = self.INIT_BACK_OFF
+        retry_delay = self.retry_backoff_seconds
         while self.active:
             try:
                 logger.debug("Setting up gRPC sync flags connection")
@@ -78,7 +76,7 @@ class GrpcWatcher(FlagStateConnector):
                         )
                         self.connected = True
                         # reset retry delay after successsful read
-                        retry_delay = self.INIT_BACK_OFF
+                        retry_delay = self.retry_backoff_seconds
                     if not self.active:
                         logger.info("Terminating gRPC sync thread")
                         return
