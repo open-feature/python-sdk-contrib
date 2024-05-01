@@ -19,6 +19,19 @@ from openfeature.contrib.provider.flagd import FlagdProvider
 api.set_provider(FlagdProvider())
 ```
 
+
+To use in-process evaluation with flagd gRPC sync service:
+
+```python
+from openfeature import api
+from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.config import ResolverType
+
+api.set_provider(FlagdProvider(
+    resolver_type=ResolverType.IN_PROCESS,
+))
+```
+
 To use in-process evaluation in offline mode with a file as source:
 
 ```python
@@ -36,12 +49,17 @@ api.set_provider(FlagdProvider(
 
 The default options can be defined in the FlagdProvider constructor.
 
-| Option name    | Type & Values | Default   |
-|----------------|---------------|-----------|
-| host           | str           | localhost |
-| port           | int           | 8013      |
-| schema         | str           | http      |
-| timeout        | int           | 2         |
+| Option name                   | Type & Values | Default   |
+|-------------------------------|---------------|-----------|
+| resolver_type                 | enum          | grpc      |
+| host                          | str           | localhost |
+| port                          | int           | 8013      |
+| tls                           | bool          | false     |
+| timeout                       | int           | 5         |
+| retry_backoff_seconds         | float         | 2.0       |
+| selector                      | str           | None      |
+| offline_flag_source_path      | str           | None      |
+| offline_poll_interval_seconds | float         | 1.0       |
 
 ## License
 
