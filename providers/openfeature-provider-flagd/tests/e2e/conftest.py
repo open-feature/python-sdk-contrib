@@ -284,7 +284,8 @@ def assert_handler_run(handles, event_type: ProviderEvent):
     )
 )
 def assert_disconnect_handler(handles, event_type: ProviderEvent):
-    assert_handlers(handles, event_type, max_wait=6)
+    # docker sync upstream restarts every 5s, waiting 2 cycles reduces test noise
+    assert_handlers(handles, event_type, max_wait=10)
 
 
 @then(

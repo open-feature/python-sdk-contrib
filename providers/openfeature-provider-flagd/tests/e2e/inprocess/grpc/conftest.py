@@ -20,6 +20,8 @@ def setup_provider(port: int) -> OpenFeatureClient:
         FlagdProvider(
             resolver_type=ResolverType.IN_PROCESS,
             port=port,
+            timeout=0.1,
+            retry_backoff_seconds=0.1,
         )
     )
     return api.get_client()
