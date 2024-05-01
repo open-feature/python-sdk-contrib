@@ -1,3 +1,4 @@
+import logging
 import time
 import typing
 
@@ -213,6 +214,7 @@ def add_event_handler(
     client: OpenFeatureClient, event_type: ProviderEvent, handles: list
 ):
     def handler(event):
+        logging.info((event_type, event))
         handles.append(
             {
                 "type": event_type,
@@ -246,13 +248,14 @@ def assert_handlers(
 ):
     poll_interval = 0.05
     while max_wait > 0:
-        if len([h["type"] == event_type for h in handles]) < num_events:
+        if sum([h["type"] == event_type for h in handles]) < num_events:
             max_wait -= poll_interval
             time.sleep(poll_interval)
             continue
         break
 
-    actual_num_events = len([h["type"] == event_type for h in handles])
+    logging.info(f"asserting num({event_type}) >= {num_events}: {handles}")
+    actual_num_events = sum([h["type"] == event_type for h in handles])
     assert (
         num_events <= actual_num_events
     ), f"Expected {num_events} but got {actual_num_events}: {handles}"
@@ -290,8 +293,10 @@ def assert_disconnect_handler(handles, event_type: ProviderEvent):
         extra_types={"ProviderEvent": ProviderEvent},
     )
 )
-def assert_disconnect_error(handles, event_type: ProviderEvent):
-    assert_handlers(handles, event_type, max_wait=6, num_events=2)
+def assert_disconnect_error(client: OpenFeatureClient, event_type: ProviderEvent):
+    reconnect_handles = []
+    add_event_handler(client, event_type, reconnect_handles)
+    assert_handlers(reconnect_handles, event_type, max_wait=6)
 
 
 @then(parsers.cfparse('the event details must indicate "{key}" was altered'))
