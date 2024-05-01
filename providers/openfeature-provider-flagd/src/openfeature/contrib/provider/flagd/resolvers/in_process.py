@@ -9,8 +9,9 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
-from .process.connector.file_watcher import FileWatcherFlagStore
-from .process.connector.grpc_watcher import GrpcWatcherFlagStore
+from .process.connector import FlagStateConnector
+from .process.connector.file_watcher import FileWatcher
+from .process.connector.grpc_watcher import GrpcWatcher
 from .process.custom_ops import ends_with, fractional, sem_ver, starts_with
 from .process.flags import FlagStore
 
@@ -29,18 +30,23 @@ class InProcessResolver:
     def __init__(self, config: Config, provider: AbstractProvider):
         self.config = config
         self.provider = provider
-        self.flag_store: FlagStore = (
-            FileWatcherFlagStore(
+        self.flag_store = FlagStore(provider)
+        self.connector: FlagStateConnector = (
+            FileWatcher(
                 self.config.offline_flag_source_path,
                 self.provider,
+                self.flag_store,
                 self.config.offline_poll_interval_seconds,
             )
             if self.config.offline_flag_source_path
-            else GrpcWatcherFlagStore(self.config, self.provider)
+            else GrpcWatcher(self.config, self.provider, self.flag_store)
         )
 
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        self.connector.initialize(evaluation_context)
+
     def shutdown(self) -> None:
-        self.flag_store.shutdown()
+        self.connector.shutdown()
 
     def resolve_boolean_details(
         self,

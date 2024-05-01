@@ -77,6 +77,10 @@ class FlagdProvider(AbstractProvider):
                 f"`resolver_type` parameter invalid: {self.config.resolver_type}"
             )
 
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        if hasattr(self.resolver, "initialize"):
+            self.resolver.initialize(evaluation_context)
+
     def shutdown(self) -> None:
         if self.resolver:
             self.resolver.shutdown()

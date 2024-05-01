@@ -5,9 +5,9 @@ import pytest
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher import (
-    FileWatcherFlagStore,
+    FileWatcher,
 )
-from openfeature.contrib.provider.flagd.resolvers.process.flags import Flag
+from openfeature.contrib.provider.flagd.resolvers.process.flags import Flag, FlagStore
 from openfeature.provider.provider import AbstractProvider
 
 
@@ -23,11 +23,13 @@ def create_client(provider: FlagdProvider):
         "basic-flag.yaml",
     ],
 )
-def test_file_load_errors(file_name: str):
+def test_file_load(file_name: str):
     provider = Mock(spec=AbstractProvider)
-    file_store = FileWatcherFlagStore(f"tests/flags/{file_name}", provider)
+    flag_store = FlagStore(provider)
+    file_watcher = FileWatcher(f"tests/flags/{file_name}", provider, flag_store)
+    file_watcher.initialize(None)
 
-    flag = file_store.flag_data.get("basic-flag")
+    flag = flag_store.get_flag("basic-flag")
 
     assert flag is not None
     assert isinstance(flag, Flag)

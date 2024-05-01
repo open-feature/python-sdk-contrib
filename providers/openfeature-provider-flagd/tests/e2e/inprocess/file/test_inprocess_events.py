@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 import pytest
 from pytest_bdd import parsers, scenario, when
@@ -27,7 +28,8 @@ def flag_file(tmp_path):
 @when(parsers.cfparse('a flag with key "{key}" is modified'))
 def modify_flag(flag_file, key):
     time.sleep(0.1)  # guard against race condition
-    with open("test-harness/flags/changing-flag-foo.json") as src_file:
-        contents = src_file.read()
+    contents = (
+        Path(__file__).parent / "../../../../test-harness/flags/changing-flag-foo.json"
+    ).read_text()
     with open(flag_file, "w") as f:
         f.write(contents)
