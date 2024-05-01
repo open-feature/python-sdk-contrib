@@ -30,6 +30,7 @@ class FileWatcherFlagStore(FlagStore):
         self.last_modified = 0.0
         self.flag_data: typing.Mapping[str, Flag] = {}
         self.load_data()
+        self.has_error = False
         self.thread = threading.Thread(target=self.refresh_file, daemon=True)
         self.thread.start()
 
@@ -57,17 +58,31 @@ class FileWatcherFlagStore(FlagStore):
 
                 self.flag_data = Flag.parse_flags(data)
                 logger.debug(f"{self.flag_data=}")
+
+                if self.has_error:
+                    self.provider.emit_provider_ready(
+                        ProviderEventDetails(
+                            message="Reloading file contents recovered from error state"
+                        )
+                    )
+                    self.has_error = False
+
                 self.provider.emit_provider_configuration_changed(
                     ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
                 )
             self.last_modified = modified_time or os.path.getmtime(self.file_path)
         except FileNotFoundError:
-            logger.exception("Provided file path not valid")
+            self.handle_error("Provided file path not valid")
         except json.JSONDecodeError:
-            logger.exception("Could not parse JSON flag data from file")
+            self.handle_error("Could not parse JSON flag data from file")
         except yaml.error.YAMLError:
-            logger.exception("Could not parse YAML flag data from file")
+            self.handle_error("Could not parse YAML flag data from file")
         except ParseError:
-            logger.exception("Could not parse flag data using flagd syntax")
+            self.handle_error("Could not parse flag data using flagd syntax")
         except Exception:
-            logger.exception("Could not read flags from file")
+            self.handle_error("Could not read flags from file")
+
+    def handle_error(self, error_message: str) -> None:
+        logger.exception(error_message)
+        self.has_error = True
+        self.provider.emit_provider_error(ProviderEventDetails(message=error_message))

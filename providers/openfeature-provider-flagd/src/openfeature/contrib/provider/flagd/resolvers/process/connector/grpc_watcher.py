@@ -7,7 +7,7 @@ import typing
 import grpc
 
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ParseError
+from openfeature.exception import ErrorCode, ParseError
 from openfeature.provider.provider import AbstractProvider
 
 from ....config import Config
@@ -68,13 +68,19 @@ class GrpcWatcherFlagStore(FlagStore):
                     )
                     self.flag_data = Flag.parse_flags(json.loads(flag_str))
 
-                    self.connected = True
+                    if not self.connected:
+                        self.provider.emit_provider_ready(
+                            ProviderEventDetails(
+                                message="gRPC sync connection established"
+                            )
+                        )
+                        self.connected = True
+                        # reset retry delay after successsful read
+                        retry_delay = self.INIT_BACK_OFF
+
                     self.provider.emit_provider_configuration_changed(
                         ProviderEventDetails(flags_changed=list(self.flag_data.keys()))
                     )
-
-                    # reset retry delay after successsful read
-                    retry_delay = self.INIT_BACK_OFF
             except grpc.RpcError as e:  # noqa: PERF203
                 logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
             except json.JSONDecodeError:
@@ -86,7 +92,13 @@ class GrpcWatcherFlagStore(FlagStore):
                     f"Could not parse flag data using flagd syntax: {flag_str=}"
                 )
             finally:
-                # self.connected = False
+                self.connected = False
+                self.provider.emit_provider_error(
+                    ProviderEventDetails(
+                        message=f"gRPC sync disconnected, reconnecting in {retry_delay}s",
+                        error_code=ErrorCode.GENERAL,
+                    )
+                )
                 logger.info(f"Reconnecting in {retry_delay}s")
                 time.sleep(retry_delay)
                 retry_delay = min(2 * retry_delay, self.MAX_BACK_OFF)

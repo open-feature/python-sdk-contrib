@@ -1,8 +1,9 @@
 import pytest
-from pytest_bdd import given
+from pytest_bdd import given, parsers, then, when
+from tests.e2e.conftest import add_event_handler, assert_handlers
 
 from openfeature import api
-from openfeature.client import OpenFeatureClient
+from openfeature.client import OpenFeatureClient, ProviderEvent
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
@@ -22,3 +23,25 @@ def setup_provider(port: int) -> OpenFeatureClient:
         )
     )
     return api.get_client()
+
+
+@when(parsers.cfparse('a flag with key "{key}" is modified'))
+def modify_flag(key):
+    # sync service will flip flag contents regularly
+    pass
+
+
+@given("flagd is unavailable", target_fixture="client")
+def flagd_unavailable():
+    return setup_provider(99999)
+
+
+@when("a flagd provider is set and initialization is awaited")
+def flagd_init(client: OpenFeatureClient, handles):
+    add_event_handler(client, ProviderEvent.PROVIDER_ERROR, handles)
+    add_event_handler(client, ProviderEvent.PROVIDER_READY, handles)
+
+
+@then("an error should be indicated within the configured deadline")
+def flagd_error(handles):
+    assert_handlers(handles, ProviderEvent.PROVIDER_ERROR)

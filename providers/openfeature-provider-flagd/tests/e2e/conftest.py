@@ -1,9 +1,10 @@
+import time
 import typing
 
 import pytest
 from pytest_bdd import parsers, then, when
 
-from openfeature.client import OpenFeatureClient
+from openfeature.client import OpenFeatureClient, ProviderEvent
 from openfeature.evaluation_context import EvaluationContext
 
 JsonPrimitive = typing.Union[str, bool, float, int]
@@ -194,3 +195,112 @@ def assert_reason(
     key, default = key_and_default
     evaluation_result = client.get_string_details(key, default, evaluation_context)
     assert evaluation_result.reason.value == reason
+
+
+@pytest.fixture
+def handles() -> list:
+    return []
+
+
+@when(
+    parsers.cfparse(
+        "a {event_type:ProviderEvent} handler is added",
+        extra_types={"ProviderEvent": ProviderEvent},
+    ),
+    target_fixture="handles",
+)
+def add_event_handler(
+    client: OpenFeatureClient, event_type: ProviderEvent, handles: list
+):
+    def handler(event):
+        handles.append(
+            {
+                "type": event_type,
+                "event": event,
+            }
+        )
+
+    client.add_handler(event_type, handler)
+    return handles
+
+
+@when(
+    parsers.cfparse(
+        "a {event_type:ProviderEvent} handler and a {event_type2:ProviderEvent} handler are added",
+        extra_types={"ProviderEvent": ProviderEvent},
+    ),
+    target_fixture="handles",
+)
+def add_event_handlers(
+    client: OpenFeatureClient,
+    event_type: ProviderEvent,
+    event_type2: ProviderEvent,
+    handles: list,
+):
+    add_event_handler(client, event_type, handles)
+    add_event_handler(client, event_type2, handles)
+
+
+def assert_handlers(
+    handles, event_type: ProviderEvent, max_wait: int = 2, num_events: int = 1
+):
+    poll_interval = 0.05
+    while max_wait > 0:
+        if len([h["type"] == event_type for h in handles]) < num_events:
+            max_wait -= poll_interval
+            time.sleep(poll_interval)
+            continue
+        break
+
+    actual_num_events = len([h["type"] == event_type for h in handles])
+    assert (
+        num_events <= actual_num_events
+    ), f"Expected {num_events} but got {actual_num_events}: {handles}"
+
+
+@then(
+    parsers.cfparse(
+        "the {event_type:ProviderEvent} handler must run",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+@then(
+    parsers.cfparse(
+        "the {event_type:ProviderEvent} handler must run when the provider connects",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def assert_handler_run(handles, event_type: ProviderEvent):
+    assert_handlers(handles, event_type, max_wait=3)
+
+
+@then(
+    parsers.cfparse(
+        "the {event_type:ProviderEvent} handler must run when the provider's connection is lost",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def assert_disconnect_handler(handles, event_type: ProviderEvent):
+    assert_handlers(handles, event_type, max_wait=6)
+
+
+@then(
+    parsers.cfparse(
+        "when the connection is reestablished the {event_type:ProviderEvent} handler must run again",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def assert_disconnect_error(handles, event_type: ProviderEvent):
+    assert_handlers(handles, event_type, max_wait=6, num_events=2)
+
+
+@then(parsers.cfparse('the event details must indicate "{key}" was altered'))
+def assert_flag_changed(handles, key):
+    handle = None
+    for h in handles:
+        if h["type"] == ProviderEvent.PROVIDER_CONFIGURATION_CHANGED:
+            handle = h
+            break
+
+    assert handle is not None
+    assert key in handle["event"].flags_changed
