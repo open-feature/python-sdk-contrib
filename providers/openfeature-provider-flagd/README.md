@@ -5,6 +5,7 @@ This provider is designed to use flagd's [evaluation protocol](https://github.co
 ## Installation
 
 ```
+pip install openfeature-sdk
 pip install openfeature-provider-flagd
 ```
 
@@ -14,7 +15,7 @@ Instantiate a new FlagdProvider instance and configure the OpenFeature SDK to us
 
 ```python
 from openfeature import api
-from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.config import ResolverType
 
 api.set_provider(FlagdProvider())
 ```
@@ -26,10 +27,17 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
+
+
 api.set_provider(FlagdProvider(
     resolver_type=ResolverType.IN_PROCESS,
     offline_flag_source_path="my-flag.json",
 ))
+
+openfeature_client = api.get_client()
+
+# Example: Retrieve a boolean flag
+flag_value = openfeature_client.get_boolean_value(flag_key="a-sample-flag", default_value=False)
 ```
 
 ### Configuration options
