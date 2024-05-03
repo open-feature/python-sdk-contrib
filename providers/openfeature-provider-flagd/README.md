@@ -49,17 +49,17 @@ api.set_provider(FlagdProvider(
 
 The default options can be defined in the FlagdProvider constructor.
 
-| Option name                   | Type & Values | Default   |
-|-------------------------------|---------------|-----------|
-| resolver_type                 | enum          | grpc      |
-| host                          | str           | localhost |
-| port                          | int           | 8013      |
-| tls                           | bool          | false     |
-| timeout                       | int           | 5         |
-| retry_backoff_seconds         | float         | 2.0       |
-| selector                      | str           | None      |
-| offline_flag_source_path      | str           | None      |
-| offline_poll_interval_seconds | float         | 1.0       |
+| Option name                   | Environment Variable Name           | Type & Values  | Default   |
+|-------------------------------|-------------------------------------|----------------|-----------|
+| resolver_type                 | FLAGD_RESOLVER_TYPE                 |  enum          | grpc      |
+| host                          | FLAGD_HOST                          |  str           | localhost |
+| port                          | FLAGD_PORT                          |  int           | 8013      |
+| tls                           | FLAGD_TLS                           |  bool          | false     |
+| timeout                       |                                     |  int           | 5         |
+| retry_backoff_seconds         | FLAGD_RETRY_BACKOFF_SECONDS         |  float         | 2.0       |
+| selector                      | FLAGD_SELECTOR                      |  str           | None      |
+| offline_flag_source_path      | FLAGD_OFFLINE_FLAG_SOURCE_PATH      |  str           | None      |
+| offline_poll_interval_seconds | FLAGD_OFFLINE_POLL_INTERVAL_SECONDS |  float         | 1.0       |
 
 ## License
 
