@@ -32,7 +32,7 @@ class FileWatcher(FlagStateConnector):
 
         self.last_modified = 0.0
         self.flag_store = flag_store
-        self.emit_ready = False
+        self.should_emit_ready_on_success = False
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.active = True
@@ -42,7 +42,7 @@ class FileWatcher(FlagStateConnector):
         # Let this throw exceptions so that provider status is set correctly
         try:
             self._load_data()
-            self.emit_ready = True
+            self.should_emit_ready_on_success = True
         except Exception as err:
             raise ProviderNotReadyError from err
 
@@ -80,17 +80,17 @@ class FileWatcher(FlagStateConnector):
 
             self.flag_store.update(data)
 
-            if self.emit_ready:
+            if self.should_emit_ready_on_success:
                 self.provider.emit_provider_ready(
                     ProviderEventDetails(
                         message="Reloading file contents recovered from error state"
                     )
                 )
-                self.emit_ready = False
+                self.should_emit_ready_on_success = False
 
         self.last_modified = modified_time or os.path.getmtime(self.file_path)
 
     def handle_error(self, error_message: str) -> None:
         logger.exception(error_message)
-        self.emit_ready = True
+        self.should_emit_ready_on_success = True
         self.provider.emit_provider_error(ProviderEventDetails(message=error_message))
