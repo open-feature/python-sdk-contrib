@@ -4,6 +4,7 @@ from openfeature.contrib.provider.ofrep import OFREPProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
     FlagNotFoundError,
+    GeneralError,
     InvalidContextError,
     ParseError,
 )
@@ -88,7 +89,7 @@ def test_provider_evaluation_context(ofrep_provider, requests_mock):
             "metadata": {},
             "value": True,
         },
-        additional_matcher=match_request_json
+        additional_matcher=match_request_json,
     )
 
     context = EvaluationContext("1", {"foo": "bar"})
@@ -101,3 +102,18 @@ def test_provider_evaluation_context(ofrep_provider, requests_mock):
         reason=Reason.TARGETING_MATCH,
         variant="true",
     )
+
+
+def test_provider_retry_after_shortcircuit_resolution(ofrep_provider, requests_mock):
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        status_code=429,
+        headers={"Retry-After": "1"},
+    )
+
+    with pytest.raises(GeneralError, match="Rate limited, retry after: 1"):
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+    with pytest.raises(
+        GeneralError, match="OFREP evaluation paused due to TooManyRequests"
+    ):
+        ofrep_provider.resolve_boolean_details("flag_key", False)

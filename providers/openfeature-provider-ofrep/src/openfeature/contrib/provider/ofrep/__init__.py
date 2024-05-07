@@ -1,3 +1,6 @@
+import re
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
@@ -32,7 +35,9 @@ class OFREPProvider(AbstractProvider):
         self.base_url = base_url
         self.headers = headers
         self.timeout = timeout
+        self.retry_after: Optional[datetime] = None
         self.session = requests.Session()
+        self.session.headers["User-Agent"] = "OpenFeature/1.0.0"
         if headers:
             self.session.headers.update(headers)
 
@@ -88,6 +93,14 @@ class OFREPProvider(AbstractProvider):
         default_value: Union[bool, str, int, float, dict, list],
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[Any]:
+        now = datetime.now(timezone.utc)
+        if self.retry_after and now <= self.retry_after:
+            raise GeneralError(
+                f"OFREP evaluation paused due to TooManyRequests until {self.retry_after}"
+            )
+        elif self.retry_after:
+            self.retry_after = None
+
         try:
             response = self.session.post(
                 urljoin(self.base_url, f"/ofrep/v1/evaluate/flags/{flag_key}"),
@@ -97,30 +110,7 @@ class OFREPProvider(AbstractProvider):
             response.raise_for_status()
 
         except requests.RequestException as e:
-            if e.response is None:
-                raise GeneralError(str(e)) from e
-
-            try:
-                data = e.response.json()
-            except JSONDecodeError:
-                raise ParseError(str(e)) from e
-
-            if e.response.status_code == 404:
-                raise FlagNotFoundError(data["errorDetails"]) from e
-
-            error_code = ErrorCode(data["errorCode"])
-            error_details = data["errorDetails"]
-
-            if error_code == ErrorCode.PARSE_ERROR:
-                raise ParseError(error_details) from e
-            if error_code == ErrorCode.TARGETING_KEY_MISSING:
-                raise TargetingKeyMissingError(error_details) from e
-            if error_code == ErrorCode.INVALID_CONTEXT:
-                raise InvalidContextError(error_details) from e
-            if error_code == ErrorCode.GENERAL:
-                raise GeneralError(error_details) from e
-
-            raise OpenFeatureError(error_code, error_details) from e
+            self._handle_error(e)
 
         try:
             data = response.json()
@@ -134,6 +124,40 @@ class OFREPProvider(AbstractProvider):
             flag_metadata=data["metadata"],
         )
 
+    def _handle_error(self, exception: requests.RequestException) -> None:
+        response = exception.response
+        if response is None:
+            raise GeneralError(str(exception)) from exception
+
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After")
+            self.retry_after = _parse_retry_after(retry_after)
+            raise GeneralError(
+                f"Rate limited, retry after: {retry_after}"
+            ) from exception
+
+        try:
+            data = response.json()
+        except JSONDecodeError:
+            raise ParseError(str(exception)) from exception
+
+        error_code = ErrorCode(data["errorCode"])
+        error_details = data["errorDetails"]
+
+        if response.status_code == 404:
+            raise FlagNotFoundError(error_details) from exception
+
+        if error_code == ErrorCode.PARSE_ERROR:
+            raise ParseError(error_details) from exception
+        if error_code == ErrorCode.TARGETING_KEY_MISSING:
+            raise TargetingKeyMissingError(error_details) from exception
+        if error_code == ErrorCode.INVALID_CONTEXT:
+            raise InvalidContextError(error_details) from exception
+        if error_code == ErrorCode.GENERAL:
+            raise GeneralError(error_details) from exception
+
+        raise OpenFeatureError(error_code, error_details) from exception
+
 
 def _build_request_data(
     evaluation_context: Optional[EvaluationContext],
@@ -145,3 +169,12 @@ def _build_request_data(
             data["context"]["targetingKey"] = evaluation_context.targeting_key
         data["context"].update(evaluation_context.attributes)
     return data
+
+
+def _parse_retry_after(retry_after: Optional[str]) -> Optional[datetime]:
+    if retry_after is None:
+        return None
+    if re.match(r"^\s*[0-9]+\s*$", retry_after):
+        seconds = int(retry_after)
+        return datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    return parsedate_to_datetime(retry_after)
