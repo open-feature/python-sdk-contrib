@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Type, Union
 from urllib.parse import urljoin
 
 import requests
@@ -42,17 +42,14 @@ class OFREPProvider(AbstractProvider):
         self,
         base_url: str,
         *,
-        headers: Optional[Dict[str, str]] = None,
+        headers_factory: Optional[Callable[[], Dict[str, str]]] = None,
         timeout: float = 5.0,
     ):
         self.base_url = base_url
-        self.headers = headers
+        self.headers_factory = headers_factory
         self.timeout = timeout
         self.retry_after: Optional[datetime] = None
         self.session = requests.Session()
-        self.session.headers["User-Agent"] = "OpenFeature/1.0.0"
-        if headers:
-            self.session.headers.update(headers)
 
     def get_metadata(self) -> Metadata:
         return Metadata(name="OpenFeature Remote Evaluation Protocol Provider")
@@ -130,6 +127,7 @@ class OFREPProvider(AbstractProvider):
                 urljoin(self.base_url, f"/ofrep/v1/evaluate/flags/{flag_key}"),
                 json=_build_request_data(evaluation_context),
                 timeout=self.timeout,
+                headers=self.headers_factory() if self.headers_factory else None,
             )
             response.raise_for_status()
 

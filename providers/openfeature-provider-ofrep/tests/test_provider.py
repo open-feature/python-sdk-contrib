@@ -13,7 +13,10 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
 
 def test_provider_init():
-    OFREPProvider("http://localhost:8080", headers={"Authorization": "Bearer token"})
+    OFREPProvider(
+        "http://localhost:8080",
+        headers_factory=lambda: {"Authorization": "Bearer token"},
+    )
 
 
 @pytest.mark.parametrize(
