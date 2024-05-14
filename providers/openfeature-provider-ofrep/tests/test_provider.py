@@ -7,6 +7,7 @@ from openfeature.exception import (
     GeneralError,
     InvalidContextError,
     ParseError,
+    TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
@@ -15,24 +16,51 @@ def test_provider_init():
     OFREPProvider("http://localhost:8080", headers={"Authorization": "Bearer token"})
 
 
-def test_provider_successful_resolution(ofrep_provider, requests_mock):
+@pytest.mark.parametrize(
+    "flag_type, resolved_value, default_value, get_method",
+    (
+        (bool, True, False, "resolve_boolean_details"),
+        (str, "String", "default", "resolve_string_details"),
+        (int, 100, 0, "resolve_integer_details"),
+        (float, 10.23, 0.0, "resolve_float_details"),
+        (
+            dict,
+            {
+                "String": "string",
+                "Number": 2,
+                "Boolean": True,
+            },
+            {},
+            "resolve_object_details",
+        ),
+        (
+            list,
+            ["string1", "string2"],
+            [],
+            "resolve_object_details",
+        ),
+    ),
+)
+def test_provider_successful_resolution(
+    flag_type, resolved_value, default_value, get_method, ofrep_provider, requests_mock
+):
     requests_mock.post(
         "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
         json={
             "key": "flag_key",
             "reason": "TARGETING_MATCH",
-            "variant": "true",
+            "variant": str(resolved_value),
             "metadata": {"foo": "bar"},
-            "value": True,
+            "value": resolved_value,
         },
     )
 
-    resolution = ofrep_provider.resolve_boolean_details("flag_key", False)
+    resolution = getattr(ofrep_provider, get_method)("flag_key", default_value)
 
     assert resolution == FlagResolutionDetails(
-        value=True,
+        value=resolved_value,
         reason=Reason.TARGETING_MATCH,
-        variant="true",
+        variant=str(resolved_value),
         flag_metadata={"foo": "bar"},
     )
 
@@ -116,4 +144,20 @@ def test_provider_retry_after_shortcircuit_resolution(ofrep_provider, requests_m
     with pytest.raises(
         GeneralError, match="OFREP evaluation paused due to TooManyRequests"
     ):
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+
+
+def test_provider_typecheck_flag_value(ofrep_provider, requests_mock):
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        json={
+            "key": "flag_key",
+            "reason": "TARGETING_MATCH",
+            "variant": "true",
+            "metadata": {},
+            "value": "true",
+        },
+    )
+
+    with pytest.raises(TypeMismatchError):
         ofrep_provider.resolve_boolean_details("flag_key", False)

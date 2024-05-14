@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, List, NoReturn, Optional, Union
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, Type, Union
 from urllib.parse import urljoin
 
 import requests
@@ -16,12 +16,25 @@ from openfeature.exception import (
     OpenFeatureError,
     ParseError,
     TargetingKeyMissingError,
+    TypeMismatchError,
 )
-from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagType, Reason
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata
 
 __all__ = ["OFREPProvider"]
+
+
+TypeMap = Dict[
+    FlagType,
+    Union[
+        Type[bool],
+        Type[int],
+        Type[float],
+        Type[str],
+        Tuple[Type[dict], Type[list]],
+    ],
+]
 
 
 class OFREPProvider(AbstractProvider):
@@ -53,7 +66,9 @@ class OFREPProvider(AbstractProvider):
         default_value: bool,
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
-        return self._resolve(flag_key, default_value, evaluation_context)
+        return self._resolve(
+            FlagType.BOOLEAN, flag_key, default_value, evaluation_context
+        )
 
     def resolve_string_details(
         self,
@@ -61,7 +76,9 @@ class OFREPProvider(AbstractProvider):
         default_value: str,
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[str]:
-        return self._resolve(flag_key, default_value, evaluation_context)
+        return self._resolve(
+            FlagType.STRING, flag_key, default_value, evaluation_context
+        )
 
     def resolve_integer_details(
         self,
@@ -69,7 +86,9 @@ class OFREPProvider(AbstractProvider):
         default_value: int,
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[int]:
-        return self._resolve(flag_key, default_value, evaluation_context)
+        return self._resolve(
+            FlagType.INTEGER, flag_key, default_value, evaluation_context
+        )
 
     def resolve_float_details(
         self,
@@ -77,7 +96,9 @@ class OFREPProvider(AbstractProvider):
         default_value: float,
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
-        return self._resolve(flag_key, default_value, evaluation_context)
+        return self._resolve(
+            FlagType.FLOAT, flag_key, default_value, evaluation_context
+        )
 
     def resolve_object_details(
         self,
@@ -85,10 +106,13 @@ class OFREPProvider(AbstractProvider):
         default_value: Union[dict, list],
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[Union[dict, list]]:
-        return self._resolve(flag_key, default_value, evaluation_context)
+        return self._resolve(
+            FlagType.OBJECT, flag_key, default_value, evaluation_context
+        )
 
     def _resolve(
         self,
+        flag_type: FlagType,
         flag_key: str,
         default_value: Union[bool, str, int, float, dict, list],
         evaluation_context: Optional[EvaluationContext] = None,
@@ -116,6 +140,8 @@ class OFREPProvider(AbstractProvider):
             data = response.json()
         except JSONDecodeError as e:
             raise ParseError(str(e)) from e
+
+        _typecheck_flag_value(data["value"], flag_type)
 
         return FlagResolutionDetails(
             value=data["value"],
@@ -178,3 +204,18 @@ def _parse_retry_after(retry_after: Optional[str]) -> Optional[datetime]:
         seconds = int(retry_after)
         return datetime.now(timezone.utc) + timedelta(seconds=seconds)
     return parsedate_to_datetime(retry_after)
+
+
+def _typecheck_flag_value(value: Any, flag_type: FlagType) -> None:
+    type_map: TypeMap = {
+        FlagType.BOOLEAN: bool,
+        FlagType.STRING: str,
+        FlagType.OBJECT: (dict, list),
+        FlagType.FLOAT: float,
+        FlagType.INTEGER: int,
+    }
+    _type = type_map.get(flag_type)
+    if not _type:
+        raise GeneralError(error_message="Unknown flag type")
+    if not isinstance(value, _type):
+        raise TypeMismatchError(f"Expected type {_type} but got {type(value)}")
