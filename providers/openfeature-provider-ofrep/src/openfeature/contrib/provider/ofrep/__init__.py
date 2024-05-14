@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, NoReturn, Optional, Union
 from urllib.parse import urljoin
 
 import requests
@@ -124,7 +124,7 @@ class OFREPProvider(AbstractProvider):
             flag_metadata=data["metadata"],
         )
 
-    def _handle_error(self, exception: requests.RequestException) -> None:
+    def _handle_error(self, exception: requests.RequestException) -> NoReturn:
         response = exception.response
         if response is None:
             raise GeneralError(str(exception)) from exception
