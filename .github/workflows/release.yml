@@ -8,19 +8,22 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write # for googleapis/release-please-action to create release commit
+      pull-requests: write # for googleapis/release-please-action to create release PR
     # Release-please creates a PR that tracks all changes
     steps:
-      - uses: google-github-actions/release-please-action@v3
+      - uses: googleapis/release-please-action@v4
         id: release
         with:
-          command: manifest
           token: ${{secrets.GITHUB_TOKEN}}
-          default-branch: main
-          signoff: "OpenFeature Bot <109696520+openfeaturebot@users.noreply.github.com>"
+          target-branch: main
       - name: Dump Release Please Output
         env:
           RELEASE_PLEASE_OUTPUT: ${{ toJson(steps.release.outputs) }}
