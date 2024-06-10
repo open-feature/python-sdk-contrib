@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.4](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.3...openfeature-hooks-opentelemetry/v0.1.4) (2024-06-10)
+
+
+### 🐛 Bug Fixes
+
+* fix types for hints in OTel TracingHook ([#73](https://github.com/open-feature/python-sdk-contrib/issues/73)) ([24260fb](https://github.com/open-feature/python-sdk-contrib/commit/24260fb519d18590d82e9aae1cf824b9e6ca7f17))
+* remove modifications to license files ([#81](https://github.com/open-feature/python-sdk-contrib/issues/81)) ([a23f61e](https://github.com/open-feature/python-sdk-contrib/commit/a23f61e1c14c70e45a4bce4a014d5599813f1d28))
+
+
+### 🧹 Chore
+
+* update ruff ([#70](https://github.com/open-feature/python-sdk-contrib/issues/70)) ([9411d0f](https://github.com/open-feature/python-sdk-contrib/commit/9411d0f578238037b3c508faf8f23fe35a374b6c))
+
+
+### 🔄 Refactoring
+
+* add mypy and fix typing issues ([#72](https://github.com/open-feature/python-sdk-contrib/issues/72)) ([b405925](https://github.com/open-feature/python-sdk-contrib/commit/b4059255045cdb7054a35bc338207e23c42ce068))
+
 ## [0.1.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.2...openfeature-hooks-opentelemetry/v0.1.3) (2024-03-17)
 
 
