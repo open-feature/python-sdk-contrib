@@ -31,23 +31,35 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
         logger.error("No hashKey value resolved")
         return None
 
-    hash_ratio = abs(mmh3.hash(bucket_by)) / (2**31 - 1)
-    bucket = int(hash_ratio * 100)
+    hash_ratio = abs(mmh3.hash(bucket_by)) / (2 ** 31 - 1)
+    bucket = hash_ratio * 100
 
+    totalWeight = 0
     for arg in args:
         if (
             not isinstance(arg, (tuple, list))
-            or len(arg) != 2
-            or not isinstance(arg[0], str)
-            or not isinstance(arg[1], int)
+            or len(arg) == 0
         ):
             logger.error("Fractional variant weights must be (str, int) tuple")
             return None
+
+        if (not isinstance(arg[0], str)):
+            logger.error("Fractional variant's first element isn't string")
+            return None
+        if (len(arg) >= 2):
+            if (not isinstance(arg[1], int)):
+                logger.error("Fractional variant's second element isn't int")
+                return None
+        else:
+            arg.append(1)
+
+        totalWeight += arg[1]
+
     variant_weights: typing.Tuple[typing.Tuple[str, int]] = args  # type: ignore[assignment]
 
     range_end = 0
     for variant, weight in variant_weights:
-        range_end += weight
+        range_end += weight * 100 / totalWeight
         if bucket < range_end:
             return variant
 
@@ -69,7 +81,7 @@ def ends_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
 
 
 def string_comp(
-    comparator: typing.Callable[[str, str], bool], data: dict, *args: JsonLogicArg
+        comparator: typing.Callable[[str, str], bool], data: dict, *args: JsonLogicArg
 ) -> typing.Optional[bool]:
     if not args:
         logger.error("No arguments provided to string_comp operator.")
