@@ -82,8 +82,7 @@ class FlagdProvider(AbstractProvider):
             )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
-        if hasattr(self.resolver, "initialize"):
-            self.resolver.initialize(evaluation_context)
+        self.resolver.initialize(evaluation_context)
 
     def shutdown(self) -> None:
         if self.resolver:

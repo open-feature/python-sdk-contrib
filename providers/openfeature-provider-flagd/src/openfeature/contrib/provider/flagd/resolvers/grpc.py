@@ -16,11 +16,12 @@ from openfeature.flag_evaluation import FlagResolutionDetails
 from ..config import Config
 from ..flag_type import FlagType
 from ..proto.schema.v1 import schema_pb2, schema_pb2_grpc
+from . import AbstractResolver
 
 T = typing.TypeVar("T")
 
 
-class GrpcResolver:
+class GrpcResolver(AbstractResolver):
     def __init__(self, config: Config):
         self.config = config
         channel_factory = (

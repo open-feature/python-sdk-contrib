@@ -10,6 +10,9 @@ from .in_process import InProcessResolver
 
 
 class AbstractResolver(Protocol):
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        return
+
     def shutdown(self) -> None: ...
 
     def resolve_boolean_details(
