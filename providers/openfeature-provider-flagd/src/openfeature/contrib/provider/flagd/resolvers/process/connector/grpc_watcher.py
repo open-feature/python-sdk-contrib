@@ -37,7 +37,9 @@ class GrpcWatcher(FlagStateConnector):
 
     def initialize(self, context: EvaluationContext) -> None:
         self.active = True
-        self.thread = threading.Thread(target=self.sync_flags, daemon=True)
+        self.thread = threading.Thread(
+            target=self.sync_flags, daemon=True, name="FlagdGrpcSyncWorkerThread"
+        )
         self.thread.start()
 
         ## block until ready or deadline reached

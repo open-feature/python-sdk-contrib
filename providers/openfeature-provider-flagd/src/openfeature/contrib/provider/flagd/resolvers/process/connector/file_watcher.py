@@ -36,7 +36,9 @@ class FileWatcher(FlagStateConnector):
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.active = True
-        self.thread = threading.Thread(target=self.refresh_file, daemon=True)
+        self.thread = threading.Thread(
+            target=self.refresh_file, daemon=True, name="FlagdFileWatcherWorkerThread"
+        )
         self.thread.start()
 
         # Let this throw exceptions so that provider status is set correctly
