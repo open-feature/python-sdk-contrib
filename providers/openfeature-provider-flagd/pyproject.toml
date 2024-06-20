@@ -58,6 +58,7 @@ cov = [
 exclude = [
   ".gitignore",
   "schemas",
+  "docker-compose.yaml",
 ]
 
 [tool.hatch.build.targets.wheel]

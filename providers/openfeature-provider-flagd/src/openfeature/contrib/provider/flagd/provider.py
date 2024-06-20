@@ -24,6 +24,7 @@
 import typing
 
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
 from openfeature.flag_evaluation import FlagResolutionDetails
 from openfeature.provider.metadata import Metadata
 from openfeature.provider.provider import AbstractProvider
@@ -43,6 +44,8 @@ class FlagdProvider(AbstractProvider):
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
+        retry_backoff_seconds: typing.Optional[float] = None,
+        selector: typing.Optional[str] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         offline_poll_interval_seconds: typing.Optional[float] = None,
@@ -60,6 +63,8 @@ class FlagdProvider(AbstractProvider):
             port=port,
             tls=tls,
             timeout=timeout,
+            retry_backoff_seconds=retry_backoff_seconds,
+            selector=selector,
             resolver_type=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
             offline_poll_interval_seconds=offline_poll_interval_seconds,
@@ -71,11 +76,19 @@ class FlagdProvider(AbstractProvider):
         if self.config.resolver_type == ResolverType.GRPC:
             return GrpcResolver(self.config)
         elif self.config.resolver_type == ResolverType.IN_PROCESS:
-            return InProcessResolver(self.config, self)
+            return InProcessResolver(
+                self.config,
+                self.emit_provider_ready,
+                self.emit_provider_error,
+                self.emit_provider_configuration_changed,
+            )
         else:
             raise ValueError(
                 f"`resolver_type` parameter invalid: {self.config.resolver_type}"
             )
+
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        self.resolver.initialize(evaluation_context)
 
     def shutdown(self) -> None:
         if self.resolver:
@@ -84,6 +97,11 @@ class FlagdProvider(AbstractProvider):
     def get_metadata(self) -> Metadata:
         """Returns provider metadata"""
         return Metadata(name="FlagdProvider")
+
+    def flag_store_updated_callback(self, flag_keys: typing.List[str]) -> None:
+        self.emit_provider_configuration_changed(
+            ProviderEventDetails(flags_changed=flag_keys)
+        )
 
     def resolve_boolean_details(
         self,
