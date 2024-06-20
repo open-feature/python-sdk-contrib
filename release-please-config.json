@@ -6,9 +6,19 @@
   "bump-patch-for-minor-pre-major": true,
   "include-component-in-tag": true,
   "tag-separator": "/",
+  "signoff": "OpenFeature Bot <109696520+openfeaturebot@users.noreply.github.com>",
   "packages": {
     "providers/openfeature-provider-flagd": {
       "package-name": "openfeature-provider-flagd",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
+    },
+    "providers/openfeature-provider-ofrep": {
+      "package-name": "openfeature-provider-ofrep",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "versioning": "default",
