@@ -10,7 +10,6 @@ import yaml
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError, ProviderNotReadyError
-from openfeature.provider.provider import AbstractProvider
 
 from ..connector import FlagStateConnector
 from ..flags import FlagStore
@@ -22,12 +21,14 @@ class FileWatcher(FlagStateConnector):
     def __init__(
         self,
         file_path: str,
-        provider: AbstractProvider,
         flag_store: FlagStore,
+        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_error: typing.Callable[[ProviderEventDetails], None],
         poll_interval_seconds: float = 1.0,
     ):
         self.file_path = file_path
-        self.provider = provider
+        self.emit_provider_ready = emit_provider_ready
+        self.emit_provider_error = emit_provider_error
         self.poll_interval_seconds = poll_interval_seconds
 
         self.last_modified = 0.0
@@ -83,7 +84,7 @@ class FileWatcher(FlagStateConnector):
             self.flag_store.update(data)
 
             if self.should_emit_ready_on_success:
-                self.provider.emit_provider_ready(
+                self.emit_provider_ready(
                     ProviderEventDetails(
                         message="Reloading file contents recovered from error state"
                     )
@@ -95,4 +96,4 @@ class FileWatcher(FlagStateConnector):
     def handle_error(self, error_message: str) -> None:
         logger.exception(error_message)
         self.should_emit_ready_on_success = True
-        self.provider.emit_provider_error(ProviderEventDetails(message=error_message))
+        self.emit_provider_error(ProviderEventDetails(message=error_message))

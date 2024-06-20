@@ -5,15 +5,16 @@ from dataclasses import dataclass
 
 from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError
-from openfeature.provider.provider import AbstractProvider
 
 
 class FlagStore:
     def __init__(
         self,
-        provider: AbstractProvider,
+        emit_provider_configuration_changed: typing.Callable[
+            [ProviderEventDetails], None
+        ],
     ):
-        self.provider = provider
+        self.emit_provider_configuration_changed = emit_provider_configuration_changed
         self.flags: typing.Mapping[str, "Flag"] = {}
 
     def get_flag(self, key: str) -> typing.Optional["Flag"]:
@@ -34,7 +35,7 @@ class FlagStore:
             raise ParseError("`flags` key of configuration must be a dictionary")
         self.flags = {key: Flag.from_dict(key, data) for key, data in flags.items()}
 
-        self.provider.emit_provider_configuration_changed(
+        self.emit_provider_configuration_changed(
             ProviderEventDetails(flags_changed=list(self.flags.keys()))
         )
 

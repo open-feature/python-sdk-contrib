@@ -4,9 +4,9 @@ import typing
 from json_logic import builtins, jsonLogic  # type: ignore[import-untyped]
 
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
 from openfeature.exception import FlagNotFoundError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
-from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
 from .process.connector import FlagStateConnector
@@ -27,19 +27,32 @@ class InProcessResolver:
         "sem_ver": sem_ver,
     }
 
-    def __init__(self, config: Config, provider: AbstractProvider):
+    def __init__(
+        self,
+        config: Config,
+        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_error: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_configuration_changed: typing.Callable[
+            [ProviderEventDetails], None
+        ],
+    ):
         self.config = config
-        self.provider = provider
-        self.flag_store = FlagStore(provider)
+        self.flag_store = FlagStore(emit_provider_configuration_changed)
         self.connector: FlagStateConnector = (
             FileWatcher(
                 self.config.offline_flag_source_path,
-                self.provider,
                 self.flag_store,
+                emit_provider_ready,
+                emit_provider_error,
                 self.config.offline_poll_interval_seconds,
             )
             if self.config.offline_flag_source_path
-            else GrpcWatcher(self.config, self.provider, self.flag_store)
+            else GrpcWatcher(
+                self.config,
+                self.flag_store,
+                emit_provider_ready,
+                emit_provider_error,
+            )
         )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:

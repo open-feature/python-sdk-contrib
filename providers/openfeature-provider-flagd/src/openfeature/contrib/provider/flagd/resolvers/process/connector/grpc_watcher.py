@@ -2,13 +2,13 @@ import json
 import logging
 import threading
 import time
+import typing
 
 import grpc
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
 from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
-from openfeature.provider.provider import AbstractProvider
 
 from ....config import Config
 from ....proto.flagd.sync.v1 import sync_pb2, sync_pb2_grpc
@@ -22,9 +22,12 @@ class GrpcWatcher(FlagStateConnector):
     MAX_BACK_OFF = 120
 
     def __init__(
-        self, config: Config, provider: AbstractProvider, flag_store: FlagStore
+        self,
+        config: Config,
+        flag_store: FlagStore,
+        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_error: typing.Callable[[ProviderEventDetails], None],
     ):
-        self.provider = provider
         self.flag_store = flag_store
         channel_factory = grpc.secure_channel if config.tls else grpc.insecure_channel
         self.channel = channel_factory(f"{config.host}:{config.port}")
@@ -32,6 +35,8 @@ class GrpcWatcher(FlagStateConnector):
         self.timeout = config.timeout
         self.retry_backoff_seconds = config.retry_backoff_seconds
         self.selector = config.selector
+        self.emit_provider_ready = emit_provider_ready
+        self.emit_provider_error = emit_provider_error
 
         self.connected = False
 
@@ -71,7 +76,7 @@ class GrpcWatcher(FlagStateConnector):
                     self.flag_store.update(json.loads(flag_str))
 
                     if not self.connected:
-                        self.provider.emit_provider_ready(
+                        self.emit_provider_ready(
                             ProviderEventDetails(
                                 message="gRPC sync connection established"
                             )
@@ -94,7 +99,7 @@ class GrpcWatcher(FlagStateConnector):
                 )
 
             self.connected = False
-            self.provider.emit_provider_error(
+            self.emit_provider_error(
                 ProviderEventDetails(
                     message=f"gRPC sync disconnected, reconnecting in {retry_delay}s",
                     error_code=ErrorCode.GENERAL,

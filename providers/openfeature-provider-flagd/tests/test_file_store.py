@@ -8,7 +8,6 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
     FileWatcher,
 )
 from openfeature.contrib.provider.flagd.resolvers.process.flags import Flag, FlagStore
-from openfeature.provider.provider import AbstractProvider
 
 
 def create_client(provider: FlagdProvider):
@@ -24,9 +23,13 @@ def create_client(provider: FlagdProvider):
     ],
 )
 def test_file_load(file_name: str):
-    provider = Mock(spec=AbstractProvider)
-    flag_store = FlagStore(provider)
-    file_watcher = FileWatcher(f"tests/flags/{file_name}", provider, flag_store)
+    emit_provider_configuration_changed = Mock()
+    emit_provider_ready = Mock()
+    emit_provider_error = Mock()
+    flag_store = FlagStore(emit_provider_configuration_changed)
+    file_watcher = FileWatcher(
+        f"tests/flags/{file_name}", flag_store, emit_provider_ready, emit_provider_error
+    )
     file_watcher.initialize(None)
 
     flag = flag_store.get_flag("basic-flag")
