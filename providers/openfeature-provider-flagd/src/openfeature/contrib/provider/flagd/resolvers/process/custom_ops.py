@@ -1,5 +1,6 @@
 import logging
 import typing
+from dataclasses import dataclass
 
 import mmh3
 import semver
@@ -59,7 +60,9 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
 
 def __parse_fraction(arg: JsonLogicArg) -> typing.Optional[Fraction]:
     if not isinstance(arg, (tuple, list)) or not arg:
-        logger.error("Fractional variant weights must be (str, int) tuple")
+        logger.error(
+            "Fractional variant weights must be (str, int) tuple or [str] list"
+        )
         return None
 
     if not isinstance(arg[0], str):
@@ -74,10 +77,9 @@ def __parse_fraction(arg: JsonLogicArg) -> typing.Optional[Fraction]:
         )
         return None
 
-    fraction = Fraction()
+    fraction = Fraction(variant=arg[0])
     if len(arg) >= 2:
         fraction.weight = arg[1]
-    fraction.variant = arg[0]
 
     return fraction
 
