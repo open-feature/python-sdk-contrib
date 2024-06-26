@@ -10,10 +10,10 @@ JsonLogicArg = typing.Union[JsonPrimitive, typing.Sequence[JsonPrimitive]]
 logger = logging.getLogger("openfeature.contrib")
 
 
+@dataclass
 class Fraction:
-    weight: int = 1
     variant: str
-    pass
+    weight: int = 1
 
 
 def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
