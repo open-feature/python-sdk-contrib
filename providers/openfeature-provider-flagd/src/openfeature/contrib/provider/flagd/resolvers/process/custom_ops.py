@@ -44,7 +44,7 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     total_weight = 0
     fractions = []
     for arg in args:
-        fraction = __parse_fraction(arg)
+        fraction = _parse_fraction(arg)
         if fraction:
             fractions.append(fraction)
             total_weight += fraction.weight
@@ -58,7 +58,7 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     return None
 
 
-def __parse_fraction(arg: JsonLogicArg) -> typing.Optional[Fraction]:
+def _parse_fraction(arg: JsonLogicArg) -> typing.Optional[Fraction]:
     if not isinstance(arg, (tuple, list)) or not arg:
         logger.error(
             "Fractional variant weights must be (str, int) tuple or [str] list"
