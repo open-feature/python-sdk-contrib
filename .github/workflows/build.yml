@@ -49,8 +49,9 @@ jobs:
         run: hatch run cov
         working-directory: ${{ matrix.package }}
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4.3.0
+      - if: matrix.python-version == '3.11'
+        name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4.5.0
         with:
           name: Code Coverage for ${{ matrix.package }} on Python ${{ matrix.python-version }}
           directory: ${{ matrix.package }}
