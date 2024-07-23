@@ -25,6 +25,7 @@ repos:
           - opentelemetry-api
           - types-protobuf
           - types-PyYAML
+          - types-requests
           - mmh3
           - semver
           - panzi-json-logic
