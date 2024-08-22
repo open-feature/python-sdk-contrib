@@ -48,7 +48,9 @@ def test_file_load_errors(file_name: str):
         "invalid-semver-args.json",
         "invalid-stringcomp-args.json",
         "invalid-fractional-args.json",
+        "invalid-fractional-args-wrong-content.json",
         "invalid-fractional-weights.json",
+        "invalid-fractional-weights-strings.json",
     ],
 )
 def test_json_logic_parse_errors(file_name: str):
