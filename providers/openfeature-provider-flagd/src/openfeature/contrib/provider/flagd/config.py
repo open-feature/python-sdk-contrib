@@ -30,6 +30,8 @@ class Config:
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
+        retry_backoff_seconds: typing.Optional[float] = None,
+        selector: typing.Optional[str] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         offline_poll_interval_seconds: typing.Optional[float] = None,
@@ -42,6 +44,14 @@ class Config:
             env_or_default("FLAGD_TLS", False, cast=str_to_bool) if tls is None else tls
         )
         self.timeout = 5 if timeout is None else timeout
+        self.retry_backoff_seconds: float = (
+            float(env_or_default("FLAGD_RETRY_BACKOFF_SECONDS", 2.0))
+            if retry_backoff_seconds is None
+            else retry_backoff_seconds
+        )
+        self.selector = (
+            env_or_default("FLAGD_SELECTOR", None) if selector is None else selector
+        )
         self.resolver_type = (
             ResolverType(env_or_default("FLAGD_RESOLVER_TYPE", "grpc"))
             if resolver_type is None

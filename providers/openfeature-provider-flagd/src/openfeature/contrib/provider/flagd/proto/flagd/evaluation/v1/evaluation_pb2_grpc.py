@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from flagd.evaluation.v1 import evaluation_pb2 as flagd_dot_evaluation_dot_v1_dot_evaluation__pb2
+from . import evaluation_pb2 as flagd_dot_evaluation_dot_v1_dot_evaluation__pb2
 
 
 class ServiceStub(object):

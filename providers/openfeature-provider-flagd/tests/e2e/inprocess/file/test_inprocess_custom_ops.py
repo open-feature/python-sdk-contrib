@@ -2,6 +2,8 @@ import pytest
 from pytest_bdd import scenario
 from tests.conftest import setup_flag_file
 
+GHERKIN_FOLDER = "../../../../test-harness/gherkin/"
+
 
 @pytest.fixture
 def flag_file(tmp_path):
@@ -9,14 +11,15 @@ def flag_file(tmp_path):
 
 
 @scenario(
-    "../../test-harness/gherkin/flagd-json-evaluator.feature", "Fractional operator"
+    f"{GHERKIN_FOLDER}flagd-json-evaluator.feature",
+    "Fractional operator",
 )
 def test_fractional_operator():
     """Fractional operator."""
 
 
 @scenario(
-    "../../test-harness/gherkin/flagd-json-evaluator.feature",
+    f"{GHERKIN_FOLDER}flagd-json-evaluator.feature",
     "Semantic version operator numeric comparison",
 )
 def test_semantic_version_operator_numeric_comparison():
@@ -24,7 +27,7 @@ def test_semantic_version_operator_numeric_comparison():
 
 
 @scenario(
-    "../../test-harness/gherkin/flagd-json-evaluator.feature",
+    f"{GHERKIN_FOLDER}flagd-json-evaluator.feature",
     "Semantic version operator semantic comparison",
 )
 def test_semantic_version_operator_semantic_comparison():
@@ -32,7 +35,8 @@ def test_semantic_version_operator_semantic_comparison():
 
 
 @scenario(
-    "../../test-harness/gherkin/flagd-json-evaluator.feature", "Substring operators"
+    f"{GHERKIN_FOLDER}flagd-json-evaluator.feature",
+    "Substring operators",
 )
 def test_substring_operators():
     """Substring operators."""
