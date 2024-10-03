@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         package:
           - "hooks/openfeature-hooks-opentelemetry"
           - "providers/openfeature-provider-flagd"
@@ -37,6 +37,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
+          allow-prereleases: true
 
       - uses: bufbuild/buf-action@v1
         with:
