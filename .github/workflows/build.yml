@@ -38,9 +38,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - uses: bufbuild/buf-setup-action@v1.28.1
+      - uses: bufbuild/buf-action@v1
         with:
           github_token: ${{ github.token }}
+          setup_only: true
 
       - name: Install hatch
         run: pip install hatch
@@ -70,7 +71,7 @@ jobs:
           cache: "pip"
 
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.0
+        uses: pre-commit/action@v3.0.1
 
   sast:
     runs-on: ubuntu-latest
