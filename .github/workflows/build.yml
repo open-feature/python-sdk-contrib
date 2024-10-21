@@ -37,7 +37,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
-          allow-prereleases: true
 
       - uses: bufbuild/buf-action@v1
         with:
