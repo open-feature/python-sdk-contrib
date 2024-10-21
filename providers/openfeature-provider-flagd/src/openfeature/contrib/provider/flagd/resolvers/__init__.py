@@ -1,7 +1,5 @@
 import typing
 
-from typing_extensions import Protocol
-
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails
 
@@ -9,7 +7,7 @@ from .grpc import GrpcResolver
 from .in_process import InProcessResolver
 
 
-class AbstractResolver(Protocol):
+class AbstractResolver(typing.Protocol):
     def shutdown(self) -> None: ...
 
     def resolve_boolean_details(
