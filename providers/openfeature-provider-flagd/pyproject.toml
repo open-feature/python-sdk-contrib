@@ -37,6 +37,9 @@ dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
   "pytest-bdd",
+  "testcontainers",
+  "asserts",
+  "grpcio-health-checking==1.60.0",
 ]
 post-install-commands = [
   "./scripts/gen_protos.sh"
