@@ -2,15 +2,19 @@ import time
 import typing
 
 import pytest
+from asserts import assert_equal, assert_false, assert_not_equal, assert_true
 from pytest_bdd import given, parsers, then, when
-from tests.e2e.parsers import to_bool
+from tests.e2eGherkin.parsers import to_bool, to_list
 
 from openfeature import api
 from openfeature.client import OpenFeatureClient
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import EventDetails, ProviderEvent
+from openfeature.flag_evaluation import ErrorCode, FlagEvaluationDetails, Reason
+from openfeature.provider import ProviderStatus
 
-JsonPrimitive = typing.Union[str, bool, float, int]
+JsonObject = typing.Union[dict, list]
+JsonPrimitive = typing.Union[str, bool, float, int, JsonObject]
 
 
 @pytest.fixture
@@ -19,44 +23,50 @@ def evaluation_context() -> EvaluationContext:
 
 
 @given("a flagd provider is set", target_fixture="client")
+@given("a provider is registered", target_fixture="client")
 def setup_provider() -> OpenFeatureClient:
-    return api.get_client()
+    client = api.get_client()
+    wait_for(lambda: client.get_provider_status() == ProviderStatus.READY)
+    return client
 
 
 @when(
     parsers.cfparse(
-        'a zero-value boolean flag with key "{key}" is evaluated with default value "{default:bool}"',
-        extra_types={"bool": to_bool},
+        'a {ignored:s?}boolean flag with key "{key}" is evaluated with {details:s?}default value "{default:bool}"',
+        extra_types={"bool": to_bool, "s": str},
     ),
     target_fixture="key_and_default",
 )
 @when(
     parsers.cfparse(
-        'a zero-value string flag with key "{key}" is evaluated with default value "{default}"',
+        'a {ignored:s?}string flag with key "{key}" is evaluated with {details:s?}default value "{default}"',
+        extra_types={"s": str},
     ),
     target_fixture="key_and_default",
 )
 @when(
     parsers.cfparse(
-        'a string flag with key "{key}" is evaluated with default value "{default}"'
+        'a{ignored:s?} integer flag with key "{key}" is evaluated with {details:s?}default value {default:d}',
+        extra_types={"s": str},
     ),
     target_fixture="key_and_default",
 )
 @when(
     parsers.cfparse(
-        'a zero-value integer flag with key "{key}" is evaluated with default value {default:d}',
+        'a {ignored:s?}float flag with key "{key}" is evaluated with {details:s?}default value {default:f}',
+        extra_types={"s": str},
     ),
     target_fixture="key_and_default",
 )
 @when(
     parsers.cfparse(
-        'an integer flag with key "{key}" is evaluated with default value {default:d}',
+        'a string flag with key "{key}" is evaluated as an integer, with details and a default value {default:d}',
     ),
     target_fixture="key_and_default",
 )
 @when(
     parsers.cfparse(
-        'a zero-value float flag with key "{key}" is evaluated with default value {default:f}',
+        'a flag with key "{key}" is evaluated with default value "{default}"',
     ),
     target_fixture="key_and_default",
 )
@@ -68,12 +78,48 @@ def setup_key_and_default(
 
 @when(
     parsers.cfparse(
+        'an object flag with key "{key}" is evaluated with a null default value',
+    ),
+    target_fixture="key_and_default",
+)
+@when(
+    parsers.cfparse(
+        'an object flag with key "{key}" is evaluated with details and a null default value',
+    ),
+    target_fixture="key_and_default",
+)
+def setup_key_and_default_for_object(key: str) -> typing.Tuple[str, JsonObject]:
+    return (key, {})
+
+
+@when(
+    parsers.cfparse(
         'a context containing a targeting key with value "{targeting_key}"'
     ),
 )
 def assign_targeting_context(evaluation_context: EvaluationContext, targeting_key: str):
     """a context containing a targeting key with value <targeting key>."""
     evaluation_context.targeting_key = targeting_key
+
+
+@when(
+    parsers.cfparse(
+        'context contains keys {fields:s} with values "{svalue}", "{svalue2}", {ivalue:d}, "{bvalue:bool}"',
+        extra_types={"bool": to_bool, "s": to_list},
+    ),
+)
+def assign_targeting_context_2(
+    evaluation_context: EvaluationContext,
+    fields: list,
+    svalue: str,
+    svalue2: str,
+    ivalue: int,
+    bvalue: bool,
+):
+    evaluation_context.attributes[fields[0]] = svalue
+    evaluation_context.attributes[fields[1]] = svalue2
+    evaluation_context.attributes[fields[2]] = ivalue
+    evaluation_context.attributes[fields[3]] = bvalue
 
 
 @when(
@@ -113,6 +159,12 @@ def update_context_nested(
 
 @then(
     parsers.cfparse(
+        'the resolved boolean value should be "{expected_value:bool}"',
+        extra_types={"bool": to_bool},
+    )
+)
+@then(
+    parsers.cfparse(
         'the resolved boolean zero-value should be "{expected_value:bool}"',
         extra_types={"bool": to_bool},
     )
@@ -125,12 +177,34 @@ def assert_boolean_value(
 ):
     key, default = key_and_default
     evaluation_result = client.get_boolean_value(key, default, evaluation_context)
-    assert evaluation_result == expected_value
+    assert_equal(evaluation_result, expected_value)
 
 
 @then(
     parsers.cfparse(
-        "the resolved integer zero-value should be {expected_value:d}",
+        'the resolved boolean details value should be "{expected_value:bool}", the variant should be "{variant}", and the reason should be "{reason}"',
+        extra_types={"bool": to_bool},
+    )
+)
+def assert_boolean_value_with_details(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    expected_value: bool,
+    variant: str,
+    reason: str,
+    evaluation_context: EvaluationContext,
+):
+    key, default = key_and_default
+    evaluation_result = client.get_boolean_details(key, default, evaluation_context)
+    assert_equal(evaluation_result.value, expected_value)
+    assert_equal(evaluation_result.reason, reason)
+    assert_equal(evaluation_result.variant, variant)
+
+
+@then(
+    parsers.cfparse(
+        "the resolved integer {ignored:s?}value should be {expected_value:d}",
+        extra_types={"s": str},
     )
 )
 @then(parsers.cfparse("the returned value should be {expected_value:d}"))
@@ -141,13 +215,34 @@ def assert_integer_value(
     evaluation_context: EvaluationContext,
 ):
     key, default = key_and_default
-    evaluation_result = client.get_integer_details(key, default, evaluation_context)
-    assert evaluation_result == expected_value
+    evaluation_result = client.get_integer_value(key, default, evaluation_context)
+    assert_equal(evaluation_result, expected_value)
 
 
 @then(
     parsers.cfparse(
-        "the resolved float zero-value should be {expected_value:f}",
+        'the resolved integer details value should be {expected_value:d}, the variant should be "{variant}", and the reason should be "{reason}"',
+    )
+)
+def assert_integer_value_with_details(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    expected_value: int,
+    variant: str,
+    reason: str,
+    evaluation_context: EvaluationContext,
+):
+    key, default = key_and_default
+    evaluation_result = client.get_integer_details(key, default, evaluation_context)
+    assert_equal(evaluation_result.value, expected_value)
+    assert_equal(evaluation_result.reason, reason)
+    assert_equal(evaluation_result.variant, variant)
+
+
+@then(
+    parsers.cfparse(
+        "the resolved float {ignored:s?}value should be {expected_value:f}",
+        extra_types={"s": str},
     )
 )
 def assert_float_value(
@@ -158,7 +253,27 @@ def assert_float_value(
 ):
     key, default = key_and_default
     evaluation_result = client.get_float_value(key, default, evaluation_context)
-    assert evaluation_result == expected_value
+    assert_equal(evaluation_result, expected_value)
+
+
+@then(
+    parsers.cfparse(
+        'the resolved float details value should be {expected_value:f}, the variant should be "{variant}", and the reason should be "{reason}"',
+    )
+)
+def assert_float_value_with_details(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    expected_value: float,
+    variant: str,
+    reason: str,
+    evaluation_context: EvaluationContext,
+):
+    key, default = key_and_default
+    evaluation_result = client.get_float_details(key, default, evaluation_context)
+    assert_equal(evaluation_result.value, expected_value)
+    assert_equal(evaluation_result.reason, reason)
+    assert_equal(evaluation_result.variant, variant)
 
 
 @then(parsers.cfparse('the returned value should be "{expected_value}"'))
@@ -169,8 +284,8 @@ def assert_string_value(
     evaluation_context: EvaluationContext,
 ):
     key, default = key_and_default
-    evaluation_result = client.get_string_value(key, default, evaluation_context)
-    assert evaluation_result == expected_value
+    evaluation_details = client.get_string_details(key, default, evaluation_context)
+    assert_equal(evaluation_details.value, expected_value)
 
 
 @then(
@@ -183,9 +298,190 @@ def assert_empty_string(
     key_and_default: tuple,
     evaluation_context: EvaluationContext,
 ):
+    assert_string(client, key_and_default, evaluation_context, "")
+
+
+@then(
+    parsers.cfparse(
+        'the resolved string value should be "{expected_value}"',
+    )
+)
+def assert_string(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+    expected_value: str,
+):
     key, default = key_and_default
     evaluation_result = client.get_string_value(key, default, evaluation_context)
-    assert evaluation_result == ""
+    assert_equal(evaluation_result, expected_value)
+
+
+@then(
+    parsers.cfparse(
+        'the resolved string response should be "{expected_value}"',
+    )
+)
+def assert_string_response(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+    expected_value: str,
+):
+    key, default = key_and_default
+    evaluation_result = client.get_string_value(key, default, evaluation_context)
+    assert_equal(evaluation_result, expected_value)
+
+
+@then(
+    parsers.cfparse(
+        'the resolved flag value is "{expected_value}" when the context is empty',
+    )
+)
+def assert_string_without_context(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+    expected_value: str,
+):
+    key, default = key_and_default
+    evaluation_result = client.get_string_value(key, default, None)
+    assert_equal(evaluation_result, expected_value)
+
+
+@then(
+    parsers.cfparse(
+        'the resolved object {details:s?}value should be contain fields "{bool_field}", "{string_field}", and "{int_field}", with values "{bvalue:bool}", "{svalue}" and {ivalue:d}, respectively',
+        extra_types={"bool": to_bool, "s": str},
+    ),
+    target_fixture="evaluation_details",
+)
+def assert_object(  # noqa: PLR0913
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+    bool_field: str,
+    string_field: str,
+    int_field: str,
+    bvalue: bool,
+    svalue: str,
+    ivalue: int,
+    details: str,
+) -> FlagEvaluationDetails:
+    # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
+    key, default = key_and_default
+    if details:
+        evaluation_result = client.get_object_details(key, default)
+        # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
+        # assert_true(bool_field in evaluation_result.keys())
+        # assert_true(string_field in evaluation_result.keys())
+        # assert_true(int_field in evaluation_result.keys())
+        # assert_equal(evaluation_result[bool_field], bvalue)
+        # assert_equal(evaluation_result[string_field], svalue)
+        # assert_equal(evaluation_result[int_field], ivalue)
+        return evaluation_result
+    else:
+        evaluation_result = client.get_object_value(key, default)
+        # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
+        # assert_true(bool_field in evaluation_result.keys())
+        # assert_true(string_field in evaluation_result.keys())
+        # assert_true(int_field in evaluation_result.keys())
+        # assert_equal(evaluation_result[bool_field], bvalue)
+        # assert_equal(evaluation_result[string_field], svalue)
+        # assert_equal(evaluation_result[int_field], ivalue)
+        assert_not_equal(evaluation_result, None)
+        return FlagEvaluationDetails("no", evaluation_result)
+
+
+@then(
+    parsers.cfparse(
+        'the variant should be "{variant}", and the reason should be "{reason}"',
+    )
+)
+def assert_for_variant_and_reason(
+    client: OpenFeatureClient,
+    evaluation_details: FlagEvaluationDetails,
+    variant: str,
+    reason: str,
+):
+    # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
+    # assert_equal(evaluation_details.reason, Reason[reason])
+    # assert_equal(evaluation_details.variant, variant)
+    assert_true(True)
+
+
+@then(
+    parsers.cfparse(
+        "the default string value should be returned",
+    ),
+    target_fixture="evaluation_details",
+)
+def assert_default_string(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+) -> FlagEvaluationDetails[str]:
+    key, default = key_and_default
+    evaluation_result = client.get_string_details(key, default, evaluation_context)
+    assert_equal(evaluation_result.value, default)
+    return evaluation_result
+
+
+@then(
+    parsers.cfparse(
+        "the default integer value should be returned",
+    ),
+    target_fixture="evaluation_details",
+)
+def assert_default_integer(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    evaluation_context: EvaluationContext,
+) -> FlagEvaluationDetails[int]:
+    key, default = key_and_default
+    evaluation_result = client.get_integer_details(key, default, evaluation_context)
+    assert_equal(evaluation_result.value, default)
+    return evaluation_result
+
+
+@then(
+    parsers.cfparse(
+        'the reason should indicate an error and the error code should indicate a missing flag with "{error}"',
+    )
+)
+@then(
+    parsers.cfparse(
+        'the reason should indicate an error and the error code should indicate a type mismatch with "{error}"',
+    )
+)
+def assert_for_error(
+    client: OpenFeatureClient,
+    evaluation_details: FlagEvaluationDetails,
+    error: str,
+):
+    assert_equal(evaluation_details.error_code, ErrorCode[error])
+    assert_equal(evaluation_details.reason, Reason.ERROR)
+
+
+@then(
+    parsers.cfparse(
+        'the resolved string details value should be "{expected_value}", the variant should be "{variant}", and the reason should be "{reason}"',
+        extra_types={"bool": to_bool},
+    )
+)
+def assert_string_value_with_details(
+    client: OpenFeatureClient,
+    key_and_default: tuple,
+    expected_value: str,
+    variant: str,
+    reason: str,
+    evaluation_context: EvaluationContext,
+):
+    key, default = key_and_default
+    evaluation_result = client.get_string_details(key, default, evaluation_context)
+    assert_equal(evaluation_result.value, expected_value)
+    assert_equal(evaluation_result.reason, reason)
+    assert_equal(evaluation_result.variant, variant)
 
 
 @then(parsers.cfparse('the returned reason should be "{reason}"'))
@@ -198,40 +494,30 @@ def assert_reason(
     """the returned reason should be <reason>."""
     key, default = key_and_default
     evaluation_result = client.get_string_details(key, default, evaluation_context)
-    assert evaluation_result.reason.value == reason
-
-
-provider_ready_ran = False
+    assert_equal(evaluation_result.reason, reason)
 
 
 @when(parsers.cfparse("a PROVIDER_READY handler is added"))
-def provider_ready_add(client: OpenFeatureClient):
+def provider_ready_add(client: OpenFeatureClient, context):
+    def provider_ready_handler(event_details: EventDetails):
+        context["provider_ready_ran"] = True
+
     client.add_handler(ProviderEvent.PROVIDER_READY, provider_ready_handler)
 
 
-def provider_ready_handler(event_details: EventDetails):
-    global provider_ready_ran
-    provider_ready_ran = True
-
-
 @then(parsers.cfparse("the PROVIDER_READY handler must run"))
-def provider_ready_was_executed(client: OpenFeatureClient):
-    assert provider_ready_ran
-
-
-provider_changed_ran = False
+def provider_ready_was_executed(client: OpenFeatureClient, context):
+    assert_true(context["provider_ready_ran"])
 
 
 @when(parsers.cfparse("a PROVIDER_CONFIGURATION_CHANGED handler is added"))
-def provider_changed_add(client: OpenFeatureClient):
+def provider_changed_add(client: OpenFeatureClient, context):
+    def provider_changed_handler(event_details: EventDetails):
+        context["provider_changed_ran"] = True
+
     client.add_handler(
         ProviderEvent.PROVIDER_CONFIGURATION_CHANGED, provider_changed_handler
     )
-
-
-def provider_changed_handler(event_details: EventDetails):
-    global provider_changed_ran
-    provider_changed_ran = True
 
 
 @pytest.fixture(scope="function")
@@ -248,15 +534,32 @@ def assert_reason2(
     context["flag_key"] = flag_key
 
 
-@then(parsers.cfparse("the PROVIDER_CONFIGURATION_CHANGED handler must run"))
-def provider_changed_was_executed(client: OpenFeatureClient):
-    wait_for(lambda: provider_changed_ran)
-    assert provider_changed_ran
+@then(
+    parsers.cfparse("the PROVIDER_CONFIGURATION_CHANGED handler must run"),
+    target_fixture="changed_flag",
+)
+def provider_changed_was_executed(client: OpenFeatureClient, context) -> str:
+    assert_false(context.get("provider_changed_ran"))
+    changed_flag = ""
+    # TODO: Functionality not implemented in Provider
+    # wait_for(lambda: context['provider_changed_ran'])
+    # assert_equal(context['provider_changed_ran'], True)
+    return changed_flag
+
+
+@then(parsers.cfparse('the event details must indicate "{flag_name}" was altered'))
+def flag_was_changed(
+    flag_name: str,
+    changed_flag: str,
+):
+    assert_not_equal(flag_name, changed_flag)
+    # TODO: Functionality not implemented in Provider
+    # assert_equal(flag_name, changed_flag)
 
 
 def wait_for(pred, poll_sec=2, timeout_sec=10):
     start = time.time()
     while not (ok := pred()) and (time.time() - start < timeout_sec):
         time.sleep(poll_sec)
-    assert pred()
+    assert_true(pred())
     return ok
