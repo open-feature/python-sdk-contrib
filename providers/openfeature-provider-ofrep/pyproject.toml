@@ -18,6 +18,7 @@ classifiers = [
 keywords = []
 dependencies = [
   "openfeature-sdk>=0.7.0",
+  "requests"
 ]
 requires-python = ">=3.8"
 
@@ -30,6 +31,8 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "requests-mock",
+  "types-requests",
 ]
 
 [tool.hatch.envs.default.scripts]

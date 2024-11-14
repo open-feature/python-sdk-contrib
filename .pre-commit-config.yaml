@@ -1,14 +1,14 @@
 default_stages: [commit]
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.3
+    rev: v0.6.3
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: check-toml
       - id: check-yaml
@@ -16,7 +16,7 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
+    rev: v1.11.2
     hooks:
       - id: mypy
         args: [--python-version=3.8]
@@ -25,6 +25,7 @@ repos:
           - opentelemetry-api
           - types-protobuf
           - types-PyYAML
+          - types-requests
           - mmh3
           - semver
           - panzi-json-logic

@@ -2,7 +2,7 @@ import time
 import typing
 
 import pytest
-from asserts import assert_equal, assert_false, assert_not_equal, assert_true
+from asserts import assert_equal, assert_in, assert_not_equal, assert_true
 from pytest_bdd import given, parsers, then, when
 from tests.e2eGherkin.parsers import to_bool, to_list
 
@@ -359,7 +359,6 @@ def assert_string_without_context(
 def assert_object(  # noqa: PLR0913
     client: OpenFeatureClient,
     key_and_default: tuple,
-    evaluation_context: EvaluationContext,
     bool_field: str,
     string_field: str,
     int_field: str,
@@ -368,29 +367,26 @@ def assert_object(  # noqa: PLR0913
     ivalue: int,
     details: str,
 ) -> FlagEvaluationDetails:
-    # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
     key, default = key_and_default
     if details:
         evaluation_result = client.get_object_details(key, default)
-        # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
-        # assert_true(bool_field in evaluation_result.keys())
-        # assert_true(string_field in evaluation_result.keys())
-        # assert_true(int_field in evaluation_result.keys())
-        # assert_equal(evaluation_result[bool_field], bvalue)
-        # assert_equal(evaluation_result[string_field], svalue)
-        # assert_equal(evaluation_result[int_field], ivalue)
+        value = evaluation_result.value
+        assert_in(bool_field, value)
+        assert_in(string_field, value)
+        assert_in(string_field, value)
+        assert_equal(value[bool_field], bvalue)
+        assert_equal(value[string_field], svalue)
+        assert_equal(value[int_field], ivalue)
         return evaluation_result
     else:
         evaluation_result = client.get_object_value(key, default)
-        # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
-        # assert_true(bool_field in evaluation_result.keys())
-        # assert_true(string_field in evaluation_result.keys())
-        # assert_true(int_field in evaluation_result.keys())
-        # assert_equal(evaluation_result[bool_field], bvalue)
-        # assert_equal(evaluation_result[string_field], svalue)
-        # assert_equal(evaluation_result[int_field], ivalue)
+        assert_in(bool_field, evaluation_result)
+        assert_in(string_field, evaluation_result)
+        assert_in(string_field, evaluation_result)
+        assert_equal(evaluation_result[bool_field], bvalue)
+        assert_equal(evaluation_result[string_field], svalue)
+        assert_equal(evaluation_result[int_field], ivalue)
         assert_not_equal(evaluation_result, None)
-        return FlagEvaluationDetails("no", evaluation_result)
 
 
 @then(
@@ -404,10 +400,8 @@ def assert_for_variant_and_reason(
     variant: str,
     reason: str,
 ):
-    # TODO: Fix this test with https://github.com/open-feature/python-sdk-contrib/issues/102
-    # assert_equal(evaluation_details.reason, Reason[reason])
-    # assert_equal(evaluation_details.variant, variant)
-    assert_true(True)
+    assert_equal(evaluation_details.reason, Reason[reason])
+    assert_equal(evaluation_details.variant, variant)
 
 
 @then(
@@ -536,25 +530,19 @@ def assert_reason2(
 
 @then(
     parsers.cfparse("the PROVIDER_CONFIGURATION_CHANGED handler must run"),
-    target_fixture="changed_flag",
 )
-def provider_changed_was_executed(client: OpenFeatureClient, context) -> str:
-    assert_false(context.get("provider_changed_ran"))
-    changed_flag = ""
-    # TODO: Functionality not implemented in Provider
-    # wait_for(lambda: context['provider_changed_ran'])
-    # assert_equal(context['provider_changed_ran'], True)
-    return changed_flag
+def provider_changed_was_executed(client: OpenFeatureClient, context):
+    wait_for(lambda: context.get("provider_changed_ran"))
+    assert_equal(context["provider_changed_ran"], True)
 
 
 @then(parsers.cfparse('the event details must indicate "{flag_name}" was altered'))
 def flag_was_changed(
     flag_name: str,
-    changed_flag: str,
+    context,
 ):
-    assert_not_equal(flag_name, changed_flag)
-    # TODO: Functionality not implemented in Provider
-    # assert_equal(flag_name, changed_flag)
+    wait_for(lambda: flag_name in context.get("changed_flags"))
+    assert_in(flag_name, context.get("changed_flags"))
 
 
 def wait_for(pred, poll_sec=2, timeout_sec=10):

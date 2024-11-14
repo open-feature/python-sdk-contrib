@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         package:
           - "hooks/openfeature-hooks-opentelemetry"
           - "providers/openfeature-provider-flagd"
@@ -38,9 +38,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - uses: bufbuild/buf-setup-action@v1.28.1
+      - uses: bufbuild/buf-action@v1
         with:
           github_token: ${{ github.token }}
+          setup_only: true
 
       - name: Install hatch
         run: pip install hatch
@@ -49,8 +50,9 @@ jobs:
         run: hatch run cov
         working-directory: ${{ matrix.package }}
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4.3.0
+      - if: matrix.python-version == '3.11'
+        name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4.5.0
         with:
           name: Code Coverage for ${{ matrix.package }} on Python ${{ matrix.python-version }}
           directory: ${{ matrix.package }}
@@ -69,7 +71,7 @@ jobs:
           cache: "pip"
 
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.0
+        uses: pre-commit/action@v3.0.1
 
   sast:
     runs-on: ubuntu-latest

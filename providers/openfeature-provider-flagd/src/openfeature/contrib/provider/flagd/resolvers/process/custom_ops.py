@@ -1,5 +1,6 @@
 import logging
 import typing
+from dataclasses import dataclass
 
 import mmh3
 import semver
@@ -8,6 +9,12 @@ JsonPrimitive = typing.Union[str, bool, float, int]
 JsonLogicArg = typing.Union[JsonPrimitive, typing.Sequence[JsonPrimitive]]
 
 logger = logging.getLogger("openfeature.contrib")
+
+
+@dataclass
+class Fraction:
+    variant: str
+    weight: int = 1
 
 
 def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
@@ -32,26 +39,49 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
         return None
 
     hash_ratio = abs(mmh3.hash(bucket_by)) / (2**31 - 1)
-    bucket = int(hash_ratio * 100)
+    bucket = hash_ratio * 100
 
+    total_weight = 0
+    fractions = []
     for arg in args:
-        if (
-            not isinstance(arg, (tuple, list))
-            or len(arg) != 2
-            or not isinstance(arg[0], str)
-            or not isinstance(arg[1], int)
-        ):
-            logger.error("Fractional variant weights must be (str, int) tuple")
-            return None
-    variant_weights: typing.Tuple[typing.Tuple[str, int]] = args  # type: ignore[assignment]
+        fraction = _parse_fraction(arg)
+        if fraction:
+            fractions.append(fraction)
+            total_weight += fraction.weight
 
-    range_end = 0
-    for variant, weight in variant_weights:
-        range_end += weight
+    range_end: float = 0
+    for fraction in fractions:
+        range_end += fraction.weight * 100 / total_weight
         if bucket < range_end:
-            return variant
+            return fraction.variant
 
     return None
+
+
+def _parse_fraction(arg: JsonLogicArg) -> typing.Optional[Fraction]:
+    if not isinstance(arg, (tuple, list)) or not arg:
+        logger.error(
+            "Fractional variant weights must be (str, int) tuple or [str] list"
+        )
+        return None
+
+    if not isinstance(arg[0], str):
+        logger.error(
+            "Fractional variant identifier (first element) isn't of type 'str'"
+        )
+        return None
+
+    if len(arg) >= 2 and not isinstance(arg[1], int):
+        logger.error(
+            "Fractional variant weight value (second element) isn't of type 'int'"
+        )
+        return None
+
+    fraction = Fraction(variant=arg[0])
+    if len(arg) >= 2:
+        fraction.weight = arg[1]
+
+    return fraction
 
 
 def starts_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
