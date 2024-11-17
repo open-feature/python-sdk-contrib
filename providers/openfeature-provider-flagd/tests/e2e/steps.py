@@ -4,7 +4,7 @@ import typing
 import pytest
 from asserts import assert_equal, assert_in, assert_not_equal, assert_true
 from pytest_bdd import given, parsers, then, when
-from tests.e2eGherkin.parsers import to_bool, to_list
+from tests.e2e.parsers import to_bool, to_list
 
 from openfeature import api
 from openfeature.client import OpenFeatureClient

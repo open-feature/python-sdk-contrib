@@ -1,7 +1,14 @@
 import pytest
 from asserts import assert_true
 from pytest_bdd import parsers, scenarios, then
-from tests.e2eGherkin.parsers import to_bool
+from tests.e2e.parsers import to_bool
+
+from openfeature.contrib.provider.flagd.config import ResolverType
+
+
+@pytest.fixture(autouse=True, scope="package")
+def resolver_type() -> ResolverType:
+    return ResolverType.GRPC
 
 
 @pytest.fixture(autouse=True, scope="package")
