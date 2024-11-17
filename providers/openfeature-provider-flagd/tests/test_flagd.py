@@ -65,7 +65,7 @@ def test_should_get_object_flag_from_flagd(flagd_provider_client):
     }
 
     # When
-    flag = client.get_string_details(flag_key="Key", default_value=return_value)
+    flag = client.get_object_details(flag_key="Key", default_value=return_value)
 
     # Then
     assert flag is not None

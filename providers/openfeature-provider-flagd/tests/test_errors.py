@@ -57,10 +57,11 @@ def test_file_load_errors(file_name: str):
     ],
 )
 def test_json_logic_parse_errors(file_name: str):
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "./flags/"))
     client = create_client(
         FlagdProvider(
             resolver_type=ResolverType.IN_PROCESS,
-            offline_flag_source_path=f"tests/flags/{file_name}",
+            offline_flag_source_path=f"{path}/{file_name}",
         )
     )
 
@@ -71,10 +72,11 @@ def test_json_logic_parse_errors(file_name: str):
 
 
 def test_flag_disabled():
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "./flags/"))
     client = create_client(
         FlagdProvider(
             resolver_type=ResolverType.IN_PROCESS,
-            offline_flag_source_path="tests/flags/basic-flag-disabled.json",
+            offline_flag_source_path=f"{path}/basic-flag-disabled.json",
         )
     )
 
