@@ -5,8 +5,7 @@ from os import listdir
 
 import pytest
 import yaml
-from asserts import assert_true
-from pytest_bdd import parsers, scenarios, then
+from pytest_bdd import scenario, scenarios
 
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
@@ -60,18 +59,10 @@ def setup(request, file_name):
     )
 
 
-@then(
-    parsers.cfparse("the PROVIDER_CONFIGURATION_CHANGED handler must run"),
-)
-def provider_changed_was_executed():
-    assert_true(True)
-    # TODO: DELETE AFTER IMPLEMENTATION OF EVENTS FOR RPC
-
-
-@then(parsers.cfparse('the event details must indicate "{flag_name}" was altered'))
-def flag_was_changed():
-    assert_true(True)
-    # TODO: DELETE AFTER IMPLEMENTATION OF EVENTS FOR RPC
+@pytest.mark.skip(reason="Eventing not implemented")
+@scenario("../../test-harness/gherkin/flagd.feature", "Flag change event")
+def test_flag_change_event():
+    """not implemented"""
 
 
 scenarios(
