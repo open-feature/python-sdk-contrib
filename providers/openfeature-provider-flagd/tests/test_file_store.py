@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock
 
 import pytest
@@ -25,7 +26,8 @@ def create_client(provider: FlagdProvider):
 )
 def test_file_load_errors(file_name: str):
     provider = Mock(spec=AbstractProvider)
-    file_store = FileWatcherFlagStore(f"tests/flags/{file_name}", provider)
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "./flags/"))
+    file_store = FileWatcherFlagStore(f"{path}/{file_name}", provider)
 
     flag = file_store.flag_data.get("basic-flag")
 

@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from openfeature import api
@@ -27,10 +29,11 @@ def create_client(provider: FlagdProvider):
     ],
 )
 def test_file_load_errors(file_name: str):
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "./flags/"))
     client = create_client(
         FlagdProvider(
             resolver_type=ResolverType.IN_PROCESS,
-            offline_flag_source_path=f"tests/flags/{file_name}",
+            offline_flag_source_path=f"{path}/{file_name}",
         )
     )
 
