@@ -8,7 +8,7 @@ from testcontainers.core.waiting_utils import wait_container_is_ready, wait_for_
 HEALTH_CHECK = 8014
 
 
-class FlagDContainer(DockerContainer):
+class FlagdContainer(DockerContainer):
     def __init__(
         self,
         image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.13",
@@ -19,13 +19,13 @@ class FlagDContainer(DockerContainer):
         self.port = port
         self.with_exposed_ports(self.port, HEALTH_CHECK)
 
-    def start(self) -> "FlagDContainer":
+    def start(self) -> "FlagdContainer":
         super().start()
         self._checker(self.get_container_host_ip(), self.get_exposed_port(HEALTH_CHECK))
         return self
 
     @wait_container_is_ready(ConnectionError)
-    def _checker(self, host: str, port: int) -> None:
+    def _checker(self, host: str, port: str) -> None:
         # First we wait for Flagd to say it's listening
         wait_for_logs(
             self,
