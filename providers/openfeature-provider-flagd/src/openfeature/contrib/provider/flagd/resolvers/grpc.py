@@ -1,6 +1,7 @@
 import typing
 
 import grpc
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct
 
 from openfeature.evaluation_context import EvaluationContext
@@ -72,7 +73,7 @@ class GrpcResolver:
     ) -> FlagResolutionDetails[typing.Union[dict, list]]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
-    def _resolve(
+    def _resolve(  # noqa: PLR0915
         self,
         flag_key: str,
         flag_type: FlagType,
@@ -87,26 +88,33 @@ class GrpcResolver:
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveBoolean(request, **call_args)
+                value = response.value
             elif flag_type == FlagType.STRING:
                 request = schema_pb2.ResolveStringRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveString(request, **call_args)
+                value = response.value
             elif flag_type == FlagType.OBJECT:
                 request = schema_pb2.ResolveObjectRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveObject(request, **call_args)
+                value = MessageToDict(response, preserving_proto_field_name=True)[
+                    "value"
+                ]
             elif flag_type == FlagType.FLOAT:
                 request = schema_pb2.ResolveFloatRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveFloat(request, **call_args)
+                value = response.value
             elif flag_type == FlagType.INTEGER:
                 request = schema_pb2.ResolveIntRequest(  # type:ignore[attr-defined]
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveInt(request, **call_args)
+                value = response.value
             else:
                 raise ValueError(f"Unknown flag type: {flag_type}")
 
@@ -124,7 +132,7 @@ class GrpcResolver:
 
         # Got a valid flag and valid type. Return it.
         return FlagResolutionDetails(
-            value=response.value,
+            value=value,
             reason=response.reason,
             variant=response.variant,
         )

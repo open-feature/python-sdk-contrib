@@ -25,24 +25,6 @@ def test_flag_change_event():
     """not implemented"""
 
 
-@pytest.mark.skip(reason="issue #102")
-@scenario(
-    "../../spec/specification/assets/gherkin/evaluation.feature",
-    "Resolves object value",
-)
-def test_resolves_object_value():
-    """not implemented"""
-
-
-@pytest.mark.skip(reason="issue #102")
-@scenario(
-    "../../spec/specification/assets/gherkin/evaluation.feature",
-    "Resolves object details",
-)
-def test_resolves_object_details():
-    """not implemented"""
-
-
 scenarios(
     "../../test-harness/gherkin/flagd.feature",
     "../../test-harness/gherkin/flagd-json-evaluator.feature",
