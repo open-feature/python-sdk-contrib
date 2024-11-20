@@ -1,7 +1,4 @@
-import time
 import typing
-
-from json_logic import builtins, jsonLogic  # type: ignore[import-untyped]
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import FlagNotFoundError, ParseError
@@ -9,21 +6,13 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider.provider import AbstractProvider
 
 from ..config import Config
-from .process.custom_ops import ends_with, fractional, sem_ver, starts_with
 from .process.file_watcher import FileWatcherFlagStore
+from .process.targeting import targeting
 
 T = typing.TypeVar("T")
 
 
 class InProcessResolver:
-    OPERATORS: typing.ClassVar[dict] = {
-        **builtins.BUILTINS,
-        "fractional": fractional,
-        "starts_with": starts_with,
-        "ends_with": ends_with,
-        "sem_ver": sem_ver,
-    }
-
     def __init__(self, config: Config, provider: AbstractProvider):
         self.config = config
         self.provider = provider
@@ -97,12 +86,8 @@ class InProcessResolver:
             variant, value = flag.default
             return FlagResolutionDetails(value, variant=variant, reason=Reason.STATIC)
 
-        json_logic_context = evaluation_context.attributes if evaluation_context else {}
-        json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}
-        json_logic_context["targetingKey"] = (
-            evaluation_context.targeting_key if evaluation_context else None
-        )
-        variant = jsonLogic(flag.targeting, json_logic_context, self.OPERATORS)
+        variant = targeting(flag.key, flag.targeting, evaluation_context)
+
         if variant is None:
             variant, value = flag.default
             return FlagResolutionDetails(value, variant=variant, reason=Reason.DEFAULT)
@@ -110,7 +95,6 @@ class InProcessResolver:
             raise ParseError(
                 "Parsed JSONLogic targeting did not return a string or bool"
             )
-
         variant, value = flag.get_variant(variant)
         if not value:
             raise ParseError(f"Resolved variant {variant} not in variants config.")
