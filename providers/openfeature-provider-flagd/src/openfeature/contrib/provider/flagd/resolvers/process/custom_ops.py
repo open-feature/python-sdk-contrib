@@ -43,39 +43,40 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
 
     total_weight = 0
     fractions = []
-    for arg in args:
-        fraction = _parse_fraction(arg)
-        if fraction:
-            fractions.append(fraction)
-            total_weight += fraction.weight
+    try:
+        for arg in args:
+            fraction = _parse_fraction(arg)
+            if fraction:
+                fractions.append(fraction)
+                total_weight += fraction.weight
+
+    except ValueError:
+        logger.debug(f"Invalid {args} configuration")
+        return None
 
     range_end: float = 0
     for fraction in fractions:
         range_end += fraction.weight * 100 / total_weight
         if bucket < range_end:
             return fraction.variant
-
     return None
 
 
-def _parse_fraction(arg: JsonLogicArg) -> typing.Optional[Fraction]:
-    if not isinstance(arg, (tuple, list)) or not arg:
-        logger.error(
+def _parse_fraction(arg: JsonLogicArg) -> Fraction:
+    if not isinstance(arg, (tuple, list)) or not arg or len(arg) > 2:
+        raise ValueError(
             "Fractional variant weights must be (str, int) tuple or [str] list"
         )
-        return None
 
     if not isinstance(arg[0], str):
-        logger.error(
+        raise ValueError(
             "Fractional variant identifier (first element) isn't of type 'str'"
         )
-        return None
 
     if len(arg) >= 2 and not isinstance(arg[1], int):
-        logger.error(
+        raise ValueError(
             "Fractional variant weight value (second element) isn't of type 'int'"
         )
-        return None
 
     fraction = Fraction(variant=arg[0])
     if len(arg) >= 2:
