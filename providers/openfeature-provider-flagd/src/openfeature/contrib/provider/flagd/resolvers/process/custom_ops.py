@@ -159,7 +159,7 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: 
 
 def parse_version(arg: typing.Any) -> semver.Version:
     version = str(arg)
-    if version.startswith("v") or version.startswith("V"):
+    if version.startswith(("v", "V")):
         version = version[1:]
 
     return semver.Version.parse(version)
