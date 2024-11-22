@@ -37,10 +37,10 @@ jobs:
   pypi-release:
     needs: release-please
     runs-on: ubuntu-latest
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: ${{ fromJSON(needs.release-please.outputs.release_created || false) }}
     strategy:
       matrix:
-        path: ${{ fromJSON(needs.release-please.outputs.paths_released) }}
+        path: ${{ fromJSON(needs.release-please.outputs.paths_released || '[]') }}
     environment: release
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing to pypi
