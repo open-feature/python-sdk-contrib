@@ -130,8 +130,8 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: 
     arg1, op, arg2 = args
 
     try:
-        v1 = semver.Version.parse(str(arg1))
-        v2 = semver.Version.parse(str(arg2))
+        v1 = parse_version(arg1)
+        v2 = parse_version(arg2)
     except ValueError as e:
         logger.exception(e)
         return None
@@ -155,3 +155,11 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: 
     else:
         logger.error(f"Op not supported by sem_ver: {op}")
         return None
+
+
+def parse_version(arg: typing.Any) -> semver.Version:
+    version = str(arg)
+    if version.startswith(("v", "V")):
+        version = version[1:]
+
+    return semver.Version.parse(version)

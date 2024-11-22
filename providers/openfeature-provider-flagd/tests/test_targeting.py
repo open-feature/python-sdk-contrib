@@ -1,5 +1,9 @@
+import itertools
 import time
+import typing
 import unittest
+from dataclasses import dataclass
+from enum import Enum
 from math import floor
 
 import pytest
@@ -84,64 +88,72 @@ class StringComparisonOperator(unittest.TestCase):
         assert not targeting(flag_key, rule, EvaluationContext(attributes=context))
 
 
-@pytest.mark.skip(
-    "semvers are not working as expected, 'v' prefix is not valid within current implementation"
+class VersionPrefixed(Enum):
+    NONE = "None"
+    FIRST = "First"
+    SECOND = "Second"
+    BOTH = "Both"
+
+
+@dataclass
+class SemVerTest:
+    title: str
+    rule: typing.List[str]
+    result: typing.Optional[bool]
+
+
+semver_operations: typing.List[SemVerTest] = [
+    # Successful and working rules
+    SemVerTest("equals", ["1.2.3", "=", "1.2.3"], True),
+    SemVerTest("not equals", ["1.2.3", "!=", "1.2.4"], True),
+    SemVerTest("lesser", ["1.2.3", "<", "1.2.4"], True),
+    SemVerTest("lesser equals", ["1.2.3", "<=", "1.2.3"], True),
+    SemVerTest("greater", ["1.2.4", ">", "1.2.3"], True),
+    SemVerTest("greater equals", ["1.2.3", ">=", "1.2.3"], True),
+    SemVerTest("match major", ["1.2.3", "^", "1.0.0"], True),
+    SemVerTest("match minor", ["5.0.3", "~", "5.0.8"], True),
+    # Wrong rules
+    SemVerTest("wrong operator", ["1.0.0", "-", "1.0.0"], None),
+    SemVerTest("wrong versions", ["myVersion_1", "=", "myVersion_1"], None),
+    SemVerTest(
+        "too many arguments", ["myVersion_2", "+", "myVersion_1", "myVersion_1"], None
+    ),
+    SemVerTest("too many arguments", ["1.2.3", "=", "1.2.3", "myVersion_1"], None),
+]
+
+
+def semver_test_naming(vals):
+    if isinstance(vals, SemVerTest):
+        return vals.title
+    elif isinstance(vals, VersionPrefixed):
+        return f"prefixing '{vals.value}'"
+    elif isinstance(vals, str):
+        return f"with '{vals}'"
+
+
+@pytest.mark.parametrize(
+    ("semver_test", "prefix_state", "prefix"),
+    itertools.product(semver_operations, VersionPrefixed, ["V", "v"]),
+    ids=semver_test_naming,
 )
-class SemVerOperator(unittest.TestCase):
-    def test_should_support_equal_operator(self):
-        rule = {"sem_ver": ["v1.2.3", "=", "1.2.3"]}
+def test_sem_ver_operator(semver_test: SemVerTest, prefix_state, prefix):
+    """Testing SemVer operator `semver_test.title` for `semver_test.rule` prefixing `prefix_state.value` version(s) with `prefix`"""
+    version1 = semver_test.rule[0]
+    operator = semver_test.rule[1]
+    version2 = semver_test.rule[2]
 
-        assert targeting(flag_key, rule)
+    if prefix_state is VersionPrefixed.FIRST or prefix_state is VersionPrefixed.BOTH:
+        version1 = prefix + version1
 
-    def test_should_support_neq_operator(self):
-        rule = {"sem_ver": ["v1.2.3", "!=", "1.2.4"]}
+    if prefix_state is VersionPrefixed.SECOND or prefix_state is VersionPrefixed.BOTH:
+        version2 = prefix + version2
 
-        assert targeting(flag_key, rule)
+    semver_rule = [version1, operator, version2]
+    semver_rule.extend(semver_test.rule[3:])
 
-    def test_should_support_lt_operator(self):
-        rule = {"sem_ver": ["v1.2.3", "<", "1.2.4"]}
+    gen_rule = {"sem_ver": semver_rule}
 
-        assert targeting(flag_key, rule)
-
-    def test_should_support_lte_operator(self):
-        rule = {"sem_ver": ["v1.2.3", "<=", "1.2.3"]}
-
-        assert targeting(flag_key, rule)
-
-    def test_should_support_gte_operator(self):
-        rule = {"sem_ver": ["v1.2.3", ">=", "1.2.3"]}
-
-        assert targeting(flag_key, rule)
-
-    def test_should_support_gt_operator(self):
-        rule = {"sem_ver": ["v1.2.4", ">", "1.2.3"]}
-
-        assert targeting(flag_key, rule)
-
-    def test_should_support_major_comparison_operator(self):
-        rule = {"sem_ver": ["v1.2.3", "^", "v1.0.0"]}
-
-        assert targeting(flag_key, rule)
-
-    def test_should_support_minor_comparison_operator(self):
-        rule = {"sem_ver": ["v5.0.3", "~", "v5.0.8"]}
-
-        assert targeting(flag_key, rule)
-
-    def test_should_handle_unknown_operator(self):
-        rule = {"sem_ver": ["v1.0.0", "-", "v1.0.0"]}
-
-        assert targeting(flag_key, rule)
-
-    def test_should_handle_invalid_targetings(self):
-        rule = {"sem_ver": ["myVersion_1", "=", "myVersion_1"]}
-
-        assert not targeting(flag_key, rule)
-
-    def test_should_validate_targetings(self):
-        rule = {"sem_ver": ["myVersion_2", "+", "myVersion_1", "myVersion_1"]}
-
-        assert targeting(flag_key, rule)
+    assert targeting(flag_key, gen_rule) is semver_test.result
 
 
 class FractionalOperator(unittest.TestCase):
