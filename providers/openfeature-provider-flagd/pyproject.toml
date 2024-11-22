@@ -41,9 +41,6 @@ dependencies = [
   "asserts",
   "grpcio-health-checking==1.60.0",
 ]
-post-install-commands = [
-  "./scripts/gen_protos.sh"
-]
 
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
@@ -56,6 +53,11 @@ cov = [
   "test-cov",
   "cov-report",
 ]
+
+[tool.hatch.build.hooks.protobuf]
+dependencies = ["hatch-protobuf"]
+paths = ["schemas/protobuf/schema/v1/schema.proto", "schemas/protobuf/sync/v1/sync_service.proto"]
+output_path = "src"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
