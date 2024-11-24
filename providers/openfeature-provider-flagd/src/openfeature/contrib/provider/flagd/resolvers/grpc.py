@@ -20,6 +20,10 @@ from openfeature.schemas.protobuf.flagd.evaluation.v1 import (  # type:ignore[im
 
 from ..config import Config
 from ..flag_type import FlagType
+from ..protobuf.flagd.evaluation.v1 import evaluation_pb2, evaluation_pb2_grpc
+
+if typing.TYPE_CHECKING:
+    from google.protobuf.message import Message
 
 T = typing.TypeVar("T")
 
@@ -31,7 +35,7 @@ class GrpcResolver:
             grpc.secure_channel if self.config.tls else grpc.insecure_channel
         )
         self.channel = channel_factory(f"{self.config.host}:{self.config.port}")
-        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
+        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)  # type: ignore[no-untyped-call]
 
     def shutdown(self) -> None:
         self.channel.close()
@@ -94,7 +98,7 @@ class GrpcResolver:
                 evaluation_pb2.ResolveFloatRequest,
             ]
             if flag_type == FlagType.BOOLEAN:
-                request = evaluation_pb2.ResolveBooleanRequest(
+                request: Message = evaluation_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveBoolean(request, **call_args)

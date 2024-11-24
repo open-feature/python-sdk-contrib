@@ -45,6 +45,11 @@ jobs:
         run: hatch build
         working-directory: ${{ matrix.package }}
 
+      - name: Type checking
+        if: matrix.package == 'providers/openfeature-provider-flagd'
+        working-directory: ${{ matrix.package }}
+        run: hatch run mypy
+
       - name: Test with pytest
         run: hatch test -c
         working-directory: ${{ matrix.package }}

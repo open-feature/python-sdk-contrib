@@ -17,7 +17,7 @@ classifiers = [
 ]
 keywords = []
 dependencies = [
-  "openfeature-sdk>=0.4.0",
+  "openfeature-sdk>=0.6.0",
   "grpcio>=1.60.0",
   "protobuf>=4.25.2",
   "mmh3>=4.1.0",
@@ -40,6 +40,9 @@ dependencies = [
   "testcontainers",
   "asserts",
   "grpcio-health-checking==1.60.0",
+  "mypy[faster-cache]>=1.13.0",
+  "types-protobuf",
+  "types-pyyaml",
 ]
 pre-install-commands = [
   "hatch build",
@@ -93,3 +96,30 @@ omit = [
   "src/openfeature/contrib/provider/flagd/proto/*",
   "tests/**",
 ]
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+exclude = [
+  "src/openfeature/contrib/provider/flagd/protobuf"
+]
+
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+pretty = true
+
+strict = true
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = [
+    "grpc"
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "openfeature.contrib.provider.flagd.protobuf.*"
+]
+follow_imports = "silent"
