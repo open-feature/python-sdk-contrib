@@ -10,6 +10,9 @@ from openfeature.contrib.provider.flagd import FlagdProvider
 
 JsonPrimitive = typing.Union[str, bool, float, int]
 
+TEST_HARNESS_PATH = "../../openfeature/test-harness"
+SPEC_PATH = "../../openfeature/spec"
+
 
 @pytest.fixture(autouse=True, scope="package")
 def setup(request, port, image, resolver_type):

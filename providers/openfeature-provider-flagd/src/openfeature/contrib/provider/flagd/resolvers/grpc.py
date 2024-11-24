@@ -3,10 +3,6 @@ import typing
 import grpc
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct
-from schemas.protobuf.flagd.evaluation.v1 import (  # type:ignore[import-not-found]
-    evaluation_pb2,
-    evaluation_pb2_grpc,
-)
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
@@ -17,6 +13,10 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.schemas.protobuf.flagd.evaluation.v1 import (  # type:ignore[import-not-found]
+    evaluation_pb2,
+    evaluation_pb2_grpc,
+)
 
 from ..config import Config
 from ..flag_type import FlagType
@@ -86,6 +86,13 @@ class GrpcResolver:
         context = self._convert_context(evaluation_context)
         call_args = {"timeout": self.config.timeout}
         try:
+            request: typing.Union[
+                evaluation_pb2.ResolveBooleanRequest,
+                evaluation_pb2.ResolveIntRequest,
+                evaluation_pb2.ResolveStringRequest,
+                evaluation_pb2.ResolveObjectRequest,
+                evaluation_pb2.ResolveFloatRequest,
+            ]
             if flag_type == FlagType.BOOLEAN:
                 request = evaluation_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context
