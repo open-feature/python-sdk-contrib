@@ -61,6 +61,8 @@ cov = [
 exclude = [
   ".gitignore",
   "schemas",
+  "test-harness",
+  "spec",
 ]
 
 [tool.hatch.build.targets.wheel]
