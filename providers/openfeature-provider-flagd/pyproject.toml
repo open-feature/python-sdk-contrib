@@ -18,7 +18,7 @@ classifiers = [
 keywords = []
 dependencies = [
   "openfeature-sdk>=0.4.0",
-  "grpcio>=1.60.0",
+  "grpcio>=1.68.0",
   "protobuf>=4.25.2",
   "mmh3>=4.1.0",
   "panzi-json-logic>=1.0.1",
@@ -32,7 +32,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
 [tool.hatch]
 
-[tool.hatch.envs.default]
+[tool.hatch.envs.hatch-test]
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
@@ -41,13 +41,18 @@ dependencies = [
   "asserts",
   "grpcio-health-checking==1.60.0",
 ]
+pre-install-commands = [
+  "hatch build",
+]
 
-[tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest {args:tests}"
+run-cov = "coverage run -m pytest {args:tests}"
+cov-combine = "coverage combine"
 cov-report = [
   "coverage xml",
   "coverage html",
+  "coverage report",
 ]
 cov = [
   "test-cov",
@@ -55,14 +60,28 @@ cov = [
 ]
 
 [tool.hatch.build.hooks.protobuf]
-dependencies = ["hatch-protobuf"]
-paths = ["schemas/protobuf/schema/v1/schema.proto", "schemas/protobuf/sync/v1/sync_service.proto"]
-output_path = "src"
+generate_pyi = false
+dependencies = [
+    "hatch-protobuf",
+    "mypy-protobuf~=3.0",
+]
+proto_paths = [
+  ".",
+]
+output_path = "src/"
+
+[[tool.hatch.build.hooks.protobuf.generators]]
+name = "mypy"
+outputs = ["{proto_path}/{proto_name}_pb2.pyi"]
+
+[[tool.hatch.build.hooks.protobuf.generators]]
+name = "mypy_grpc"
+outputs = ["{proto_path}/{proto_name}_pb2_grpc.pyi"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [
   ".gitignore",
-  "schemas",
+  "/openfeature",
 ]
 
 [tool.hatch.build.targets.wheel]

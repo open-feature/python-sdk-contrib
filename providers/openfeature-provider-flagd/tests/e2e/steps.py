@@ -1,3 +1,4 @@
+import logging
 import time
 import typing
 
@@ -8,8 +9,9 @@ from tests.e2e.parsers import to_bool, to_list
 
 from openfeature import api
 from openfeature.client import OpenFeatureClient
+from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.event import EventDetails, ProviderEvent
+from openfeature.event import ProviderEvent
 from openfeature.flag_evaluation import ErrorCode, FlagEvaluationDetails, Reason
 from openfeature.provider import ProviderStatus
 
@@ -24,8 +26,15 @@ def evaluation_context() -> EvaluationContext:
 
 @given("a flagd provider is set", target_fixture="client")
 @given("a provider is registered", target_fixture="client")
-def setup_provider() -> OpenFeatureClient:
-    client = api.get_client()
+def setup_provider(setup, resolver_type, client_name) -> OpenFeatureClient:
+    api.set_provider(
+        FlagdProvider(
+            resolver_type=resolver_type,
+            port=setup,
+        ),
+        client_name,
+    )
+    client = api.get_client(client_name)
     wait_for(lambda: client.get_provider_status() == ProviderStatus.READY)
     return client
 
@@ -491,27 +500,35 @@ def assert_reason(
     assert_equal(evaluation_result.reason, reason)
 
 
-@when(parsers.cfparse("a PROVIDER_READY handler is added"))
-def provider_ready_add(client: OpenFeatureClient, context):
-    def provider_ready_handler(event_details: EventDetails):
-        context["provider_ready_ran"] = True
-
-    client.add_handler(ProviderEvent.PROVIDER_READY, provider_ready_handler)
+@pytest.fixture()
+def event_handles() -> list:
+    return []
 
 
-@then(parsers.cfparse("the PROVIDER_READY handler must run"))
-def provider_ready_was_executed(client: OpenFeatureClient, context):
-    assert_true(context["provider_ready_ran"])
+@pytest.fixture()
+def error_handles() -> list:
+    return []
 
 
-@when(parsers.cfparse("a PROVIDER_CONFIGURATION_CHANGED handler is added"))
-def provider_changed_add(client: OpenFeatureClient, context):
-    def provider_changed_handler(event_details: EventDetails):
-        context["provider_changed_ran"] = True
+@when(
+    parsers.cfparse(
+        "a {event_type:ProviderEvent} handler is added",
+        extra_types={"ProviderEvent": ProviderEvent},
+    ),
+)
+def add_event_handler(
+    client: OpenFeatureClient, event_type: ProviderEvent, event_handles: list
+):
+    def handler(event):
+        logging.debug((event_type, event))
+        event_handles.append(
+            {
+                "type": event_type,
+                "event": event,
+            }
+        )
 
-    client.add_handler(
-        ProviderEvent.PROVIDER_CONFIGURATION_CHANGED, provider_changed_handler
-    )
+    client.add_handler(event_type, handler)
 
 
 @pytest.fixture(scope="function")
@@ -519,30 +536,100 @@ def context():
     return {}
 
 
-@when(parsers.cfparse('a flag with key "{flag_key}" is modified'))
-def assert_reason2(
+@when(
+    parsers.cfparse(
+        "a {event_type:ProviderEvent} handler and a {event_type2:ProviderEvent} handler are added",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def add_event_handlers(
     client: OpenFeatureClient,
-    context,
-    flag_key: str,
+    event_type: ProviderEvent,
+    event_type2: ProviderEvent,
+    event_handles,
+    error_handles,
 ):
-    context["flag_key"] = flag_key
+    add_event_handler(client, event_type, event_handles)
+    add_event_handler(client, event_type2, error_handles)
+
+
+def assert_handlers(
+    handles, event_type: ProviderEvent, max_wait: int = 2, num_events: int = 1
+):
+    poll_interval = 1
+    while max_wait > 0:
+        if sum([h["type"] == event_type for h in handles]) < num_events:
+            max_wait -= poll_interval
+            time.sleep(poll_interval)
+            continue
+        break
+
+    logging.info(f"asserting num({event_type}) >= {num_events}: {handles}")
+    actual_num_events = sum([h["type"] == event_type for h in handles])
+    assert (
+        num_events <= actual_num_events
+    ), f"Expected {num_events} but got {actual_num_events}: {handles}"
 
 
 @then(
-    parsers.cfparse("the PROVIDER_CONFIGURATION_CHANGED handler must run"),
+    parsers.cfparse(
+        "the {event_type:ProviderEvent} handler must run",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
 )
-def provider_changed_was_executed(client: OpenFeatureClient, context):
-    wait_for(lambda: context.get("provider_changed_ran"))
-    assert_equal(context["provider_changed_ran"], True)
+@then(
+    parsers.cfparse(
+        "the {event_type:ProviderEvent} handler must run when the provider connects",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def assert_handler_run(event_type: ProviderEvent, event_handles):
+    assert_handlers(event_handles, event_type, max_wait=6)
 
 
-@then(parsers.cfparse('the event details must indicate "{flag_name}" was altered'))
-def flag_was_changed(
-    flag_name: str,
-    context,
+@then(
+    parsers.cfparse(
+        "the {event_type:ProviderEvent} handler must run when the provider's connection is lost",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def assert_disconnect_handler(error_handles, event_type: ProviderEvent):
+    # docker sync upstream restarts every 5s, waiting 2 cycles reduces test noise
+    assert_handlers(error_handles, event_type, max_wait=30)
+
+
+@when(
+    parsers.cfparse('a flag with key "{flag_key}" is modified'),
+    target_fixture="changed_flag",
+)
+def changed_flag(
+    flag_key: str,
 ):
-    wait_for(lambda: flag_name in context.get("changed_flags"))
-    assert_in(flag_name, context.get("changed_flags"))
+    return flag_key
+
+
+@then(
+    parsers.cfparse(
+        "when the connection is reestablished the {event_type:ProviderEvent} handler must run again",
+        extra_types={"ProviderEvent": ProviderEvent},
+    )
+)
+def assert_disconnect_error(
+    client: OpenFeatureClient, event_type: ProviderEvent, event_handles: list
+):
+    assert_handlers(event_handles, event_type, max_wait=30, num_events=2)
+
+
+@then(parsers.cfparse('the event details must indicate "{key}" was altered'))
+def assert_flag_changed(event_handles, key):
+    handle = None
+    for h in event_handles:
+        if h["type"] == ProviderEvent.PROVIDER_CONFIGURATION_CHANGED:
+            handle = h
+            break
+
+    assert handle is not None
+    assert key in handle["event"].flags_changed
 
 
 def wait_for(pred, poll_sec=2, timeout_sec=10):
@@ -551,3 +638,26 @@ def wait_for(pred, poll_sec=2, timeout_sec=10):
         time.sleep(poll_sec)
     assert_true(pred())
     return ok
+
+
+@given("flagd is unavailable", target_fixture="client")
+def flagd_unavailable(resolver_type):
+    api.set_provider(
+        FlagdProvider(
+            resolver_type=resolver_type,
+            port=99999,
+        ),
+        "unavailable",
+    )
+    return api.get_client("unavailable")
+
+
+@when("a flagd provider is set and initialization is awaited")
+def flagd_init(client: OpenFeatureClient, event_handles, error_handles):
+    add_event_handler(client, ProviderEvent.PROVIDER_ERROR, error_handles)
+    add_event_handler(client, ProviderEvent.PROVIDER_READY, event_handles)
+
+
+@then("an error should be indicated within the configured deadline")
+def flagd_error(error_handles):
+    assert_handlers(error_handles, ProviderEvent.PROVIDER_ERROR)

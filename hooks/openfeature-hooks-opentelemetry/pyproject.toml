@@ -27,17 +27,23 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
 [tool.hatch]
 
-[tool.hatch.envs.default]
+[tool.hatch.envs.hatch-test]
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
 ]
+pre-install-commands = [
+  "hatch build",
+]
 
-[tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest {args:tests}"
+run-cov = "coverage run -m pytest {args:tests}"
+cov-combine = "coverage combine"
 cov-report = [
   "coverage xml",
+  "coverage html",
+  "coverage report",
 ]
 cov = [
   "test-cov",

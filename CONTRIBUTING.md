@@ -18,9 +18,13 @@ To install Hatch, just run `pip install hatch`.
 
 You will also need to setup the `pre-commit` hooks. Run `pre-commit install` in the root directory of the repository. If you don't have `pre-commit` installed, you can install it with `pip install pre-commit`.
 
+> **Note**
+> Currently our protobuf files will be generated during `hatch build`
+> Please run this command once, to generate all necessary files.
+
 ### Testing
 
-Run tests by entering the package directory and running `hatch run test`.
+Run tests by entering the package directory and running `hatch test`.
 
 We use `pytest` for our unit testing, making use of `parametrized` to inject cases at scale.
 
