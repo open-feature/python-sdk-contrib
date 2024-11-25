@@ -111,8 +111,7 @@ class GrpcWatcher(FlagStateConnector):
             except grpc.RpcError as e:
                 logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
                 # re-create the stub if there's a connection issue - otherwise reconnect does not work as expected
-                if e.code() == grpc.StatusCode.UNAVAILABLE:
-                    self.stub, self.channel = self.create_stub()
+                self.stub, self.channel = self.create_stub()
             except json.JSONDecodeError:
                 logger.exception(
                     f"Could not parse JSON flag data from SyncFlags endpoint: {flag_str=}"
