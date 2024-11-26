@@ -90,6 +90,6 @@ packages = ["src/openfeature"]
 [tool.coverage.run]
 omit = [
   # exclude generated files
-  "src/openfeature/contrib/provider/flagd/proto/*",
+  "src/openfeature/schemas/*",
   "tests/**",
 ]

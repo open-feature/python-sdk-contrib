@@ -59,11 +59,13 @@ class Config:
         keep_alive_time: typing.Optional[int] = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
+
         self.tls = (
             env_or_default(ENV_VAR_TLS, DEFAULT_TLS, cast=str_to_bool)
             if tls is None
             else tls
         )
+
         self.retry_backoff_ms: int = (
             int(
                 env_or_default(
@@ -85,11 +87,13 @@ class Config:
             if self.resolver_type is ResolverType.RPC
             else DEFAULT_PORT_IN_PROCESS
         )
+
         self.port: int = (
             int(env_or_default(ENV_VAR_PORT, default_port, cast=int))
             if port is None
             else port
         )
+
         self.offline_flag_source_path = (
             env_or_default(
                 ENV_VAR_OFFLINE_FLAG_SOURCE_PATH, DEFAULT_OFFLINE_SOURCE_PATH
