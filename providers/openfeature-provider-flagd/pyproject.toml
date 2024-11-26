@@ -40,9 +40,6 @@ dependencies = [
   "testcontainers",
   "asserts",
   "grpcio-health-checking==1.60.0",
-  "mypy[faster-cache]>=1.13.0",
-  "types-protobuf",
-  "types-pyyaml",
 ]
 pre-install-commands = [
   "hatch build",
@@ -61,6 +58,19 @@ cov = [
   "test-cov",
   "cov-report",
 ]
+
+[tool.hatch.envs.mypy]
+dependencies = [
+  "mypy[faster-cache]>=1.13.0",
+  "types-protobuf",
+  "types-pyyaml",
+]
+pre-install-commands = [
+  "hatch build",
+]
+
+[tool.hatch.envs.mypy.scripts]
+run = "mypy"
 
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
@@ -93,17 +103,15 @@ packages = ["src/openfeature"]
 [tool.coverage.run]
 omit = [
   # exclude generated files
-  "src/openfeature/contrib/provider/flagd/proto/*",
+  "src/openfeature/schemas/*",
   "tests/**",
 ]
 
 [tool.mypy]
 mypy_path = "src"
 files = "src"
-exclude = [
-  "src/openfeature/contrib/provider/flagd/protobuf"
-]
 
+python_version = "3.8" # should be identical to the minimum supported version
 namespace_packages = true
 explicit_package_bases = true
 local_partial_types = true
@@ -114,12 +122,13 @@ disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 module = [
-    "grpc"
+    "grpc.*",
+    "json_logic.*",
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "openfeature.contrib.provider.flagd.protobuf.*"
+    "openfeature.schemas.*"
 ]
-follow_imports = "silent"
+warn_unused_ignores = false

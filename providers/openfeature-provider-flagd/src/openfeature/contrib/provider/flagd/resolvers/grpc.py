@@ -13,14 +13,13 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails
-from openfeature.schemas.protobuf.flagd.evaluation.v1 import (  # type:ignore[import-not-found]
+from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
 )
 
 from ..config import Config
 from ..flag_type import FlagType
-from ..protobuf.flagd.evaluation.v1 import evaluation_pb2, evaluation_pb2_grpc
 
 if typing.TYPE_CHECKING:
     from google.protobuf.message import Message
@@ -35,7 +34,7 @@ class GrpcResolver:
             grpc.secure_channel if self.config.tls else grpc.insecure_channel
         )
         self.channel = channel_factory(f"{self.config.host}:{self.config.port}")
-        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)  # type: ignore[no-untyped-call]
+        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
     def shutdown(self) -> None:
         self.channel.close()
@@ -90,15 +89,9 @@ class GrpcResolver:
         context = self._convert_context(evaluation_context)
         call_args = {"timeout": self.config.timeout}
         try:
-            request: typing.Union[
-                evaluation_pb2.ResolveBooleanRequest,
-                evaluation_pb2.ResolveIntRequest,
-                evaluation_pb2.ResolveStringRequest,
-                evaluation_pb2.ResolveObjectRequest,
-                evaluation_pb2.ResolveFloatRequest,
-            ]
+            request: Message
             if flag_type == FlagType.BOOLEAN:
-                request: Message = evaluation_pb2.ResolveBooleanRequest(
+                request = evaluation_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveBoolean(request, **call_args)

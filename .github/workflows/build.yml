@@ -46,9 +46,10 @@ jobs:
         working-directory: ${{ matrix.package }}
 
       - name: Type checking
-        if: matrix.package == 'providers/openfeature-provider-flagd'
+        # TODO: migrate other packages to use their own 'mypy' setup
+        if: matrix.python-version == '3.11' && matrix.package == 'providers/openfeature-provider-flagd'
         working-directory: ${{ matrix.package }}
-        run: hatch run mypy
+        run: hatch run mypy:run
 
       - name: Test with pytest
         run: hatch test -c
