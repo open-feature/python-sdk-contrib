@@ -127,6 +127,7 @@ class GrpcResolver:
                         return
             except grpc.RpcError as e:
                 logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                # re-create the stub if there's a connection issue - otherwise reconnect does not work as expected
                 self.stub, self.channel = self._create_stub()
             except ParseError:
                 logger.exception(

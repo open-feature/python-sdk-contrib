@@ -28,10 +28,7 @@ def evaluation_context() -> EvaluationContext:
 @given("a provider is registered", target_fixture="client")
 def setup_provider(setup, resolver_type, client_name) -> OpenFeatureClient:
     api.set_provider(
-        FlagdProvider(
-            resolver_type=resolver_type,
-            port=setup,
-        ),
+        FlagdProvider(resolver_type=resolver_type, port=setup, timeout=1),
         client_name,
     )
     client = api.get_client(client_name)
