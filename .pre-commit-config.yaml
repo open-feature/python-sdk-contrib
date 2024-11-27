@@ -29,4 +29,4 @@ repos:
           - mmh3
           - semver
           - panzi-json-logic
-        exclude: proto|tests
+        exclude: providers/openfeature-provider-flagd|tests

@@ -6,6 +6,7 @@ from os import listdir
 import pytest
 import yaml
 from pytest_bdd import scenario, scenarios
+from tests.e2e.conftest import SPEC_PATH, TEST_HARNESS_PATH
 
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
@@ -24,7 +25,7 @@ def file_name(request):
     result = {KEY_FLAGS: {}, KEY_EVALUATORS: {}}
 
     path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../test-harness/flags/")
+        os.path.join(os.path.dirname(__file__), f"{TEST_HARNESS_PATH}/flags/")
     )
 
     for f in listdir(path):
@@ -60,13 +61,13 @@ def setup(request, file_name):
 
 
 @pytest.mark.skip(reason="Eventing not implemented")
-@scenario("../../test-harness/gherkin/flagd.feature", "Flag change event")
+@scenario(f"{TEST_HARNESS_PATH}/gherkin/flagd.feature", "Flag change event")
 def test_flag_change_event():
     """not implemented"""
 
 
 scenarios(
-    "../../test-harness/gherkin/flagd.feature",
-    "../../test-harness/gherkin/flagd-json-evaluator.feature",
-    "../../spec/specification/assets/gherkin/evaluation.feature",
+    f"{TEST_HARNESS_PATH}/gherkin/flagd.feature",
+    f"{TEST_HARNESS_PATH}/gherkin/flagd-json-evaluator.feature",
+    f"{SPEC_PATH}/specification/assets/gherkin/evaluation.feature",
 )
