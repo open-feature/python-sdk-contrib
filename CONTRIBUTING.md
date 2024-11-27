@@ -18,15 +18,23 @@ To install Hatch, just run `pip install hatch`.
 
 You will also need to setup the `pre-commit` hooks. Run `pre-commit install` in the root directory of the repository. If you don't have `pre-commit` installed, you can install it with `pip install pre-commit`.
 
+> **Note**
+> Currently our protobuf files will be generated during `hatch build`
+> Please run this command once, to generate all necessary files.
+
 ### Testing
 
-Run tests by entering the package directory and running `hatch run test`.
+Run tests by entering the package directory and running `hatch test`.
 
 We use `pytest` for our unit testing, making use of `parametrized` to inject cases at scale.
 
 ### Integration tests
 
 These are planned once the SDK has been stabilized and a Flagd provider implemented. At that point, we will utilize the [gherkin integration tests](https://github.com/open-feature/test-harness/blob/main/features/evaluation.feature) to validate against a live, seeded Flagd instance.
+
+### Type checking
+
+Run `mypy` by entering the package directory and running `hatch run mypy:run`.
 
 ## Pull Request
 

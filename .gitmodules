@@ -1,9 +1,9 @@
 [submodule "schemas"]
-	path = providers/openfeature-provider-flagd/schemas
+	path = providers/openfeature-provider-flagd/openfeature/schemas
 	url = https://github.com/open-feature/schemas
 [submodule "providers/openfeature-provider-flagd/test-harness"]
-	path = providers/openfeature-provider-flagd/test-harness
+	path = providers/openfeature-provider-flagd/openfeature/test-harness
 	url = git@github.com:open-feature/flagd-testbed.git
 [submodule "providers/openfeature-provider-flagd/spec"]
-	path = providers/openfeature-provider-flagd/spec
+	path = providers/openfeature-provider-flagd/openfeature/spec
 	url = https://github.com/open-feature/spec

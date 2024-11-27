@@ -13,10 +13,16 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
+    evaluation_pb2,
+    evaluation_pb2_grpc,
+)
 
 from ..config import Config
 from ..flag_type import FlagType
-from ..proto.schema.v1 import schema_pb2, schema_pb2_grpc
+
+if typing.TYPE_CHECKING:
+    from google.protobuf.message import Message
 
 T = typing.TypeVar("T")
 
@@ -28,7 +34,7 @@ class GrpcResolver:
             grpc.secure_channel if self.config.tls else grpc.insecure_channel
         )
         self.channel = channel_factory(f"{self.config.host}:{self.config.port}")
-        self.stub = schema_pb2_grpc.ServiceStub(self.channel)
+        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
     def shutdown(self) -> None:
         self.channel.close()
@@ -83,20 +89,21 @@ class GrpcResolver:
         context = self._convert_context(evaluation_context)
         call_args = {"timeout": self.config.timeout}
         try:
+            request: Message
             if flag_type == FlagType.BOOLEAN:
-                request = schema_pb2.ResolveBooleanRequest(  # type:ignore[attr-defined]
+                request = evaluation_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveBoolean(request, **call_args)
                 value = response.value
             elif flag_type == FlagType.STRING:
-                request = schema_pb2.ResolveStringRequest(  # type:ignore[attr-defined]
+                request = evaluation_pb2.ResolveStringRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveString(request, **call_args)
                 value = response.value
             elif flag_type == FlagType.OBJECT:
-                request = schema_pb2.ResolveObjectRequest(  # type:ignore[attr-defined]
+                request = evaluation_pb2.ResolveObjectRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveObject(request, **call_args)
@@ -104,13 +111,13 @@ class GrpcResolver:
                     "value"
                 ]
             elif flag_type == FlagType.FLOAT:
-                request = schema_pb2.ResolveFloatRequest(  # type:ignore[attr-defined]
+                request = evaluation_pb2.ResolveFloatRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveFloat(request, **call_args)
                 value = response.value
             elif flag_type == FlagType.INTEGER:
-                request = schema_pb2.ResolveIntRequest(  # type:ignore[attr-defined]
+                request = evaluation_pb2.ResolveIntRequest(
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveInt(request, **call_args)
