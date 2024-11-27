@@ -32,6 +32,10 @@ We use `pytest` for our unit testing, making use of `parametrized` to inject cas
 
 These are planned once the SDK has been stabilized and a Flagd provider implemented. At that point, we will utilize the [gherkin integration tests](https://github.com/open-feature/test-harness/blob/main/features/evaluation.feature) to validate against a live, seeded Flagd instance.
 
+### Type checking
+
+Run `mypy` by entering the package directory and running `hatch run mypy:run`.
+
 ## Pull Request
 
 All contributions to the OpenFeature project are welcome via GitHub pull requests.

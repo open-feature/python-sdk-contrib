@@ -69,7 +69,6 @@ def setup(request, client_name, file_name, resolver_type):
         FlagdProvider(
             resolver_type=resolver_type,
             offline_flag_source_path=file_name.name,
-            timeout=0.5,
         ),
         client_name,
     )

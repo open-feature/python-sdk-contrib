@@ -19,13 +19,16 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails
-from openfeature.schemas.protobuf.flagd.evaluation.v1 import (  # type:ignore[import-not-found]
+from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
 )
 
 from ..config import Config
 from ..flag_type import FlagType
+
+if typing.TYPE_CHECKING:
+    from google.protobuf.message import Message
 
 T = typing.TypeVar("T")
 
@@ -196,13 +199,7 @@ class GrpcResolver:
         context = self._convert_context(evaluation_context)
         call_args = {"timeout": self.deadline}
         try:
-            request: typing.Union[
-                evaluation_pb2.ResolveBooleanRequest,
-                evaluation_pb2.ResolveIntRequest,
-                evaluation_pb2.ResolveStringRequest,
-                evaluation_pb2.ResolveObjectRequest,
-                evaluation_pb2.ResolveFloatRequest,
-            ]
+            request: Message
             if flag_type == FlagType.BOOLEAN:
                 request = evaluation_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context

@@ -6,6 +6,9 @@
 name: "Build, lint, and test"
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     types:
       - opened
@@ -44,6 +47,12 @@ jobs:
       - name: Building first to generate files
         run: hatch build
         working-directory: ${{ matrix.package }}
+
+      - name: Type checking
+        # TODO: migrate other packages to use their own 'mypy' setup
+        if: matrix.python-version == '3.11' && matrix.package == 'providers/openfeature-provider-flagd'
+        working-directory: ${{ matrix.package }}
+        run: hatch run mypy:run
 
       - name: Test with pytest
         run: hatch test -c
