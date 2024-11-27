@@ -84,8 +84,7 @@ Unix sockets are not supported on other platforms or architectures.
 
 Reconnection is supported by the underlying gRPC connections.
 If the connection to flagd is lost, it will reconnect automatically.
-A failure to connect will result in an [error event](https://openfeature.dev/docs/reference/concepts/events#provider_error) from the provider, though it will attempt to reconnect
-indefinitely.
+A failure to connect will result in an [error event](https://openfeature.dev/docs/reference/concepts/events#provider_error) from the provider, though it will attempt to reconnect indefinitely.
 
 ### Deadlines
 

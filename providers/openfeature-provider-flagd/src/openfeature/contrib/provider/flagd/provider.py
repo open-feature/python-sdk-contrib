@@ -67,7 +67,7 @@ class FlagdProvider(AbstractProvider):
         """
         if deadline is None and timeout is not None:
             deadline = timeout * 1000
-            logging.info(
+            logging.warn(
                 "'timeout' property is deprecated, please use 'deadline' instead, be aware that 'deadline' is in milliseconds"
             )
 
