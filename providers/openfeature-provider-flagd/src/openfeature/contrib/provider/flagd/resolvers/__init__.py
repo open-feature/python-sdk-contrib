@@ -8,6 +8,8 @@ from .in_process import InProcessResolver
 
 
 class AbstractResolver(typing.Protocol):
+    def initialize(self, evaluation_context: EvaluationContext) -> None: ...
+
     def shutdown(self) -> None: ...
 
     def resolve_boolean_details(
