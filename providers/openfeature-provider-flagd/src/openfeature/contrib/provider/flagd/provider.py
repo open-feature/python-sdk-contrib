@@ -21,8 +21,8 @@
 # provider.initialise(schema="https",endpoint="example.com",port=1234,timeout=10)
 """
 
-import logging
 import typing
+import warnings
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails
@@ -67,8 +67,10 @@ class FlagdProvider(AbstractProvider):
         """
         if deadline is None and timeout is not None:
             deadline = timeout * 1000
-            logging.warn(
-                "'timeout' property is deprecated, please use 'deadline' instead, be aware that 'deadline' is in milliseconds"
+            warnings.warn(
+                "'timeout' property is deprecated, please use 'deadline' instead, be aware that 'deadline' is in milliseconds",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
         self.config = Config(
