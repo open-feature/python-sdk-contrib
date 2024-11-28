@@ -50,6 +50,14 @@ cov = [
   "cov-report",
 ]
 
+[tool.hatch.envs.mypy]
+dependencies = [
+  "mypy[faster-cache]>=1.13.0",
+]
+
+[tool.hatch.envs.mypy.scripts]
+run = "mypy"
+
 [tool.hatch.build.targets.sdist]
 exclude = [
   ".gitignore",
@@ -57,3 +65,16 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openfeature"]
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+
+python_version = "3.8" # should be identical to the minimum supported version
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+pretty = true
+
+strict = true
+disallow_any_generics = false

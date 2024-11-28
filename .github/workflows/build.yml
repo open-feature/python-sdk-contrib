@@ -29,6 +29,7 @@ jobs:
         package:
           - "hooks/openfeature-hooks-opentelemetry"
           - "providers/openfeature-provider-flagd"
+          - "providers/openfeature-provider-ofrep"
 
     steps:
       - uses: actions/checkout@v4
@@ -49,8 +50,7 @@ jobs:
         working-directory: ${{ matrix.package }}
 
       - name: Type checking
-        # TODO: migrate other packages to use their own 'mypy' setup
-        if: matrix.python-version == '3.11' && matrix.package == 'providers/openfeature-provider-flagd'
+        if: matrix.python-version == '3.11'
         working-directory: ${{ matrix.package }}
         run: hatch run mypy:run
 
