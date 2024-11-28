@@ -29,7 +29,7 @@ from openfeature.flag_evaluation import FlagResolutionDetails
 from openfeature.provider.metadata import Metadata
 from openfeature.provider.provider import AbstractProvider
 
-from .config import Config, ResolverType
+from .config import CacheType, Config, ResolverType
 from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver
 
 T = typing.TypeVar("T")
@@ -50,6 +50,8 @@ class FlagdProvider(AbstractProvider):
         offline_flag_source_path: typing.Optional[str] = None,
         stream_deadline_ms: typing.Optional[int] = None,
         keep_alive_time: typing.Optional[int] = None,
+        cache_type: typing.Optional[CacheType] = None,
+        max_cache_size: typing.Optional[int] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -82,7 +84,9 @@ class FlagdProvider(AbstractProvider):
             resolver_type=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
             stream_deadline_ms=stream_deadline_ms,
-            keep_alive_time=keep_alive_time,
+            keep_alive=keep_alive_time,
+            cache_type=cache_type,
+            max_cache_size=max_cache_size,
         )
 
         self.resolver = self.setup_resolver()

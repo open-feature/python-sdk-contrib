@@ -84,6 +84,16 @@ def setup_key_and_default(
 
 @when(
     parsers.cfparse(
+        'a string flag with key "{key}" is evaluated with details',
+    ),
+    target_fixture="key_and_default",
+)
+def setup_key_without_default(key: str) -> typing.Tuple[str, JsonPrimitive]:
+    return setup_key_and_default(key, "")
+
+
+@when(
+    parsers.cfparse(
         'an object flag with key "{key}" is evaluated with a null default value',
     ),
     target_fixture="key_and_default",
