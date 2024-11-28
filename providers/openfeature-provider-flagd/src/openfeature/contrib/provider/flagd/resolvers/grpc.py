@@ -65,6 +65,12 @@ class GrpcResolver:
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
 
+        self._cache: typing.Optional[BaseCacheImpl] = (
+            LRUCache(maxsize=self.config.max_cache_size)
+            if self.config.cache_type == CacheType.LRU
+            else None
+        )
+
     def _create_stub(
         self,
     ) -> typing.Tuple[evaluation_pb2_grpc.ServiceStub, grpc.Channel]:
@@ -80,6 +86,14 @@ class GrpcResolver:
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
+        self.retry_backoff_seconds = 0.1
+        self.connected = False
+
+        self._cache = (
+            LRUCache(maxsize=self.config.max_cache_size)
+            if self.config.cache_type == CacheType.LRU
+            else None
+        )
 
     def shutdown(self) -> None:
         self.active = False
