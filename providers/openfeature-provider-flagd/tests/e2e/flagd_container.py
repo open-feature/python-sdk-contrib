@@ -11,7 +11,7 @@ HEALTH_CHECK = 8014
 class FlagdContainer(DockerContainer):
     def __init__(
         self,
-        image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.13",
+        image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.15",
         port: int = 8013,
         **kwargs,
     ) -> None:

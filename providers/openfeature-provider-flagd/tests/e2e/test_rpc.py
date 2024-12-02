@@ -29,5 +29,5 @@ scenarios(
     f"{TEST_HARNESS_PATH}/gherkin/flagd.feature",
     f"{TEST_HARNESS_PATH}/gherkin/flagd-json-evaluator.feature",
     f"{SPEC_PATH}/specification/assets/gherkin/evaluation.feature",
-    "./rpc_cache.feature",
+    f"{TEST_HARNESS_PATH}/gherkin/flagd-rpc-caching.feature",
 )

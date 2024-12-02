@@ -5,6 +5,7 @@ import typing
 import pytest
 from asserts import assert_equal
 from pytest_bdd import parsers, scenarios, then, when
+from tests.e2e.conftest import TEST_HARNESS_PATH
 
 from openfeature.contrib.provider.flagd.config import CacheType, Config, ResolverType
 
@@ -97,4 +98,6 @@ def check_option_value(option, value, type_info, config):
 
 
 if sys.version_info >= (3, 9):
-    scenarios("./config.feature")
+    scenarios(
+        f"{TEST_HARNESS_PATH}/gherkin/config.feature",
+    )
