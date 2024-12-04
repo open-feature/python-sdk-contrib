@@ -52,17 +52,16 @@ class GrpcResolver:
         self.emit_provider_ready = emit_provider_ready
         self.emit_provider_error = emit_provider_error
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
+        self.cache: typing.Optional[BaseCacheImpl] = (
+            LRUCache(maxsize=self.config.max_cache_size)
+            if self.config.cache_type == CacheType.LRU
+            else None
+        )
         self.stub, self.channel = self._create_stub()
         self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline * 0.001
         self.connected = False
-
-        self._cache: typing.Optional[BaseCacheImpl] = (
-            LRUCache(maxsize=self.config.max_cache_size)
-            if self.config.cache_type == CacheType.LRU
-            else None
-        )
 
     def _create_stub(
         self,
@@ -74,24 +73,20 @@ class GrpcResolver:
             options=(("grpc.keepalive_time_ms", config.keep_alive),),
         )
         stub = evaluation_pb2_grpc.ServiceStub(channel)
+
+        if self.cache:
+            self.cache.clear()
+
         return stub, channel
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
-        self.retry_backoff_seconds = 0.1
-        self.connected = False
-
-        self._cache = (
-            LRUCache(maxsize=self.config.max_cache_size)
-            if self.config.cache_type == CacheType.LRU
-            else None
-        )
 
     def shutdown(self) -> None:
         self.active = False
         self.channel.close()
-        if self._cache:
-            self._cache.clear()
+        if self.cache:
+            self.cache.clear()
 
     def connect(self) -> None:
         self.active = True
@@ -164,9 +159,9 @@ class GrpcResolver:
     def handle_changed_flags(self, data: typing.Any) -> None:
         changed_flags = list(data["flags"].keys())
 
-        if self._cache:
+        if self.cache:
             for flag in changed_flags:
-                self._cache.pop(flag)
+                self.cache.pop(flag)
 
         self.emit_provider_configuration_changed(ProviderEventDetails(changed_flags))
 
@@ -217,8 +212,8 @@ class GrpcResolver:
         default_value: T,
         evaluation_context: typing.Optional[EvaluationContext],
     ) -> FlagResolutionDetails[T]:
-        if self._cache is not None and flag_key in self._cache:
-            cached_flag: FlagResolutionDetails[T] = self._cache[flag_key]
+        if self.cache is not None and flag_key in self.cache:
+            cached_flag: FlagResolutionDetails[T] = self.cache[flag_key]
             cached_flag.reason = Reason.CACHED
             return cached_flag
 
@@ -280,8 +275,8 @@ class GrpcResolver:
             variant=response.variant,
         )
 
-        if response.reason == Reason.STATIC and self._cache is not None:
-            self._cache.insert(flag_key, result)
+        if response.reason == Reason.STATIC and self.cache is not None:
+            self.cache.insert(flag_key, result)
 
         return result
 
