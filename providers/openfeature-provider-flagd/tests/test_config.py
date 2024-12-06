@@ -32,29 +32,29 @@ from openfeature.contrib.provider.flagd.config import (
 
 def test_return_default_values_rpc():
     config = Config()
-    assert config.cache_type == DEFAULT_CACHE
+    assert config.cache == DEFAULT_CACHE
     assert config.max_cache_size == DEFAULT_CACHE_SIZE
-    assert config.deadline == DEFAULT_DEADLINE
+    assert config.deadline_ms == DEFAULT_DEADLINE
     assert config.host == DEFAULT_HOST
-    assert config.keep_alive == DEFAULT_KEEP_ALIVE
+    assert config.keep_alive_time == DEFAULT_KEEP_ALIVE
     assert config.offline_flag_source_path == DEFAULT_OFFLINE_SOURCE_PATH
     assert config.port == DEFAULT_PORT_RPC
-    assert config.resolver_type == DEFAULT_RESOLVER_TYPE
+    assert config.resolver == DEFAULT_RESOLVER_TYPE
     assert config.retry_backoff_ms == DEFAULT_RETRY_BACKOFF
     assert config.stream_deadline_ms == DEFAULT_STREAM_DEADLINE
     assert config.tls is DEFAULT_TLS
 
 
 def test_return_default_values_in_process():
-    config = Config(resolver_type=ResolverType.IN_PROCESS)
-    assert config.cache_type == DEFAULT_CACHE
+    config = Config(resolver=ResolverType.IN_PROCESS)
+    assert config.cache == DEFAULT_CACHE
     assert config.max_cache_size == DEFAULT_CACHE_SIZE
-    assert config.deadline == DEFAULT_DEADLINE
+    assert config.deadline_ms == DEFAULT_DEADLINE
     assert config.host == DEFAULT_HOST
-    assert config.keep_alive == DEFAULT_KEEP_ALIVE
+    assert config.keep_alive_time == DEFAULT_KEEP_ALIVE
     assert config.offline_flag_source_path == DEFAULT_OFFLINE_SOURCE_PATH
     assert config.port == DEFAULT_PORT_IN_PROCESS
-    assert config.resolver_type == ResolverType.IN_PROCESS
+    assert config.resolver == ResolverType.IN_PROCESS
     assert config.retry_backoff_ms == DEFAULT_RETRY_BACKOFF
     assert config.stream_deadline_ms == DEFAULT_STREAM_DEADLINE
     assert config.tls is DEFAULT_TLS
@@ -90,14 +90,14 @@ def test_overrides_defaults_with_environment(monkeypatch, resolver_type):  # noq
     monkeypatch.setenv(ENV_VAR_TLS, str(tls))
 
     config = Config()
-    assert config.cache_type == cache
+    assert config.cache == cache
     assert config.max_cache_size == cache_size
-    assert config.deadline == deadline
+    assert config.deadline_ms == deadline
     assert config.host == host
-    assert config.keep_alive == keep_alive
+    assert config.keep_alive_time == keep_alive
     assert config.offline_flag_source_path == offline_path
     assert config.port == port
-    assert config.resolver_type == resolver_type
+    assert config.resolver == resolver_type
     assert config.retry_backoff_ms == retry_backoff
     assert config.stream_deadline_ms == stream_deadline
     assert config.tls is tls
@@ -128,26 +128,26 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
     monkeypatch.setenv(ENV_VAR_TLS, str(tls) + "value")
 
     config = Config(
-        cache_type=cache,
+        cache=cache,
         max_cache_size=cache_size,
-        deadline=deadline,
+        deadline_ms=deadline,
         host=host,
         port=port,
-        resolver_type=resolver_type,
+        resolver=resolver_type,
         retry_backoff_ms=retry_backoff,
         stream_deadline_ms=stream_deadline,
         tls=tls,
-        keep_alive=keep_alive,
+        keep_alive_time=keep_alive,
         offline_flag_source_path=offline_path,
     )
-    assert config.cache_type == cache
+    assert config.cache == cache
     assert config.max_cache_size == cache_size
-    assert config.deadline == deadline
+    assert config.deadline_ms == deadline
     assert config.host == host
-    assert config.keep_alive == keep_alive
+    assert config.keep_alive_time == keep_alive
     assert config.offline_flag_source_path == offline_path
     assert config.port == port
-    assert config.resolver_type == resolver_type
+    assert config.resolver == resolver_type
     assert config.retry_backoff_ms == retry_backoff
     assert config.stream_deadline_ms == stream_deadline
     assert config.tls is tls

@@ -4,7 +4,7 @@ import typing
 
 import pytest
 from asserts import assert_equal
-from pytest_bdd import parsers, scenarios, then, when
+from pytest_bdd import given, parsers, scenarios, then, when
 from tests.e2e.conftest import TEST_HARNESS_PATH
 
 from openfeature.contrib.provider.flagd.config import CacheType, Config, ResolverType
@@ -47,9 +47,9 @@ def option_values() -> dict:
     return {}
 
 
-@when(
+@given(
     parsers.cfparse(
-        'we have an option "{option}" of type "{type_info}" with value "{value}"',
+        'an option "{option}" of type "{type_info}" with value "{value}"',
     ),
 )
 def option_with_value(option: str, value: str, type_info: str, option_values: dict):
@@ -57,9 +57,9 @@ def option_with_value(option: str, value: str, type_info: str, option_values: di
     option_values[camel_to_snake(option)] = value
 
 
-@when(
+@given(
     parsers.cfparse(
-        'we have an environment variable "{env}" with value "{value}"',
+        'an environment variable "{env}" with value "{value}"',
     ),
 )
 def env_with_value(monkeypatch, env: str, value: str):
@@ -68,7 +68,7 @@ def env_with_value(monkeypatch, env: str, value: str):
 
 @when(
     parsers.cfparse(
-        "we initialize a config",
+        "a config was initialized",
     ),
     target_fixture="config",
 )
@@ -78,12 +78,12 @@ def initialize_config(option_values):
 
 @when(
     parsers.cfparse(
-        'we initialize a config for "{resolver_type}"',
+        'a config was initialized for "{resolver_type}"',
     ),
     target_fixture="config",
 )
 def initialize_config_for(resolver_type: str, option_values: dict):
-    return Config(resolver_type=ResolverType(resolver_type), **option_values)
+    return Config(resolver=ResolverType(resolver_type), **option_values)
 
 
 @then(

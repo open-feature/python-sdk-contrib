@@ -25,6 +25,7 @@ import typing
 import warnings
 
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
 from openfeature.flag_evaluation import FlagResolutionDetails
 from openfeature.provider.metadata import Metadata
 from openfeature.provider.provider import AbstractProvider
@@ -46,12 +47,15 @@ class FlagdProvider(AbstractProvider):
         deadline: typing.Optional[int] = None,
         timeout: typing.Optional[int] = None,
         retry_backoff_ms: typing.Optional[int] = None,
+        selector: typing.Optional[str] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         stream_deadline_ms: typing.Optional[int] = None,
         keep_alive_time: typing.Optional[int] = None,
         cache_type: typing.Optional[CacheType] = None,
         max_cache_size: typing.Optional[int] = None,
+        retry_backoff_max_ms: typing.Optional[int] = None,
+        retry_grace_attempts: typing.Optional[int] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -79,31 +83,40 @@ class FlagdProvider(AbstractProvider):
             host=host,
             port=port,
             tls=tls,
-            deadline=deadline,
+            deadline_ms=deadline,
             retry_backoff_ms=retry_backoff_ms,
-            resolver_type=resolver_type,
+            retry_backoff_max_ms=retry_backoff_max_ms,
+            retry_grace_attempts=retry_grace_attempts,
+            selector=selector,
+            resolver=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
-            stream_deadline_ms=stream_deadline_ms,
-            keep_alive=keep_alive_time,
-            cache_type=cache_type,
+            cache=cache_type,
             max_cache_size=max_cache_size,
+            stream_deadline_ms=stream_deadline_ms,
+            keep_alive_time=keep_alive_time,
         )
 
         self.resolver = self.setup_resolver()
 
     def setup_resolver(self) -> AbstractResolver:
-        if self.config.resolver_type == ResolverType.RPC:
+        if self.config.resolver == ResolverType.RPC:
             return GrpcResolver(
+                self.config,
+                self.emit_provider_ready,
+                self.emit_provider_error,
+                self.emit_provider_stale,
+                self.emit_provider_configuration_changed,
+            )
+        elif self.config.resolver == ResolverType.IN_PROCESS:
+            return InProcessResolver(
                 self.config,
                 self.emit_provider_ready,
                 self.emit_provider_error,
                 self.emit_provider_configuration_changed,
             )
-        elif self.config.resolver_type == ResolverType.IN_PROCESS:
-            return InProcessResolver(self.config, self)
         else:
             raise ValueError(
-                f"`resolver_type` parameter invalid: {self.config.resolver_type}"
+                f"`resolver_type` parameter invalid: {self.config.resolver}"
             )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
@@ -116,6 +129,11 @@ class FlagdProvider(AbstractProvider):
     def get_metadata(self) -> Metadata:
         """Returns provider metadata"""
         return Metadata(name="FlagdProvider")
+
+    def flag_store_updated_callback(self, flag_keys: typing.List[str]) -> None:
+        self.emit_provider_configuration_changed(
+            ProviderEventDetails(flags_changed=flag_keys)
+        )
 
     def resolve_boolean_details(
         self,

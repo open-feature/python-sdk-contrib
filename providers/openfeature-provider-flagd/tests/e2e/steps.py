@@ -28,7 +28,13 @@ def evaluation_context() -> EvaluationContext:
 @given("a provider is registered", target_fixture="client")
 def setup_provider(setup, resolver_type, client_name) -> OpenFeatureClient:
     api.set_provider(
-        FlagdProvider(resolver_type=resolver_type, port=setup, timeout=1),
+        FlagdProvider(
+            resolver_type=resolver_type,
+            port=setup,
+            deadline=500,
+            stream_deadline_ms=0,
+            retry_backoff_ms=1000,
+        ),
         client_name,
     )
     client = api.get_client(client_name)
@@ -591,7 +597,7 @@ def assert_handlers(
     )
 )
 def assert_handler_run(event_type: ProviderEvent, event_handles):
-    assert_handlers(event_handles, event_type, max_wait=6)
+    assert_handlers(event_handles, event_type, max_wait=30)
 
 
 @then(
