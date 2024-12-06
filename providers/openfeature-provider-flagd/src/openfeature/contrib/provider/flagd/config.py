@@ -8,6 +8,13 @@ class ResolverType(Enum):
     IN_PROCESS = "in-process"
 
 
+class CacheType(Enum):
+    LRU = "lru"
+    DISABLED = "disabled"
+
+
+DEFAULT_CACHE = CacheType.LRU
+DEFAULT_CACHE_SIZE = 1000
 DEFAULT_DEADLINE = 500
 DEFAULT_HOST = "localhost"
 DEFAULT_KEEP_ALIVE = 0
@@ -19,12 +26,14 @@ DEFAULT_RETRY_BACKOFF = 1000
 DEFAULT_STREAM_DEADLINE = 600000
 DEFAULT_TLS = False
 
+ENV_VAR_CACHE_SIZE = "FLAGD_MAX_CACHE_SIZE"
+ENV_VAR_CACHE_TYPE = "FLAGD_CACHE"
 ENV_VAR_DEADLINE_MS = "FLAGD_DEADLINE_MS"
 ENV_VAR_HOST = "FLAGD_HOST"
 ENV_VAR_KEEP_ALIVE_TIME_MS = "FLAGD_KEEP_ALIVE_TIME_MS"
 ENV_VAR_OFFLINE_FLAG_SOURCE_PATH = "FLAGD_OFFLINE_FLAG_SOURCE_PATH"
 ENV_VAR_PORT = "FLAGD_PORT"
-ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER_TYPE"
+ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_STREAM_DEADLINE_MS = "FLAGD_STREAM_DEADLINE_MS"
 ENV_VAR_TLS = "FLAGD_TLS"
@@ -34,6 +43,14 @@ T = typing.TypeVar("T")
 
 def str_to_bool(val: str) -> bool:
     return val.lower() == "true"
+
+
+def convert_resolver_type(val: typing.Union[str, ResolverType]) -> ResolverType:
+    if isinstance(val, str):
+        v = val.lower()
+        return ResolverType(v)
+    else:
+        return ResolverType(val)
 
 
 def env_or_default(
@@ -56,7 +73,9 @@ class Config:
         retry_backoff_ms: typing.Optional[int] = None,
         deadline: typing.Optional[int] = None,
         stream_deadline_ms: typing.Optional[int] = None,
-        keep_alive_time: typing.Optional[int] = None,
+        keep_alive: typing.Optional[int] = None,
+        cache_type: typing.Optional[CacheType] = None,
+        max_cache_size: typing.Optional[int] = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -77,7 +96,9 @@ class Config:
         )
 
         self.resolver_type = (
-            ResolverType(env_or_default(ENV_VAR_RESOLVER_TYPE, DEFAULT_RESOLVER_TYPE))
+            env_or_default(
+                ENV_VAR_RESOLVER_TYPE, DEFAULT_RESOLVER_TYPE, cast=convert_resolver_type
+            )
             if resolver_type is None
             else resolver_type
         )
@@ -118,10 +139,22 @@ class Config:
             else stream_deadline_ms
         )
 
-        self.keep_alive_time: int = (
+        self.keep_alive: int = (
             int(
                 env_or_default(ENV_VAR_KEEP_ALIVE_TIME_MS, DEFAULT_KEEP_ALIVE, cast=int)
             )
-            if keep_alive_time is None
-            else keep_alive_time
+            if keep_alive is None
+            else keep_alive
+        )
+
+        self.cache_type = (
+            CacheType(env_or_default(ENV_VAR_CACHE_TYPE, DEFAULT_CACHE))
+            if cache_type is None
+            else cache_type
+        )
+
+        self.max_cache_size: int = (
+            int(env_or_default(ENV_VAR_CACHE_SIZE, DEFAULT_CACHE_SIZE, cast=int))
+            if max_cache_size is None
+            else max_cache_size
         )

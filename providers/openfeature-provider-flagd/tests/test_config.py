@@ -1,6 +1,8 @@
 import pytest
 
 from openfeature.contrib.provider.flagd.config import (
+    DEFAULT_CACHE,
+    DEFAULT_CACHE_SIZE,
     DEFAULT_DEADLINE,
     DEFAULT_HOST,
     DEFAULT_KEEP_ALIVE,
@@ -11,6 +13,8 @@ from openfeature.contrib.provider.flagd.config import (
     DEFAULT_RETRY_BACKOFF,
     DEFAULT_STREAM_DEADLINE,
     DEFAULT_TLS,
+    ENV_VAR_CACHE_SIZE,
+    ENV_VAR_CACHE_TYPE,
     ENV_VAR_DEADLINE_MS,
     ENV_VAR_HOST,
     ENV_VAR_KEEP_ALIVE_TIME_MS,
@@ -20,6 +24,7 @@ from openfeature.contrib.provider.flagd.config import (
     ENV_VAR_RETRY_BACKOFF_MS,
     ENV_VAR_STREAM_DEADLINE_MS,
     ENV_VAR_TLS,
+    CacheType,
     Config,
     ResolverType,
 )
@@ -27,9 +32,11 @@ from openfeature.contrib.provider.flagd.config import (
 
 def test_return_default_values_rpc():
     config = Config()
+    assert config.cache_type == DEFAULT_CACHE
+    assert config.max_cache_size == DEFAULT_CACHE_SIZE
     assert config.deadline == DEFAULT_DEADLINE
     assert config.host == DEFAULT_HOST
-    assert config.keep_alive_time == DEFAULT_KEEP_ALIVE
+    assert config.keep_alive == DEFAULT_KEEP_ALIVE
     assert config.offline_flag_source_path == DEFAULT_OFFLINE_SOURCE_PATH
     assert config.port == DEFAULT_PORT_RPC
     assert config.resolver_type == DEFAULT_RESOLVER_TYPE
@@ -40,9 +47,11 @@ def test_return_default_values_rpc():
 
 def test_return_default_values_in_process():
     config = Config(resolver_type=ResolverType.IN_PROCESS)
+    assert config.cache_type == DEFAULT_CACHE
+    assert config.max_cache_size == DEFAULT_CACHE_SIZE
     assert config.deadline == DEFAULT_DEADLINE
     assert config.host == DEFAULT_HOST
-    assert config.keep_alive_time == DEFAULT_KEEP_ALIVE
+    assert config.keep_alive == DEFAULT_KEEP_ALIVE
     assert config.offline_flag_source_path == DEFAULT_OFFLINE_SOURCE_PATH
     assert config.port == DEFAULT_PORT_IN_PROCESS
     assert config.resolver_type == ResolverType.IN_PROCESS
@@ -56,7 +65,9 @@ def resolver_type(request):
     return request.param
 
 
-def test_overrides_defaults_with_environment(monkeypatch, resolver_type):
+def test_overrides_defaults_with_environment(monkeypatch, resolver_type):  # noqa: PLR0915
+    cache = CacheType.DISABLED
+    cache_size = 456
     deadline = 1
     host = "flagd"
     keep_alive = 2
@@ -66,6 +77,8 @@ def test_overrides_defaults_with_environment(monkeypatch, resolver_type):
     stream_deadline = 4
     tls = True
 
+    monkeypatch.setenv(ENV_VAR_CACHE_TYPE, str(cache.value))
+    monkeypatch.setenv(ENV_VAR_CACHE_SIZE, str(cache_size))
     monkeypatch.setenv(ENV_VAR_DEADLINE_MS, str(deadline))
     monkeypatch.setenv(ENV_VAR_HOST, host)
     monkeypatch.setenv(ENV_VAR_KEEP_ALIVE_TIME_MS, str(keep_alive))
@@ -77,9 +90,11 @@ def test_overrides_defaults_with_environment(monkeypatch, resolver_type):
     monkeypatch.setenv(ENV_VAR_TLS, str(tls))
 
     config = Config()
+    assert config.cache_type == cache
+    assert config.max_cache_size == cache_size
     assert config.deadline == deadline
     assert config.host == host
-    assert config.keep_alive_time == keep_alive
+    assert config.keep_alive == keep_alive
     assert config.offline_flag_source_path == offline_path
     assert config.port == port
     assert config.resolver_type == resolver_type
@@ -88,7 +103,9 @@ def test_overrides_defaults_with_environment(monkeypatch, resolver_type):
     assert config.tls is tls
 
 
-def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_type):
+def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_type):  # noqa: PLR0915
+    cache = CacheType.LRU
+    cache_size = 456
     deadline = 1
     host = "flagd"
     keep_alive = 2
@@ -98,6 +115,8 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
     stream_deadline = 4
     tls = True
 
+    monkeypatch.setenv(ENV_VAR_CACHE_TYPE, str(cache.value) + "value")
+    monkeypatch.setenv(ENV_VAR_CACHE_SIZE, str(cache_size) + "value")
     monkeypatch.setenv(ENV_VAR_DEADLINE_MS, str(deadline) + "value")
     monkeypatch.setenv(ENV_VAR_HOST, host + "value")
     monkeypatch.setenv(ENV_VAR_KEEP_ALIVE_TIME_MS, str(keep_alive) + "value")
@@ -109,6 +128,8 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
     monkeypatch.setenv(ENV_VAR_TLS, str(tls) + "value")
 
     config = Config(
+        cache_type=cache,
+        max_cache_size=cache_size,
         deadline=deadline,
         host=host,
         port=port,
@@ -116,12 +137,14 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
         retry_backoff_ms=retry_backoff,
         stream_deadline_ms=stream_deadline,
         tls=tls,
-        keep_alive_time=keep_alive,
+        keep_alive=keep_alive,
         offline_flag_source_path=offline_path,
     )
+    assert config.cache_type == cache
+    assert config.max_cache_size == cache_size
     assert config.deadline == deadline
     assert config.host == host
-    assert config.keep_alive_time == keep_alive
+    assert config.keep_alive == keep_alive
     assert config.offline_flag_source_path == offline_path
     assert config.port == port
     assert config.resolver_type == resolver_type

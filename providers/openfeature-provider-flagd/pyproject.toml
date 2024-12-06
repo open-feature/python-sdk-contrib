@@ -24,6 +24,7 @@ dependencies = [
   "panzi-json-logic>=1.0.1",
   "semver>=3,<4",
   "pyyaml>=6.0.1",
+  "cachebox"
 ]
 requires-python = ">=3.8"
 
@@ -58,6 +59,7 @@ cov = [
   "test-cov",
   "cov-report",
 ]
+
 
 [tool.hatch.envs.mypy]
 dependencies = [

@@ -67,8 +67,7 @@ def setup(request, client_name, file_name, resolver_type):
     """nothing to boot"""
     api.set_provider(
         FlagdProvider(
-            resolver_type=resolver_type,
-            offline_flag_source_path=file_name.name,
+            resolver_type=resolver_type, offline_flag_source_path=file_name.name
         ),
         client_name,
     )
