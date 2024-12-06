@@ -9,7 +9,7 @@ import grpc
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
 from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
-from openfeature.schemas.protobuf.flagd.sync.v1 import (  # type:ignore[import-not-found]
+from openfeature.schemas.protobuf.flagd.sync.v1 import (
     sync_pb2,
     sync_pb2_grpc,
 )
@@ -22,8 +22,6 @@ logger = logging.getLogger("openfeature.contrib")
 
 
 class GrpcWatcher(FlagStateConnector):
-    MAX_BACK_OFF = 120
-
     def __init__(
         self,
         config: Config,
@@ -36,6 +34,8 @@ class GrpcWatcher(FlagStateConnector):
 
         self.stub, self.channel = self.create_stub()
         self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
+        self.retry_backoff_max_seconds = config.retry_backoff_ms * 0.001
+        self.retry_grace_attempts = config.retry_grace_attempts
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.selector = config.selector
@@ -85,9 +85,14 @@ class GrpcWatcher(FlagStateConnector):
             if self.streamline_deadline_seconds > 0
             else {}
         )
+
         while self.active:
             try:
-                request = sync_pb2.SyncFlagsRequest(selector=self.selector)
+                request_args = (
+                    {"selector": self.selector} if self.selector is not None else {}
+                )
+                request = sync_pb2.SyncFlagsRequest(**request_args)
+
                 logger.debug("Setting up gRPC sync flags connection")
                 for flag_rsp in self.stub.SyncFlags(request, **call_args):
                     flag_str = flag_rsp.flag_configuration
@@ -130,4 +135,4 @@ class GrpcWatcher(FlagStateConnector):
             )
             logger.info(f"gRPC sync disconnected, reconnecting in {retry_delay}s")
             time.sleep(retry_delay)
-            retry_delay = min(1.1 * retry_delay, self.MAX_BACK_OFF)
+            retry_delay = min(1.1 * retry_delay, self.retry_backoff_max_seconds)
