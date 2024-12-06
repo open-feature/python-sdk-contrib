@@ -27,4 +27,5 @@ def image():
 
 scenarios(
     f"{TEST_HARNESS_PATH}/gherkin/flagd-reconnect.feature",
+    f"{TEST_HARNESS_PATH}/gherkin/events.feature",
 )
