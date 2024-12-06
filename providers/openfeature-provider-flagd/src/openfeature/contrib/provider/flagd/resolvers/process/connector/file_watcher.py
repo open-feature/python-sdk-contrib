@@ -35,7 +35,7 @@ class FileWatcher(FlagStateConnector):
 
         self.emit_provider_ready = emit_provider_ready
         self.emit_provider_error = emit_provider_error
-        self.deadline_seconds = config.deadline * 0.001
+        self.deadline_seconds = config.deadline_ms * 0.001
 
         self.last_modified = 0.0
         self.flag_store = flag_store

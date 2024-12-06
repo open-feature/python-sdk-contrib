@@ -21,8 +21,8 @@
 # provider.initialise(schema="https",endpoint="example.com",port=1234,timeout=10)
 """
 
-import logging
 import typing
+import warnings
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
@@ -50,10 +50,10 @@ class FlagdProvider(AbstractProvider):
         selector: typing.Optional[str] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
-        cache_type: typing.Optional[CacheType] = None,
-        max_cache_size: typing.Optional[int] = None,
         stream_deadline_ms: typing.Optional[int] = None,
         keep_alive_time: typing.Optional[int] = None,
+        cache_type: typing.Optional[CacheType] = None,
+        max_cache_size: typing.Optional[int] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -61,23 +61,32 @@ class FlagdProvider(AbstractProvider):
         :param host: the host to make requests to
         :param port: the port the flagd service is available on
         :param tls: enable/disable secure TLS connectivity
-        :param timeout: the maximum to wait before a request times out
+        :param deadline: the maximum to wait before a request times out
+        :param timeout: the maximum time to wait before a request times out
+        :param retry_backoff_ms: the number of milliseconds to backoff
+        :param offline_flag_source_path: the path to the flag source file
+        :param stream_deadline_ms: the maximum time to wait before a request times out
+        :param keep_alive_time: the number of milliseconds to keep alive
+        :param resolver_type: the type of resolver to use
         """
         if deadline is None and timeout is not None:
             deadline = timeout * 1000
-            logging.info(
-                "'timeout' property is deprecated, please use 'deadline' instead, be aware that 'deadline' is in milliseconds"
+            warnings.warn(
+                "'timeout' property is deprecated, please use 'deadline' instead, be aware that 'deadline' is in milliseconds",
+                DeprecationWarning,
+                stacklevel=2,
             )
+
         self.config = Config(
             host=host,
             port=port,
             tls=tls,
-            deadline=deadline,
+            deadline_ms=deadline,
             retry_backoff_ms=retry_backoff_ms,
             selector=selector,
-            resolver_type=resolver_type,
+            resolver=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
-            cache_type=cache_type,
+            cache=cache_type,
             max_cache_size=max_cache_size,
             stream_deadline_ms=stream_deadline_ms,
             keep_alive_time=keep_alive_time,
@@ -86,14 +95,14 @@ class FlagdProvider(AbstractProvider):
         self.resolver = self.setup_resolver()
 
     def setup_resolver(self) -> AbstractResolver:
-        if self.config.resolver_type == ResolverType.RPC:
+        if self.config.resolver == ResolverType.RPC:
             return GrpcResolver(
                 self.config,
                 self.emit_provider_ready,
                 self.emit_provider_error,
                 self.emit_provider_configuration_changed,
             )
-        elif self.config.resolver_type == ResolverType.IN_PROCESS:
+        elif self.config.resolver == ResolverType.IN_PROCESS:
             return InProcessResolver(
                 self.config,
                 self.emit_provider_ready,
@@ -102,7 +111,7 @@ class FlagdProvider(AbstractProvider):
             )
         else:
             raise ValueError(
-                f"`resolver_type` parameter invalid: {self.config.resolver_type}"
+                f"`resolver_type` parameter invalid: {self.config.resolver}"
             )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:

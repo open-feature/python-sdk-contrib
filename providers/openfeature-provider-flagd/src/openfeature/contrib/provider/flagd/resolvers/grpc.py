@@ -4,7 +4,7 @@ import time
 import typing
 
 import grpc
-from cachebox import LRUCache  # type:ignore[import-not-found]
+from cachebox import BaseCacheImpl, LRUCache
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct
 
@@ -20,7 +20,7 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
-from openfeature.schemas.protobuf.flagd.evaluation.v1 import (  # type:ignore[import-not-found]
+from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
 )
@@ -29,12 +29,17 @@ from ..config import CacheType, Config
 from ..flag_type import FlagType
 from .protocol import AbstractResolver
 
+if typing.TYPE_CHECKING:
+    from google.protobuf.message import Message
+
 T = typing.TypeVar("T")
 
 logger = logging.getLogger("openfeature.contrib")
 
 
 class GrpcResolver(AbstractResolver):
+    MAX_BACK_OFF = 120
+
     MAX_BACK_OFF = 120
 
     def __init__(
@@ -50,20 +55,18 @@ class GrpcResolver(AbstractResolver):
         self.emit_provider_ready = emit_provider_ready
         self.emit_provider_error = emit_provider_error
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
-
-        self.stub, self.channel = self.create_stub()
-        self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
-        self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
-        self.deadline = config.deadline * 0.001
-        self.connected = False
-
-        self._cache = (
+        self.cache: typing.Optional[BaseCacheImpl] = (
             LRUCache(maxsize=self.config.max_cache_size)
-            if self.config.cache_type == CacheType.LRU
+            if self.config.cache == CacheType.LRU
             else None
         )
+        self.stub, self.channel = self._create_stub()
+        self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
+        self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
+        self.deadline = config.deadline_ms * 0.001
+        self.connected = False
 
-    def create_stub(
+    def _create_stub(
         self,
     ) -> typing.Tuple[evaluation_pb2_grpc.ServiceStub, grpc.Channel]:
         config = self.config
@@ -73,6 +76,10 @@ class GrpcResolver(AbstractResolver):
             options=(("grpc.keepalive_time_ms", config.keep_alive_time),),
         )
         stub = evaluation_pb2_grpc.ServiceStub(channel)
+
+        if self.cache:
+            self.cache.clear()
+
         return stub, channel
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
@@ -81,8 +88,8 @@ class GrpcResolver(AbstractResolver):
     def shutdown(self) -> None:
         self.active = False
         self.channel.close()
-        if self._cache:
-            self._cache.clear()
+        if self.cache:
+            self.cache.clear()
 
     def connect(self) -> None:
         self.active = True
@@ -104,7 +111,6 @@ class GrpcResolver(AbstractResolver):
 
     def listen(self) -> None:
         retry_delay = self.retry_backoff_seconds
-
         call_args = (
             {"timeout": self.streamline_deadline_seconds}
             if self.streamline_deadline_seconds > 0
@@ -135,8 +141,8 @@ class GrpcResolver(AbstractResolver):
                         return
             except grpc.RpcError as e:
                 logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
-                if e.code() == grpc.StatusCode.UNAVAILABLE:
-                    self.stub, self.channel = self.create_stub()
+                # re-create the stub if there's a connection issue - otherwise reconnect does not work as expected
+                self.stub, self.channel = self._create_stub()
             except ParseError:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
@@ -156,9 +162,9 @@ class GrpcResolver(AbstractResolver):
     def handle_changed_flags(self, data: typing.Any) -> None:
         changed_flags = list(data["flags"].keys())
 
-        if self._cache:
+        if self.cache:
             for flag in changed_flags:
-                self._cache.pop(flag)
+                self.cache.pop(flag)
 
         self.emit_provider_configuration_changed(ProviderEventDetails(changed_flags))
 
@@ -209,21 +215,15 @@ class GrpcResolver(AbstractResolver):
         default_value: T,
         evaluation_context: typing.Optional[EvaluationContext],
     ) -> FlagResolutionDetails[T]:
-        if self._cache is not None and flag_key in self._cache:
-            cached_flag: FlagResolutionDetails[T] = self._cache[flag_key]
+        if self.cache is not None and flag_key in self.cache:
+            cached_flag: FlagResolutionDetails[T] = self.cache[flag_key]
             cached_flag.reason = Reason.CACHED
             return cached_flag
 
         context = self._convert_context(evaluation_context)
         call_args = {"timeout": self.deadline}
         try:
-            request: typing.Union[
-                evaluation_pb2.ResolveBooleanRequest,
-                evaluation_pb2.ResolveIntRequest,
-                evaluation_pb2.ResolveStringRequest,
-                evaluation_pb2.ResolveObjectRequest,
-                evaluation_pb2.ResolveFloatRequest,
-            ]
+            request: Message
             if flag_type == FlagType.BOOLEAN:
                 request = evaluation_pb2.ResolveBooleanRequest(
                     flag_key=flag_key, context=context
@@ -278,8 +278,8 @@ class GrpcResolver(AbstractResolver):
             variant=response.variant,
         )
 
-        if response.reason == Reason.STATIC and self._cache is not None:
-            self._cache.insert(flag_key, result)
+        if response.reason == Reason.STATIC and self.cache is not None:
+            self.cache.insert(flag_key, result)
 
         return result
 

@@ -17,7 +17,7 @@ classifiers = [
 ]
 keywords = []
 dependencies = [
-  "openfeature-sdk>=0.4.0",
+  "openfeature-sdk>=0.6.0",
   "grpcio>=1.68.0",
   "protobuf>=4.25.2",
   "mmh3>=4.1.0",
@@ -60,6 +60,20 @@ cov = [
   "cov-report",
 ]
 
+
+[tool.hatch.envs.mypy]
+dependencies = [
+  "mypy[faster-cache]>=1.13.0",
+  "types-protobuf",
+  "types-pyyaml",
+]
+pre-install-commands = [
+  "hatch build",
+]
+
+[tool.hatch.envs.mypy.scripts]
+run = "mypy"
+
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
 dependencies = [
@@ -83,8 +97,6 @@ outputs = ["{proto_path}/{proto_name}_pb2_grpc.pyi"]
 exclude = [
   ".gitignore",
   "/openfeature",
-  "test-harness",
-  "spec"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -93,6 +105,32 @@ packages = ["src/openfeature"]
 [tool.coverage.run]
 omit = [
   # exclude generated files
-  "src/schemas/*",
+  "src/openfeature/schemas/*",
   "tests/**",
 ]
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+
+python_version = "3.8" # should be identical to the minimum supported version
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+pretty = true
+
+strict = true
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = [
+    "grpc.*",
+    "json_logic.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "openfeature.schemas.*"
+]
+warn_unused_ignores = false

@@ -1,13 +1,8 @@
 import pytest
-from pytest_bdd import given, scenarios
+from pytest_bdd import scenarios
 from tests.e2e.conftest import SPEC_PATH, TEST_HARNESS_PATH
-from tests.e2e.steps import wait_for
 
-from openfeature import api
-from openfeature.client import OpenFeatureClient
-from openfeature.contrib.provider.flagd import FlagdProvider
-from openfeature.contrib.provider.flagd.config import CacheType, ResolverType
-from openfeature.provider import ProviderStatus
+from openfeature.contrib.provider.flagd.config import ResolverType
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -30,22 +25,9 @@ def image():
     return "ghcr.io/open-feature/flagd-testbed:v0.5.13"
 
 
-@given("a provider is registered with caching", target_fixture="client")
-def setup_caching_provider(setup, resolver_type, client_name) -> OpenFeatureClient:
-    api.set_provider(
-        FlagdProvider(
-            resolver_type=resolver_type, port=setup, cache_type=CacheType.LRU
-        ),
-        client_name,
-    )
-    client = api.get_client(client_name)
-    wait_for(lambda: client.get_provider_status() == ProviderStatus.READY)
-    return client
-
-
 scenarios(
     f"{TEST_HARNESS_PATH}/gherkin/flagd.feature",
     f"{TEST_HARNESS_PATH}/gherkin/flagd-json-evaluator.feature",
     f"{SPEC_PATH}/specification/assets/gherkin/evaluation.feature",
-    "./rpc_cache.feature",
+    f"{TEST_HARNESS_PATH}/gherkin/flagd-rpc-caching.feature",
 )

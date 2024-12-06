@@ -1,8 +1,8 @@
 import time
 import typing
 
-from json_logic import builtins, jsonLogic  # type: ignore[import-untyped]
-from json_logic.types import JsonValue  # type: ignore[import-untyped]
+from json_logic import builtins, jsonLogic
+from json_logic.types import JsonValue
 
 from openfeature.evaluation_context import EvaluationContext
 

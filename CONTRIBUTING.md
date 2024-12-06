@@ -38,6 +38,10 @@ To run the integration tests you need to have a container runtime, like docker, 
 hatch run test
 ```
 
+### Type checking
+
+Run `mypy` by entering the package directory and running `hatch run mypy:run`.
+
 ## Pull Request
 
 All contributions to the OpenFeature project are welcome via GitHub pull requests.

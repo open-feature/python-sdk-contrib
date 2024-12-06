@@ -105,10 +105,8 @@ The default options can be defined in the FlagdProvider constructor.
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
 
-
 <!--
 ### Unix socket support
-
 Unix socket communication with flagd is facilitated by usaging of the linux-native `epoll` library on `linux-x86_64`
 only (ARM support is pending the release of `netty-transport-native-epoll` v5).
 Unix sockets are not supported on other platforms or architectures.
@@ -118,8 +116,7 @@ Unix sockets are not supported on other platforms or architectures.
 
 Reconnection is supported by the underlying gRPC connections.
 If the connection to flagd is lost, it will reconnect automatically.
-A failure to connect will result in an [error event](https://openfeature.dev/docs/reference/concepts/events#provider_error) from the provider, though it will attempt to reconnect
-indefinitely.
+A failure to connect will result in an [error event](https://openfeature.dev/docs/reference/concepts/events#provider_error) from the provider, though it will attempt to reconnect indefinitely.
 
 ### Deadlines
 
@@ -131,24 +128,12 @@ They behave differently based on the resolver type.
 If the remote evaluation call is not completed within this deadline, the gRPC call is terminated with the error `DEADLINE_EXCEEDED`
 and the evaluation will default.
 
-#### Deadlines with In-process resolver
-
-In-process resolver with remote evaluation uses the `deadline` for synchronous gRPC calls to fetch metadata from flagd as part of its initialization process.
-If fetching metadata fails within this deadline, the provider will try to reconnect.
-The `streamDeadlineMs` defines a deadline for the streaming connection that listens to flag configuration updates from
-flagd. After the deadline is exceeded, the provider closes the gRPC stream and will attempt to reconnect.
-
-In-process resolver with offline evaluation uses the `deadline` for file reads to fetch flag definitions.
-If the provider cannot open and read the file within this deadline, the provider will default the evaluation.
-
-
 ### TLS
 
 TLS is available in situations where flagd is running on another host.
 
 <!--
 You may optionally supply an X.509 certificate in PEM format. Otherwise, the default certificate store will be used.
-
 ```java
 FlagdProvider flagdProvider = new FlagdProvider(
         FlagdOptions.builder()
@@ -158,22 +143,6 @@ FlagdProvider flagdProvider = new FlagdProvider(
                 .build());
 ```
 -->
-
-### Caching (RPC only)
-
-> [!NOTE]
-> The in-process resolver does not benefit from caching since all evaluations are done locally and do not involve I/O.
-
-The provider attempts to establish a connection to flagd's event stream (up to 5 times by default).
-If the connection is successful and caching is enabled, each flag returned with the reason `STATIC` is cached until an event is received
-concerning the cached flag (at which point it is removed from the cache).
-
-On invocation of a flag evaluation (if caching is available), an attempt is made to retrieve the entry from the cache, if
-found the flag is returned with the reason `CACHED`.
-
-By default, the provider is configured to
-use [least recently used (lru)](https://pypi.org/project/cachebox/)
-caching with up to 1000 entries.
 
 ## License
 

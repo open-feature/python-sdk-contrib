@@ -37,7 +37,7 @@ class GrpcWatcher(FlagStateConnector):
         self.stub, self.channel = self.create_stub()
         self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
-        self.deadline = config.deadline * 0.001
+        self.deadline = config.deadline_ms * 0.001
         self.selector = config.selector
         self.emit_provider_ready = emit_provider_ready
         self.emit_provider_error = emit_provider_error
