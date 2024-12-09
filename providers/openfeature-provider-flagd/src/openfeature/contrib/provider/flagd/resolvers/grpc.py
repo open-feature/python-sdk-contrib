@@ -59,7 +59,7 @@ class GrpcResolver:
         )
         self.stub, self.channel = self._create_stub()
         self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
-        self.retry_backoff_max_seconds = config.retry_backoff_ms * 0.001
+        self.retry_backoff_max_seconds = config.retry_backoff_max_ms * 0.001
         self.retry_grace_attempts = config.retry_grace_attempts
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
