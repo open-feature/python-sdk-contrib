@@ -148,7 +148,7 @@ class GrpcResolver:
                 )
 
             self.connected = False
-            self.on_connection_error(retry_counter, retry_delay)
+            self.onConnectionError(retry_counter, retry_delay)
 
             retry_delay = self.handle_retry(retry_counter, retry_delay)
 
