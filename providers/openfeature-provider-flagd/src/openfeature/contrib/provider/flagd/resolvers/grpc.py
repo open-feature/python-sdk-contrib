@@ -148,7 +148,7 @@ class GrpcResolver:
                 )
 
             self.connected = False
-            self.handle_error(retry_counter, retry_delay)
+            self.onConnectionError(retry_counter, retry_delay)
 
             retry_delay = self.handle_retry(retry_counter, retry_delay)
 
@@ -163,7 +163,7 @@ class GrpcResolver:
             retry_delay = min(1.1 * retry_delay, self.retry_backoff_max_seconds)
         return retry_delay
 
-    def handle_error(self, retry_counter: int, retry_delay: float) -> None:
+    def onConnectionError(self, retry_counter: int, retry_delay: float) -> None:
         if retry_counter == self.retry_grace_attempts:
             if self.cache:
                 self.cache.clear()
