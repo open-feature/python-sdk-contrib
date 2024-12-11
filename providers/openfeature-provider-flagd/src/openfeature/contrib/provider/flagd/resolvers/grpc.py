@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 import time
@@ -7,6 +8,7 @@ import grpc
 from cachebox import BaseCacheImpl, LRUCache
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct
+from grpc import ChannelConnectivity
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
@@ -37,47 +39,71 @@ logger = logging.getLogger("openfeature.contrib")
 
 
 class GrpcResolver:
-    MAX_BACK_OFF = 120
-
     def __init__(
         self,
         config: Config,
         emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
         emit_provider_error: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_stale: typing.Callable[[ProviderEventDetails], None],
         emit_provider_configuration_changed: typing.Callable[
             [ProviderEventDetails], None
         ],
     ):
+        self.active = False
         self.config = config
         self.emit_provider_ready = emit_provider_ready
         self.emit_provider_error = emit_provider_error
+        self.emit_provider_stale = emit_provider_stale
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
         self.cache: typing.Optional[BaseCacheImpl] = (
             LRUCache(maxsize=self.config.max_cache_size)
-            if self.config.cache_type == CacheType.LRU
+            if self.config.cache == CacheType.LRU
             else None
         )
-        self.stub, self.channel = self._create_stub()
-        self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
+
+        retry_backoff_seconds = config.retry_backoff_ms * 0.001
+        retry_backoff_max_seconds = config.retry_backoff_max_ms * 0.001
+        self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
-        self.deadline = config.deadline * 0.001
+        self.deadline = config.deadline_ms * 0.001
         self.connected = False
-
-    def _create_stub(
-        self,
-    ) -> typing.Tuple[evaluation_pb2_grpc.ServiceStub, grpc.Channel]:
-        config = self.config
         channel_factory = grpc.secure_channel if config.tls else grpc.insecure_channel
-        channel = channel_factory(
+        service_config = {
+            "methodConfig": [
+                {
+                    "name": [
+                        {
+                            "service": "flagd.evaluation.v1.Service",
+                            "method": "EventStream",
+                        }
+                    ],
+                    "retryPolicy": {
+                        "maxAttempts": 50000,  # Max value for a 32-bit integer
+                        "initialBackoff": f"{retry_backoff_seconds}s",  # Initial backoff delay
+                        "maxBackoff": f"{retry_backoff_max_seconds}s",  # Maximum backoff delay
+                        "backoffMultiplier": 2,  # Exponential backoff multiplier
+                        "retryableStatusCodes": [
+                            "UNAVAILABLE",
+                            "UNKNOWN",
+                        ],  # Retry on these statuses
+                    },
+                }
+            ],
+        }
+
+        # Create the channel with the service config
+        options = [
+            ("grpc.service_config", json.dumps(service_config)),
+            ("grpc.keepalive_time_ms", config.keep_alive_time),
+        ]
+        self.channel = channel_factory(
             f"{config.host}:{config.port}",
-            options=(("grpc.keepalive_time_ms", config.keep_alive),),
+            options=options,
         )
-        stub = evaluation_pb2_grpc.ServiceStub(channel)
+        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
-        if self.cache:
-            self.cache.clear()
-
-        return stub, channel
+        self.thread: typing.Optional[threading.Thread] = None
+        self.timer: typing.Optional[threading.Timer] = None
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
@@ -90,11 +116,12 @@ class GrpcResolver:
 
     def connect(self) -> None:
         self.active = True
-        self.thread = threading.Thread(
-            target=self.listen, daemon=True, name="FlagdGrpcServiceWorkerThread"
-        )
-        self.thread.start()
 
+        # Run monitoring in a separate thread
+        self.monitor_thread = threading.Thread(
+            target=self.monitor, daemon=True, name="FlagdGrpcServiceMonitorThread"
+        )
+        self.monitor_thread.start()
         ## block until ready or deadline reached
         timeout = self.deadline + time.time()
         while not self.connected and time.time() < timeout:
@@ -106,29 +133,70 @@ class GrpcResolver:
                 "Blocking init finished before data synced. Consider increasing startup deadline to avoid inconsistent evaluations."
             )
 
+    def monitor(self) -> None:
+        def state_change_callback(new_state: ChannelConnectivity) -> None:
+            logger.debug(f"gRPC state change: {new_state}")
+            if new_state == ChannelConnectivity.READY:
+                if not self.thread or not self.thread.is_alive():
+                    self.thread = threading.Thread(
+                        target=self.listen,
+                        daemon=True,
+                        name="FlagdGrpcServiceWorkerThread",
+                    )
+                    self.thread.start()
+
+                if self.timer and self.timer.is_alive():
+                    logger.debug("gRPC error timer expired")
+                    self.timer.cancel()
+
+            elif new_state == ChannelConnectivity.TRANSIENT_FAILURE:
+                # this is the failed reonnect attempt so we are going into stale
+                self.emit_provider_stale(
+                    ProviderEventDetails(
+                        message="gRPC sync disconnected, reconnecting",
+                    )
+                )
+                # adding a timer, so we can emit the error event after time
+                self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+
+                logger.debug("gRPC error timer started")
+                self.timer.start()
+                self.connected = False
+
+        self.channel.subscribe(state_change_callback, try_to_connect=True)
+
+    def emit_error(self) -> None:
+        logger.debug("gRPC error emitted")
+        if self.cache:
+            self.cache.clear()
+        self.emit_provider_error(
+            ProviderEventDetails(
+                message="gRPC sync disconnected, reconnecting",
+                error_code=ErrorCode.GENERAL,
+            )
+        )
+
     def listen(self) -> None:
-        retry_delay = self.retry_backoff_seconds
+        logger.info("gRPC starting listener thread")
         call_args = (
             {"timeout": self.streamline_deadline_seconds}
             if self.streamline_deadline_seconds > 0
             else {}
         )
+        request = evaluation_pb2.EventStreamRequest()
+
+        # defining a never ending loop to recreate the stream
         while self.active:
-            request = evaluation_pb2.EventStreamRequest()
             try:
-                logger.debug("Setting up gRPC sync flags connection")
+                logger.info("Setting up gRPC sync flags connection")
                 for message in self.stub.EventStream(request, **call_args):
                     if message.type == "provider_ready":
-                        if not self.connected:
-                            self.emit_provider_ready(
-                                ProviderEventDetails(
-                                    message="gRPC sync connection established"
-                                )
+                        self.connected = True
+                        self.emit_provider_ready(
+                            ProviderEventDetails(
+                                message="gRPC sync connection established"
                             )
-                            self.connected = True
-                            # reset retry delay after successsful read
-                            retry_delay = self.retry_backoff_seconds
-
+                        )
                     elif message.type == "configuration_change":
                         data = MessageToDict(message)["data"]
                         self.handle_changed_flags(data)
@@ -136,25 +204,13 @@ class GrpcResolver:
                     if not self.active:
                         logger.info("Terminating gRPC sync thread")
                         return
-            except grpc.RpcError as e:
-                logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
-                # re-create the stub if there's a connection issue - otherwise reconnect does not work as expected
-                self.stub, self.channel = self._create_stub()
+            except grpc.RpcError as e:  # noqa: PERF203
+                # although it seems like this error log is not interesting, without it, the retry is not working as expected
+                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
             except ParseError:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
                 )
-
-            self.connected = False
-            self.emit_provider_error(
-                ProviderEventDetails(
-                    message=f"gRPC sync disconnected, reconnecting in {retry_delay}s",
-                    error_code=ErrorCode.GENERAL,
-                )
-            )
-            logger.info(f"gRPC sync disconnected, reconnecting in {retry_delay}s")
-            time.sleep(retry_delay)
-            retry_delay = min(1.1 * retry_delay, self.MAX_BACK_OFF)
 
     def handle_changed_flags(self, data: typing.Any) -> None:
         changed_flags = list(data["flags"].keys())

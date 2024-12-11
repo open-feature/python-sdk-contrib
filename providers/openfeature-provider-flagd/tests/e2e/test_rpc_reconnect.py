@@ -22,9 +22,10 @@ def port():
 
 @pytest.fixture(autouse=True, scope="module")
 def image():
-    return "ghcr.io/open-feature/flagd-testbed-unstable:v0.5.13"
+    return "ghcr.io/open-feature/flagd-testbed:v0.5.13"
 
 
 scenarios(
     f"{TEST_HARNESS_PATH}/gherkin/flagd-reconnect.feature",
+    f"{TEST_HARNESS_PATH}/gherkin/events.feature",
 )

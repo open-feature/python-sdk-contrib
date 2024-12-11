@@ -33,15 +33,17 @@ class FileWatcherFlagStore:
         self.load_data()
         self.thread = threading.Thread(target=self.refresh_file, daemon=True)
         self.thread.start()
+        self.active = True
 
     def shutdown(self) -> None:
+        self.active = False
         pass
 
     def get_flag(self, key: str) -> typing.Optional[Flag]:
         return self.flag_data.get(key)
 
     def refresh_file(self) -> None:
-        while True:
+        while self.active:
             time.sleep(self.poll_interval_seconds)
             logger.debug("checking for new flag store contents from file")
             last_modified = os.path.getmtime(self.file_path)
