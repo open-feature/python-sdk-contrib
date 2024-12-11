@@ -1,10 +1,13 @@
 import logging
+import threading
 import time
 import typing
 
 import pytest
 from asserts import assert_equal, assert_in, assert_not_equal, assert_true
 from pytest_bdd import given, parsers, then, when
+from testcontainers.core.container import DockerContainer
+from tests.e2e.flagd_container import FlagdContainer
 from tests.e2e.parsers import to_bool, to_list
 
 from openfeature import api
@@ -26,9 +29,21 @@ def evaluation_context() -> EvaluationContext:
 
 @given("a flagd provider is set", target_fixture="client")
 @given("a provider is registered", target_fixture="client")
-def setup_provider(setup, resolver_type, client_name) -> OpenFeatureClient:
+def setup_provider(
+    container: FlagdContainer, resolver_type, client_name, port
+) -> OpenFeatureClient:
+    try:
+        container.get_exposed_port(port)
+    except:  # noqa: E722
+        container.start()
+
     api.set_provider(
-        FlagdProvider(resolver_type=resolver_type, port=setup, timeout=1),
+        FlagdProvider(
+            resolver_type=resolver_type,
+            port=int(container.get_exposed_port(port)),
+            timeout=1,
+            retry_grace_period=3,
+        ),
         client_name,
     )
     client = api.get_client(client_name)
@@ -517,6 +532,12 @@ def error_handles() -> list:
     return []
 
 
+@given(
+    parsers.cfparse(
+        "a {event_type:ProviderEvent} handler is added",
+        extra_types={"ProviderEvent": ProviderEvent},
+    ),
+)
 @when(
     parsers.cfparse(
         "a {event_type:ProviderEvent} handler is added",
@@ -591,7 +612,7 @@ def assert_handlers(
     )
 )
 def assert_handler_run(event_type: ProviderEvent, event_handles):
-    assert_handlers(event_handles, event_type, max_wait=30)
+    assert_handlers(event_handles, event_type, max_wait=20)
 
 
 @then(
@@ -602,7 +623,7 @@ def assert_handler_run(event_type: ProviderEvent, event_handles):
 )
 def assert_disconnect_handler(error_handles, event_type: ProviderEvent):
     # docker sync upstream restarts every 5s, waiting 2 cycles reduces test noise
-    assert_handlers(error_handles, event_type, max_wait=30)
+    assert_handlers(error_handles, event_type, max_wait=20)
 
 
 @when(
@@ -631,7 +652,10 @@ def assert_disconnect_error(
 def assert_flag_changed(event_handles, key):
     handle = None
     for h in event_handles:
-        if h["type"] == ProviderEvent.PROVIDER_CONFIGURATION_CHANGED:
+        if (
+            h["type"] == ProviderEvent.PROVIDER_CONFIGURATION_CHANGED
+            and key in h["event"].flags_changed
+        ):
             handle = h
             break
 
@@ -668,3 +692,33 @@ def flagd_init(client: OpenFeatureClient, event_handles, error_handles):
 @then("an error should be indicated within the configured deadline")
 def flagd_error(error_handles):
     assert_handlers(error_handles, ProviderEvent.PROVIDER_ERROR)
+
+
+@when(parsers.cfparse("the connection is lost for {seconds}s"))
+def flagd_restart(seconds, container):
+    def starting():
+        container.start()
+
+    container.stop()
+    threading.Timer(int(seconds), starting).start()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def container(request, port, image):
+    container: DockerContainer = FlagdContainer(
+        image=image,
+        port=port,
+    )
+    # Setup code
+    container = container.start()
+
+    def fin():
+        try:
+            container.stop()
+        except:  # noqa: E722
+            logging.debug("container was not running anymore")
+
+    # Teardown code
+    request.addfinalizer(fin)
+
+    return container
