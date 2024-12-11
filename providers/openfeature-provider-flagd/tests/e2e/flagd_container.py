@@ -5,19 +5,27 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready, wait_for_logs
 
+from openfeature.contrib.provider.flagd.config import ResolverType
+
 HEALTH_CHECK = 8014
 
 
 class FlagdContainer(DockerContainer):
     def __init__(
         self,
-        image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.15",
-        port: int = 8013,
         **kwargs,
     ) -> None:
+        image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.15"
         super().__init__(image, **kwargs)
-        self.port = port
-        self.with_exposed_ports(self.port, HEALTH_CHECK)
+        self.rpc = 8013
+        self.ipr = 8015
+        self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK)
+
+    def get_port(self, resolver_type: ResolverType):
+        if resolver_type == ResolverType.RPC:
+            return self.get_exposed_port(self.rpc)
+        else:
+            return self.get_exposed_port(self.ipr)
 
     def start(self) -> "FlagdContainer":
         super().start()

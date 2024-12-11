@@ -43,17 +43,17 @@ class FlagdProvider(AbstractProvider):
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
-        deadline: typing.Optional[int] = None,
+        deadline_ms: typing.Optional[int] = None,
         timeout: typing.Optional[int] = None,
         retry_backoff_ms: typing.Optional[int] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         stream_deadline_ms: typing.Optional[int] = None,
         keep_alive_time: typing.Optional[int] = None,
-        cache_type: typing.Optional[CacheType] = None,
+        cache: typing.Optional[CacheType] = None,
         max_cache_size: typing.Optional[int] = None,
         retry_backoff_max_ms: typing.Optional[int] = None,
-        retry_grace_attempts: typing.Optional[int] = None,
+        retry_grace_period: typing.Optional[int] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -61,7 +61,7 @@ class FlagdProvider(AbstractProvider):
         :param host: the host to make requests to
         :param port: the port the flagd service is available on
         :param tls: enable/disable secure TLS connectivity
-        :param deadline: the maximum to wait before a request times out
+        :param deadline_ms: the maximum to wait before a request times out
         :param timeout: the maximum time to wait before a request times out
         :param retry_backoff_ms: the number of milliseconds to backoff
         :param offline_flag_source_path: the path to the flag source file
@@ -69,8 +69,8 @@ class FlagdProvider(AbstractProvider):
         :param keep_alive_time: the number of milliseconds to keep alive
         :param resolver_type: the type of resolver to use
         """
-        if deadline is None and timeout is not None:
-            deadline = timeout * 1000
+        if deadline_ms is None and timeout is not None:
+            deadline_ms = timeout * 1000
             warnings.warn(
                 "'timeout' property is deprecated, please use 'deadline' instead, be aware that 'deadline' is in milliseconds",
                 DeprecationWarning,
@@ -81,15 +81,15 @@ class FlagdProvider(AbstractProvider):
             host=host,
             port=port,
             tls=tls,
-            deadline_ms=deadline,
+            deadline_ms=deadline_ms,
             retry_backoff_ms=retry_backoff_ms,
             retry_backoff_max_ms=retry_backoff_max_ms,
-            retry_grace_attempts=retry_grace_attempts,
+            retry_grace_period=retry_grace_period,
             resolver=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
             stream_deadline_ms=stream_deadline_ms,
             keep_alive_time=keep_alive_time,
-            cache=cache_type,
+            cache=cache,
             max_cache_size=max_cache_size,
         )
 
