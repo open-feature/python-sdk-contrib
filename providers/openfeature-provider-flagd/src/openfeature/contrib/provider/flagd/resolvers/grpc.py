@@ -1,4 +1,3 @@
-import json
 import logging
 import threading
 import time
@@ -55,47 +54,22 @@ class GrpcResolver:
         self.emit_provider_error = emit_provider_error
         self.emit_provider_stale = emit_provider_stale
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
-        self.cache: typing.Optional[BaseCacheImpl] = (
-            LRUCache(maxsize=self.config.max_cache_size)
-            if self.config.cache == CacheType.LRU
-            else None
-        )
+        self.cache: typing.Optional[BaseCacheImpl] = self._create_cache()
 
-        retry_backoff_seconds = config.retry_backoff_ms * 0.001
-        retry_backoff_max_seconds = config.retry_backoff_max_ms * 0.001
         self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
         channel_factory = grpc.secure_channel if config.tls else grpc.insecure_channel
-        service_config = {
-            "methodConfig": [
-                {
-                    "name": [
-                        {
-                            "service": "flagd.evaluation.v1.Service",
-                            "method": "EventStream",
-                        }
-                    ],
-                    "retryPolicy": {
-                        "maxAttempts": 50000,  # Max value for a 32-bit integer
-                        "initialBackoff": f"{retry_backoff_seconds}s",  # Initial backoff delay
-                        "maxBackoff": f"{retry_backoff_max_seconds}s",  # Maximum backoff delay
-                        "backoffMultiplier": 2,  # Exponential backoff multiplier
-                        "retryableStatusCodes": [
-                            "UNAVAILABLE",
-                            "UNKNOWN",
-                        ],  # Retry on these statuses
-                    },
-                }
-            ],
-        }
 
         # Create the channel with the service config
         options = [
-            ("grpc.service_config", json.dumps(service_config)),
             ("grpc.keepalive_time_ms", config.keep_alive_time),
+            ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
+            ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
+            ("grpc.min_reconnect_backoff_ms", config.deadline_ms),
         ]
+
         self.channel = channel_factory(
             f"{config.host}:{config.port}",
             options=options,
@@ -104,6 +78,14 @@ class GrpcResolver:
 
         self.thread: typing.Optional[threading.Thread] = None
         self.timer: typing.Optional[threading.Timer] = None
+        self.active = False
+
+    def _create_cache(self):
+        return (
+            LRUCache(maxsize=self.config.max_cache_size)
+            if self.config.cache == CacheType.LRU
+            else None
+        )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
@@ -111,8 +93,6 @@ class GrpcResolver:
     def shutdown(self) -> None:
         self.active = False
         self.channel.close()
-        if self.cache:
-            self.cache.clear()
 
     def connect(self) -> None:
         self.active = True
@@ -167,7 +147,7 @@ class GrpcResolver:
 
     def emit_error(self) -> None:
         logger.debug("gRPC error emitted")
-        if self.cache:
+        if self.cache is not None:
             self.cache.clear()
         self.emit_provider_error(
             ProviderEventDetails(
@@ -189,7 +169,9 @@ class GrpcResolver:
         while self.active:
             try:
                 logger.info("Setting up gRPC sync flags connection")
-                for message in self.stub.EventStream(request, **call_args):
+                for message in self.stub.EventStream(
+                    request, wait_for_ready=True, **call_args
+                ):
                     if message.type == "provider_ready":
                         self.connected = True
                         self.emit_provider_ready(

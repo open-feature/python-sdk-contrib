@@ -31,9 +31,9 @@ class FileWatcherFlagStore:
         self.last_modified = 0.0
         self.flag_data: typing.Mapping[str, Flag] = {}
         self.load_data()
+        self.active = True
         self.thread = threading.Thread(target=self.refresh_file, daemon=True)
         self.thread.start()
-        self.active = True
 
     def shutdown(self) -> None:
         self.active = False
