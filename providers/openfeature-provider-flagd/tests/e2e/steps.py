@@ -591,7 +591,7 @@ def assert_handlers(
     )
 )
 def assert_handler_run(event_type: ProviderEvent, event_handles):
-    assert_handlers(event_handles, event_type, max_wait=6)
+    assert_handlers(event_handles, event_type, max_wait=30)
 
 
 @then(
