@@ -22,7 +22,7 @@ def port():
 
 @pytest.fixture(autouse=True, scope="module")
 def image():
-    return "ghcr.io/open-feature/flagd-testbed-unstable:v0.5.13"
+    return "ghcr.io/open-feature/flagd-testbed-unstable"
 
 
 scenarios(

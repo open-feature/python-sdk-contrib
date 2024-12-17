@@ -1,3 +1,4 @@
+import os
 import time
 
 import grpc
@@ -11,11 +12,15 @@ HEALTH_CHECK = 8014
 class FlagdContainer(DockerContainer):
     def __init__(
         self,
-        image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.15",
+        image: str = "ghcr.io/open-feature/flagd-testbed",
         port: int = 8013,
         **kwargs,
     ) -> None:
-        super().__init__(image, **kwargs)
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        path = os.path.join(my_path, "../../openfeature/test-harness/version.txt")
+        with open(path) as file:
+            data = file.read().rstrip()
+        super().__init__(f"{image}:v{data}", **kwargs)
         self.port = port
         self.with_exposed_ports(self.port, HEALTH_CHECK)
 
