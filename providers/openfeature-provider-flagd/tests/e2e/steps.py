@@ -3,17 +3,14 @@ import time
 import typing
 
 import pytest
-from asserts import assert_equal, assert_in, assert_not_equal, assert_true
+from asserts import assert_equal, assert_in, assert_not_equal
 from pytest_bdd import given, parsers, then, when
 from tests.e2e.parsers import to_bool, to_list
 
-from openfeature import api
 from openfeature.client import OpenFeatureClient
-from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent
 from openfeature.flag_evaluation import ErrorCode, FlagEvaluationDetails, Reason
-from openfeature.provider import ProviderStatus
 
 JsonObject = typing.Union[dict, list]
 JsonPrimitive = typing.Union[str, bool, float, int, JsonObject]
@@ -22,18 +19,6 @@ JsonPrimitive = typing.Union[str, bool, float, int, JsonObject]
 @pytest.fixture
 def evaluation_context() -> EvaluationContext:
     return EvaluationContext()
-
-
-@given("a flagd provider is set", target_fixture="client")
-@given("a provider is registered", target_fixture="client")
-def setup_provider(setup, resolver_type, client_name) -> OpenFeatureClient:
-    api.set_provider(
-        FlagdProvider(resolver_type=resolver_type, port=setup, timeout=1),
-        client_name,
-    )
-    client = api.get_client(client_name)
-    wait_for(lambda: client.get_provider_status() == ProviderStatus.READY)
-    return client
 
 
 @when(
@@ -517,6 +502,12 @@ def error_handles() -> list:
     return []
 
 
+@given(
+    parsers.cfparse(
+        "a {event_type:ProviderEvent} handler is added",
+        extra_types={"ProviderEvent": ProviderEvent},
+    ),
+)
 @when(
     parsers.cfparse(
         "a {event_type:ProviderEvent} handler is added",
@@ -591,7 +582,7 @@ def assert_handlers(
     )
 )
 def assert_handler_run(event_type: ProviderEvent, event_handles):
-    assert_handlers(event_handles, event_type, max_wait=30)
+    assert_handlers(event_handles, event_type, max_wait=20)
 
 
 @then(
@@ -602,7 +593,7 @@ def assert_handler_run(event_type: ProviderEvent, event_handles):
 )
 def assert_disconnect_handler(error_handles, event_type: ProviderEvent):
     # docker sync upstream restarts every 5s, waiting 2 cycles reduces test noise
-    assert_handlers(error_handles, event_type, max_wait=30)
+    assert_handlers(error_handles, event_type, max_wait=20)
 
 
 @when(
@@ -631,40 +622,12 @@ def assert_disconnect_error(
 def assert_flag_changed(event_handles, key):
     handle = None
     for h in event_handles:
-        if h["type"] == ProviderEvent.PROVIDER_CONFIGURATION_CHANGED:
+        if (
+            h["type"] == ProviderEvent.PROVIDER_CONFIGURATION_CHANGED
+            and key in h["event"].flags_changed
+        ):
             handle = h
             break
 
     assert handle is not None
     assert key in handle["event"].flags_changed
-
-
-def wait_for(pred, poll_sec=2, timeout_sec=10):
-    start = time.time()
-    while not (ok := pred()) and (time.time() - start < timeout_sec):
-        time.sleep(poll_sec)
-    assert_true(pred())
-    return ok
-
-
-@given("flagd is unavailable", target_fixture="client")
-def flagd_unavailable(resolver_type):
-    api.set_provider(
-        FlagdProvider(
-            resolver_type=resolver_type,
-            port=99999,
-        ),
-        "unavailable",
-    )
-    return api.get_client("unavailable")
-
-
-@when("a flagd provider is set and initialization is awaited")
-def flagd_init(client: OpenFeatureClient, event_handles, error_handles):
-    add_event_handler(client, ProviderEvent.PROVIDER_ERROR, error_handles)
-    add_event_handler(client, ProviderEvent.PROVIDER_READY, event_handles)
-
-
-@then("an error should be indicated within the configured deadline")
-def flagd_error(error_handles):
-    assert_handlers(error_handles, ProviderEvent.PROVIDER_ERROR)

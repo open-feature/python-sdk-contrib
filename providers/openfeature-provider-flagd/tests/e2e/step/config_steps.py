@@ -1,11 +1,9 @@
 import re
-import sys
 import typing
 
 import pytest
 from asserts import assert_equal
-from pytest_bdd import given, parsers, scenarios, then, when
-from tests.e2e.conftest import TEST_HARNESS_PATH
+from pytest_bdd import given, parsers, then, when
 
 from openfeature.contrib.provider.flagd.config import CacheType, Config, ResolverType
 
@@ -96,8 +94,3 @@ def check_option_value(option, value, type_info, config):
     value = value if value != "null" else None
     assert_equal(config.__getattribute__(camel_to_snake(option)), value)
 
-
-if sys.version_info >= (3, 9):
-    scenarios(
-        f"{TEST_HARNESS_PATH}/gherkin/config.feature",
-    )
