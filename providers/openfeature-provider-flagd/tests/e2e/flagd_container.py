@@ -1,5 +1,5 @@
-import os
 import time
+from pathlib import Path
 
 import grpc
 from grpc_health.v1 import health_pb2, health_pb2_grpc
@@ -16,10 +16,8 @@ class FlagdContainer(DockerContainer):
         port: int = 8013,
         **kwargs,
     ) -> None:
-        my_path = os.path.abspath(os.path.dirname(__file__))
-        path = os.path.join(my_path, "../../openfeature/test-harness/version.txt")
-        with open(path) as file:
-            data = file.read().rstrip()
+        path = Path(__file__).parents[2] / "openfeature/test-harness/version.txt"
+        data = path.read_text().rstrip()
         super().__init__(f"{image}:v{data}", **kwargs)
         self.port = port
         self.with_exposed_ports(self.port, HEALTH_CHECK)
