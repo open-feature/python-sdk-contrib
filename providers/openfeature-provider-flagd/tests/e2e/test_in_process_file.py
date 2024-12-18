@@ -62,6 +62,11 @@ def resolver_type() -> ResolverType:
     return ResolverType.IN_PROCESS
 
 
+@pytest.fixture(autouse=True)
+def container():
+    pass
+
+
 @pytest.fixture(autouse=True, scope="module")
 def setup(request, client_name, file_name, resolver_type):
     """nothing to boot"""
