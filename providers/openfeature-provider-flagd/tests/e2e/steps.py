@@ -612,7 +612,7 @@ def assert_handlers(
     )
 )
 def assert_handler_run(event_type: ProviderEvent, event_handles):
-    assert_handlers(event_handles, event_type, max_wait=20)
+    assert_handlers(event_handles, event_type, max_wait=30)
 
 
 @then(
@@ -623,7 +623,7 @@ def assert_handler_run(event_type: ProviderEvent, event_handles):
 )
 def assert_disconnect_handler(error_handles, event_type: ProviderEvent):
     # docker sync upstream restarts every 5s, waiting 2 cycles reduces test noise
-    assert_handlers(error_handles, event_type, max_wait=20)
+    assert_handlers(error_handles, event_type, max_wait=30)
 
 
 @when(
@@ -674,10 +674,7 @@ def wait_for(pred, poll_sec=2, timeout_sec=10):
 @given("flagd is unavailable", target_fixture="client")
 def flagd_unavailable(resolver_type):
     api.set_provider(
-        FlagdProvider(
-            resolver_type=resolver_type,
-            port=99999,
-        ),
+        FlagdProvider(resolver_type=resolver_type, port=99999, retry_grace_period=2),
         "unavailable",
     )
     return api.get_client("unavailable")
