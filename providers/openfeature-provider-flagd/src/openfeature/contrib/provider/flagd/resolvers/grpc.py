@@ -113,37 +113,37 @@ class GrpcResolver:
             )
 
     def monitor(self) -> None:
-        def state_change_callback(new_state: ChannelConnectivity) -> None:
-            logger.debug(f"gRPC state change: {new_state}")
-            if new_state == ChannelConnectivity.READY:
-                if not self.thread or not self.thread.is_alive():
-                    self.thread = threading.Thread(
-                        target=self.listen,
-                        daemon=True,
-                        name="FlagdGrpcServiceWorkerThread",
-                    )
-                    self.thread.start()
+        self.channel.subscribe(self._state_change_callback, try_to_connect=True)
 
-                if self.timer and self.timer.is_alive():
-                    logger.debug("gRPC error timer expired")
-                    self.timer.cancel()
-
-            elif new_state == ChannelConnectivity.TRANSIENT_FAILURE:
-                # this is the failed reonnect attempt so we are going into stale
-                self.emit_provider_stale(
-                    ProviderEventDetails(
-                        message="gRPC sync disconnected, reconnecting",
-                    )
+    def _state_change_callback(self, new_state: ChannelConnectivity) -> None:
+        logger.debug(f"gRPC state change: {new_state}")
+        if new_state == ChannelConnectivity.READY:
+            if not self.thread or not self.thread.is_alive():
+                self.thread = threading.Thread(
+                    target=self.listen,
+                    daemon=True,
+                    name="FlagdGrpcServiceWorkerThread",
                 )
-                self.start_time = time.time()
-                # adding a timer, so we can emit the error event after time
-                self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+                self.thread.start()
 
-                logger.debug("gRPC error timer started")
-                self.timer.start()
-                self.connected = False
+            if self.timer and self.timer.is_alive():
+                logger.debug("gRPC error timer expired")
+                self.timer.cancel()
 
-        self.channel.subscribe(state_change_callback, try_to_connect=True)
+        elif new_state == ChannelConnectivity.TRANSIENT_FAILURE:
+            # this is the failed reconnect attempt so we are going into stale
+            self.emit_provider_stale(
+                ProviderEventDetails(
+                    message="gRPC sync disconnected, reconnecting",
+                )
+            )
+            self.start_time = time.time()
+            # adding a timer, so we can emit the error event after time
+            self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+
+            logger.debug("gRPC error timer started")
+            self.timer.start()
+            self.connected = False
 
     def emit_error(self) -> None:
         logger.debug("gRPC error emitted")
