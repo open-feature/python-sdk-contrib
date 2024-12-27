@@ -53,7 +53,7 @@ class FlagdProvider(AbstractProvider):
         cache_type: typing.Optional[CacheType] = None,
         max_cache_size: typing.Optional[int] = None,
         retry_backoff_max_ms: typing.Optional[int] = None,
-        retry_grace_attempts: typing.Optional[int] = None,
+        retry_grace_period: typing.Optional[int] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -84,7 +84,7 @@ class FlagdProvider(AbstractProvider):
             deadline_ms=deadline,
             retry_backoff_ms=retry_backoff_ms,
             retry_backoff_max_ms=retry_backoff_max_ms,
-            retry_grace_attempts=retry_grace_attempts,
+            retry_grace_period=retry_grace_period,
             resolver=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
             stream_deadline_ms=stream_deadline_ms,
