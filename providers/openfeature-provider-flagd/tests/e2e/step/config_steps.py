@@ -35,16 +35,6 @@ type_cast = {
 }
 
 
-@pytest.fixture(autouse=True)
-def container():
-    pass
-
-
-@pytest.fixture(autouse=True)
-def setup_provider(request):
-    pass
-
-
 @pytest.fixture()
 def option_values() -> dict:
     return {}

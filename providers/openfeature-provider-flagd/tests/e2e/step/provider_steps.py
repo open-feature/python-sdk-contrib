@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from pytest_bdd import given, parsers, when
 from tests.e2e.flagd_container import FlagdContainer
+from tests.e2e.step._offline import *  # noqa: F403
 from tests.e2e.step._utils import wait_for
 
 from openfeature import api
@@ -22,6 +23,7 @@ class TestProviderType(Enum):
     UNSTABLE = "unstable"
     SSL = "ssl"
     SOCKET = "socket"
+    OFFLINE = "offline"
 
 
 @given("a provider is registered", target_fixture="client")
@@ -34,7 +36,7 @@ def setup_provider_old(
 
 
 def get_default_options_for_provider(
-    provider_type: str, resolver_type: ResolverType
+    provider_type: str, resolver_type: ResolverType, file_name
 ) -> typing.Tuple[dict, bool]:
     t = TestProviderType(provider_type)
     options: dict = {
@@ -44,6 +46,7 @@ def get_default_options_for_provider(
         "retry_backoff_ms": 1000,
         "retry_grace_period": 2,
     }
+
     if t == TestProviderType.UNAVAILABLE:
         return {}, False
     elif t == TestProviderType.SSL:
@@ -54,6 +57,9 @@ def get_default_options_for_provider(
         options["cert_path"] = str(path.absolute())
         options["tls"] = True
     elif t == TestProviderType.SOCKET:
+        return options, True
+    elif t == TestProviderType.OFFLINE or resolver_type == ResolverType.IN_PROCESS:
+        options["offline_flag_source_path"] = file_name.name
         return options, True
 
     return options, True
@@ -67,9 +73,10 @@ def setup_provider(
     resolver_type: ResolverType,
     provider_type: str,
     option_values: dict,
+    file_name,
 ) -> OpenFeatureClient:
     default_options, ready = get_default_options_for_provider(
-        provider_type, resolver_type
+        provider_type, resolver_type, file_name
     )
 
     if ready:
@@ -104,23 +111,42 @@ def client(provider_type: str) -> OpenFeatureClient:
 
 
 @when(parsers.cfparse("the connection is lost for {seconds}s"))
-def flagd_restart(seconds, containers: dict, provider_type: str):
-    container = (
-        containers.get(provider_type)
-        if provider_type in containers
-        else containers.get("default")
-    )
-    ipr_port = container.get_port(ResolverType.IN_PROCESS)
-    rpc_port = container.get_port(ResolverType.RPC)
+def flagd_restart(
+    seconds,
+    containers: dict,
+    provider_type: str,
+    resolver_type: ResolverType,
+    file_name,
+):
+    if resolver_type == ResolverType.IN_PROCESS:
+        old_name = Path(file_name.name)
+        new_name = Path(file_name.name + "-deactivated")
 
-    def starting():
-        container.with_bind_ports(8015, ipr_port)
-        container.with_bind_ports(8013, rpc_port)
-        container.start()
+        def starting():
+            new_name.rename(old_name)
 
-    restart_timer = threading.Timer(interval=int(seconds), function=starting)
-    restart_timer.start()
-    container.stop()
+        restart_timer = threading.Timer(interval=int(seconds), function=starting)
+        restart_timer.start()
+        if old_name.exists():
+            old_name.rename(new_name)
+
+    else:
+        container = (
+            containers.get(provider_type)
+            if provider_type in containers
+            else containers.get("default")
+        )
+        ipr_port = container.get_port(ResolverType.IN_PROCESS)
+        rpc_port = container.get_port(ResolverType.RPC)
+
+        def starting():
+            container.with_bind_ports(8015, ipr_port)
+            container.with_bind_ports(8013, rpc_port)
+            container.start()
+
+        restart_timer = threading.Timer(interval=int(seconds), function=starting)
+        restart_timer.start()
+        container.stop()
 
 
 @pytest.fixture(autouse=True, scope="module")
