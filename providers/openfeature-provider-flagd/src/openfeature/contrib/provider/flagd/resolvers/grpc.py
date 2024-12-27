@@ -64,8 +64,16 @@ class GrpcResolver:
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
-        channel_factory = grpc.secure_channel if config.tls else grpc.insecure_channel
+        self.channel = self._generate_channel(config)
+        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
+        self.thread: typing.Optional[threading.Thread] = None
+        self.timer: typing.Optional[threading.Timer] = None
+
+        self.start_time = time.time()
+
+    def _generate_channel(self, config: Config) -> grpc.Channel:
+        target = f"{config.host}:{config.port}"
         # Create the channel with the service config
         options = [
             ("grpc.keepalive_time_ms", config.keep_alive_time),
@@ -73,16 +81,24 @@ class GrpcResolver:
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
             ("grpc.min_reconnect_backoff_ms", config.deadline_ms),
         ]
-        self.channel = channel_factory(
-            f"{config.host}:{config.port}",
-            options=options,
-        )
-        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
+        if config.tls:
+            channel_args = {
+                "options": options,
+                "credentials": grpc.ssl_channel_credentials(),
+            }
+            if config.cert_path:
+                with open(config.cert_path, "rb") as f:
+                    channel_args["credentials"] = grpc.ssl_channel_credentials(f.read())
 
-        self.thread: typing.Optional[threading.Thread] = None
-        self.timer: typing.Optional[threading.Timer] = None
+            channel = grpc.secure_channel(target, **channel_args)
 
-        self.start_time = time.time()
+        else:
+            channel = grpc.insecure_channel(
+                target,
+                options=options,
+            )
+
+        return channel
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
