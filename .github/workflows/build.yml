@@ -60,7 +60,7 @@ jobs:
 
       - if: matrix.python-version == '3.11'
         name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v5.1.2
         with:
           name: Code Coverage for ${{ matrix.package }} on Python ${{ matrix.python-version }}
           directory: ${{ matrix.package }}

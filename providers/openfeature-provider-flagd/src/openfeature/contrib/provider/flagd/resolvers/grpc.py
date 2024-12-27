@@ -54,7 +54,11 @@ class GrpcResolver:
         self.emit_provider_error = emit_provider_error
         self.emit_provider_stale = emit_provider_stale
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
-        self.cache: typing.Optional[BaseCacheImpl] = self._create_cache()
+        self.cache: typing.Optional[BaseCacheImpl] = (
+            LRUCache(maxsize=self.config.max_cache_size)
+            if self.config.cache == CacheType.LRU
+            else None
+        )
 
         self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
@@ -80,12 +84,10 @@ class GrpcResolver:
         self.timer: typing.Optional[threading.Timer] = None
         self.active = False
 
-    def _create_cache(self):
-        return (
-            LRUCache(maxsize=self.config.max_cache_size)
-            if self.config.cache == CacheType.LRU
-            else None
-        )
+        self.thread: typing.Optional[threading.Thread] = None
+        self.timer: typing.Optional[threading.Timer] = None
+
+        self.start_time = time.time()
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
@@ -114,40 +116,41 @@ class GrpcResolver:
             )
 
     def monitor(self) -> None:
-        def state_change_callback(new_state: ChannelConnectivity) -> None:
-            logger.debug(f"gRPC state change: {new_state}")
-            if new_state == ChannelConnectivity.READY:
-                if not self.thread or not self.thread.is_alive():
-                    self.thread = threading.Thread(
-                        target=self.listen,
-                        daemon=True,
-                        name="FlagdGrpcServiceWorkerThread",
-                    )
-                    self.thread.start()
+        self.channel.subscribe(self._state_change_callback, try_to_connect=True)
 
-                if self.timer and self.timer.is_alive():
-                    logger.debug("gRPC error timer expired")
-                    self.timer.cancel()
-
-            elif new_state == ChannelConnectivity.TRANSIENT_FAILURE:
-                # this is the failed reonnect attempt so we are going into stale
-                self.emit_provider_stale(
-                    ProviderEventDetails(
-                        message="gRPC sync disconnected, reconnecting",
-                    )
+    def _state_change_callback(self, new_state: ChannelConnectivity) -> None:
+        logger.debug(f"gRPC state change: {new_state}")
+        if new_state == ChannelConnectivity.READY:
+            if not self.thread or not self.thread.is_alive():
+                self.thread = threading.Thread(
+                    target=self.listen,
+                    daemon=True,
+                    name="FlagdGrpcServiceWorkerThread",
                 )
-                # adding a timer, so we can emit the error event after time
-                self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+                self.thread.start()
 
-                logger.debug("gRPC error timer started")
-                self.timer.start()
-                self.connected = False
+            if self.timer and self.timer.is_alive():
+                logger.debug("gRPC error timer expired")
+                self.timer.cancel()
 
-        self.channel.subscribe(state_change_callback, try_to_connect=True)
+        elif new_state == ChannelConnectivity.TRANSIENT_FAILURE:
+            # this is the failed reconnect attempt so we are going into stale
+            self.emit_provider_stale(
+                ProviderEventDetails(
+                    message="gRPC sync disconnected, reconnecting",
+                )
+            )
+            self.start_time = time.time()
+            # adding a timer, so we can emit the error event after time
+            self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+
+            logger.debug("gRPC error timer started")
+            self.timer.start()
+            self.connected = False
 
     def emit_error(self) -> None:
         logger.debug("gRPC error emitted")
-        if self.cache is not None:
+        if self.cache:
             self.cache.clear()
         self.emit_provider_error(
             ProviderEventDetails(
@@ -157,12 +160,13 @@ class GrpcResolver:
         )
 
     def listen(self) -> None:
-        logger.info("gRPC starting listener thread")
+        logger.debug("gRPC starting listener thread")
         call_args = (
             {"timeout": self.streamline_deadline_seconds}
             if self.streamline_deadline_seconds > 0
             else {}
         )
+        call_args["wait_for_ready"] = True
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream

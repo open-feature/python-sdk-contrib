@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 
 import grpc
 from grpc_health.v1 import health_pb2, health_pb2_grpc
@@ -15,8 +16,10 @@ class FlagdContainer(DockerContainer):
         self,
         **kwargs,
     ) -> None:
-        image: str = "ghcr.io/open-feature/flagd-testbed:v0.5.15"
-        super().__init__(image, **kwargs)
+        image: str = "ghcr.io/open-feature/flagd-testbed"
+        path = Path(__file__).parents[2] / "openfeature/test-harness/version.txt"
+        data = path.read_text().rstrip()
+        super().__init__(f"{image}:v{data}", **kwargs)
         self.rpc = 8013
         self.ipr = 8015
         self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK)

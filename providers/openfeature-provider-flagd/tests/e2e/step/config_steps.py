@@ -35,8 +35,13 @@ type_cast = {
 }
 
 
-@pytest.fixture(autouse=True, scope="module")
-def setup(request):
+@pytest.fixture(autouse=True)
+def container():
+    pass
+
+
+@pytest.fixture(autouse=True)
+def setup_provider(request):
     pass
 
 
