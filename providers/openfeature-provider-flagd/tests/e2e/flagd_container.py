@@ -1,4 +1,5 @@
 import time
+import typing
 from pathlib import Path
 
 import grpc
@@ -14,9 +15,12 @@ HEALTH_CHECK = 8014
 class FlagdContainer(DockerContainer):
     def __init__(
         self,
+        feature: typing.Optional[str] = None,
         **kwargs,
     ) -> None:
         image: str = "ghcr.io/open-feature/flagd-testbed"
+        if feature is not None:
+            image = f"{image}-{feature}"
         path = Path(__file__).parents[2] / "openfeature/test-harness/version.txt"
         data = path.read_text().rstrip()
         super().__init__(f"{image}:v{data}", **kwargs)

@@ -8,7 +8,7 @@ from openfeature.contrib.provider.flagd.config import ResolverType
 # from tests.e2e.step.provider_steps import *
 
 resolver = ResolverType.RPC
-feature_list = ["~targetURI", "~customCert", "~unixsocket", "~sync"]
+feature_list = ["~targetURI", "~unixsocket", "~sync"]
 
 
 def pytest_collection_modifyitems(config, items):

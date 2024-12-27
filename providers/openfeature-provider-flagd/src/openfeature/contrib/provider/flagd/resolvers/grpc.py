@@ -64,8 +64,16 @@ class GrpcResolver:
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
-        channel_factory = grpc.secure_channel if config.tls else grpc.insecure_channel
+        self.channel = self._generate_channel(config)
+        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
+        self.thread: typing.Optional[threading.Thread] = None
+        self.timer: typing.Optional[threading.Timer] = None
+
+        self.start_time = time.time()
+
+    def _generate_channel(self, config: Config) -> grpc.Channel:
+        target = f"{config.host}:{config.port}"
         # Create the channel with the service config
         options = [
             ("grpc.keepalive_time_ms", config.keep_alive_time),
@@ -73,21 +81,24 @@ class GrpcResolver:
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
             ("grpc.min_reconnect_backoff_ms", config.deadline_ms),
         ]
+        if config.tls:
+            channel_args = {
+                "options": options,
+                "credentials": grpc.ssl_channel_credentials(),
+            }
+            if config.cert_path:
+                with open(config.cert_path, "rb") as f:
+                    channel_args["credentials"] = grpc.ssl_channel_credentials(f.read())
 
-        self.channel = channel_factory(
-            f"{config.host}:{config.port}",
-            options=options,
-        )
-        self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
+            channel = grpc.secure_channel(target, **channel_args)
 
-        self.thread: typing.Optional[threading.Thread] = None
-        self.timer: typing.Optional[threading.Timer] = None
-        self.active = False
+        else:
+            channel = grpc.insecure_channel(
+                target,
+                options=options,
+            )
 
-        self.thread: typing.Optional[threading.Thread] = None
-        self.timer: typing.Optional[threading.Timer] = None
-
-        self.start_time = time.time()
+        return channel
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
@@ -95,6 +106,8 @@ class GrpcResolver:
     def shutdown(self) -> None:
         self.active = False
         self.channel.close()
+        if self.cache:
+            self.cache.clear()
 
     def connect(self) -> None:
         self.active = True
@@ -166,16 +179,13 @@ class GrpcResolver:
             if self.streamline_deadline_seconds > 0
             else {}
         )
-        call_args["wait_for_ready"] = True
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream
         while self.active:
             try:
-                logger.info("Setting up gRPC sync flags connection")
-                for message in self.stub.EventStream(
-                    request, wait_for_ready=True, **call_args
-                ):
+                logger.debug("Setting up gRPC sync flags connection")
+                for message in self.stub.EventStream(request, **call_args):
                     if message.type == "provider_ready":
                         self.connected = True
                         self.emit_provider_ready(

@@ -75,10 +75,12 @@ def all_flags(request):
 @pytest.fixture(params=["json", "yaml"], scope="module")
 def file_name(request, all_flags):
     extension = request.param
-    outfile = tempfile.NamedTemporaryFile("w", delete=False, suffix="." + extension)
-    write_test_file(outfile, all_flags)
-    yield outfile
-    return outfile
+    with tempfile.NamedTemporaryFile(
+        "w", delete=False, suffix="." + extension
+    ) as outfile:
+        write_test_file(outfile, all_flags)
+        yield outfile
+        return outfile
 
 
 def write_test_file(outfile, all_flags):
@@ -110,7 +112,7 @@ def changed_flag(
 
 
 @pytest.fixture(autouse=True)
-def container(request, file_name, all_flags, option_values):
+def containers(request, file_name, all_flags, option_values):
     api.set_provider(
         FlagdProvider(
             resolver_type=ResolverType.IN_PROCESS,

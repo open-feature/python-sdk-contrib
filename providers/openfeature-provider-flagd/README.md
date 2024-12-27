@@ -47,11 +47,12 @@ api.set_provider(FlagdProvider(
 The default options can be defined in the FlagdProvider constructor.
 
 | Option name              | Environment variable name      | Type & Values              | Default                       | Compatible resolver |
-| ------------------------ | ------------------------------ | -------------------------- | ----------------------------- | ------------------- |
+|--------------------------|--------------------------------|----------------------------|-------------------------------|---------------------|
 | resolver_type            | FLAGD_RESOLVER                 | enum - `rpc`, `in-process` | rpc                           |                     |
 | host                     | FLAGD_HOST                     | str                        | localhost                     | rpc & in-process    |
 | port                     | FLAGD_PORT                     | int                        | 8013 (rpc), 8015 (in-process) | rpc & in-process    |
 | tls                      | FLAGD_TLS                      | bool                       | false                         | rpc & in-process    |
+| cert_path                | FLAGD_SERVER_CERT_PATH         | String                     | null                          | rpc & in-process    |
 | deadline                 | FLAGD_DEADLINE_MS              | int                        | 500                           | rpc & in-process    |
 | stream_deadline_ms       | FLAGD_STREAM_DEADLINE_MS       | int                        | 600000                        | rpc & in-process    |
 | keep_alive_time          | FLAGD_KEEP_ALIVE_TIME_MS       | int                        | 0                             | rpc & in-process    |
@@ -64,8 +65,6 @@ The default options can be defined in the FlagdProvider constructor.
 <!-- not implemented
 | target_uri               | FLAGD_TARGET_URI               | alternative to host/port, supporting custom name resolution | string    | null                | rpc & in-process |
 | socket_path              | FLAGD_SOCKET_PATH              | alternative to host port, unix socket                       | String    | null                | rpc & in-process |
-| cert_path                | FLAGD_SERVER_CERT_PATH         | tls cert path                                               | String    | null                | rpc & in-process |
-| max_event_stream_retries | FLAGD_MAX_EVENT_STREAM_RETRIES | int                                                         | 5         | rpc                 |
 | context_enricher         | -                              | sync-metadata to evaluation context mapping function        | function  | identity function   | in-process       |
 | offline_pollIntervalMs   | FLAGD_OFFLINE_POLL_MS          | poll interval for reading offlineFlagSourcePath             | int       | 5000                | in-process       |
  -->
@@ -100,17 +99,18 @@ and the evaluation will default.
 
 TLS is available in situations where flagd is running on another host.
 
-<!--
+
 You may optionally supply an X.509 certificate in PEM format. Otherwise, the default certificate store will be used.
-```java
-FlagdProvider flagdProvider = new FlagdProvider(
-        FlagdOptions.builder()
-                .host("myflagdhost")
-                .tls(true)                      // use TLS
-                .certPath("etc/cert/ca.crt")    // PEM cert
-                .build());
+
+```python
+from openfeature import api
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+api.set_provider(FlagdProvider(
+    tls=True,                        # use TLS
+    cert_path="etc/cert/ca.crt"      # PEM cert
+))
 ```
--->
 
 ## License
 

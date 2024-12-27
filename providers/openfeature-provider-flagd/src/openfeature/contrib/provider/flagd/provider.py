@@ -54,6 +54,7 @@ class FlagdProvider(AbstractProvider):
         max_cache_size: typing.Optional[int] = None,
         retry_backoff_max_ms: typing.Optional[int] = None,
         retry_grace_period: typing.Optional[int] = None,
+        cert_path: typing.Optional[str] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -91,6 +92,7 @@ class FlagdProvider(AbstractProvider):
             keep_alive_time=keep_alive_time,
             cache=cache,
             max_cache_size=max_cache_size,
+            cert_path=cert_path,
         )
 
         self.resolver = self.setup_resolver()
