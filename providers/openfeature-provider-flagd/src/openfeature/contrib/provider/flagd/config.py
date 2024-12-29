@@ -26,9 +26,10 @@ DEFAULT_PORT_RPC = 8013
 DEFAULT_RESOLVER_TYPE = ResolverType.RPC
 DEFAULT_RETRY_BACKOFF = 1000
 DEFAULT_RETRY_BACKOFF_MAX = 120000
-DEFAULT_RETRY_GRACE_ATTEMPTS = 5
+DEFAULT_RETRY_GRACE_PERIOD_SECONDS = 5
 DEFAULT_STREAM_DEADLINE = 600000
 DEFAULT_TLS = False
+DEFAULT_TLS_CERT: typing.Optional[str] = None
 
 ENV_VAR_CACHE_SIZE = "FLAGD_MAX_CACHE_SIZE"
 ENV_VAR_CACHE_TYPE = "FLAGD_CACHE"
@@ -41,10 +42,11 @@ ENV_VAR_PORT = "FLAGD_PORT"
 ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
-ENV_VAR_RETRY_GRACE_ATTEMPTS = "FLAGD_RETRY_GRACE_ATTEMPTS"
-ENV_VAR_SELECTOR = "FLAGD_SELECTOR"
+ENV_VAR_RETRY_GRACE_PERIOD_SECONDS = "FLAGD_RETRY_GRACE_PERIOD"
+ENV_VAR_SELECTOR = "FLAGD_SOURCE_SELECTOR"
 ENV_VAR_STREAM_DEADLINE_MS = "FLAGD_STREAM_DEADLINE_MS"
 ENV_VAR_TLS = "FLAGD_TLS"
+ENV_VAR_TLS_CERT = "FLAGD_SERVER_CERT_PATH"
 
 T = typing.TypeVar("T")
 
@@ -83,12 +85,13 @@ class Config:
         offline_poll_interval_ms: typing.Optional[int] = None,
         retry_backoff_ms: typing.Optional[int] = None,
         retry_backoff_max_ms: typing.Optional[int] = None,
-        retry_grace_attempts: typing.Optional[int] = None,
+        retry_grace_period: typing.Optional[int] = None,
         deadline_ms: typing.Optional[int] = None,
         stream_deadline_ms: typing.Optional[int] = None,
         keep_alive_time: typing.Optional[int] = None,
         cache: typing.Optional[CacheType] = None,
         max_cache_size: typing.Optional[int] = None,
+        cert_path: typing.Optional[str] = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -117,14 +120,16 @@ class Config:
             else retry_backoff_max_ms
         )
 
-        self.retry_grace_attempts: int = (
+        self.retry_grace_period: int = (
             int(
                 env_or_default(
-                    ENV_VAR_RETRY_GRACE_ATTEMPTS, DEFAULT_RETRY_GRACE_ATTEMPTS, cast=int
+                    ENV_VAR_RETRY_GRACE_PERIOD_SECONDS,
+                    DEFAULT_RETRY_GRACE_PERIOD_SECONDS,
+                    cast=int,
                 )
             )
-            if retry_grace_attempts is None
-            else retry_grace_attempts
+            if retry_grace_period is None
+            else retry_grace_period
         )
 
         self.resolver = (
@@ -199,6 +204,12 @@ class Config:
             int(env_or_default(ENV_VAR_CACHE_SIZE, DEFAULT_CACHE_SIZE, cast=int))
             if max_cache_size is None
             else max_cache_size
+        )
+
+        self.cert_path = (
+            env_or_default(ENV_VAR_TLS_CERT, DEFAULT_TLS_CERT)
+            if cert_path is None
+            else cert_path
         )
 
         self.selector = (

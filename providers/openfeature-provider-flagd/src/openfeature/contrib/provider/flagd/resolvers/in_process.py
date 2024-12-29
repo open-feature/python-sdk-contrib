@@ -21,6 +21,7 @@ class InProcessResolver:
         config: Config,
         emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
         emit_provider_error: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_stale: typing.Callable[[ProviderEventDetails], None],
         emit_provider_configuration_changed: typing.Callable[
             [ProviderEventDetails], None
         ],
@@ -33,7 +34,11 @@ class InProcessResolver:
             )
             if self.config.offline_flag_source_path
             else GrpcWatcher(
-                self.config, self.flag_store, emit_provider_ready, emit_provider_error
+                self.config,
+                self.flag_store,
+                emit_provider_ready,
+                emit_provider_error,
+                emit_provider_stale,
             )
         )
 

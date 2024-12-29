@@ -25,7 +25,6 @@ import typing
 import warnings
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.event import ProviderEventDetails
 from openfeature.flag_evaluation import FlagResolutionDetails
 from openfeature.provider.metadata import Metadata
 from openfeature.provider.provider import AbstractProvider
@@ -55,7 +54,8 @@ class FlagdProvider(AbstractProvider):
         cache_type: typing.Optional[CacheType] = None,
         max_cache_size: typing.Optional[int] = None,
         retry_backoff_max_ms: typing.Optional[int] = None,
-        retry_grace_attempts: typing.Optional[int] = None,
+        retry_grace_period: typing.Optional[int] = None,
+        cert_path: typing.Optional[str] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -86,14 +86,15 @@ class FlagdProvider(AbstractProvider):
             deadline_ms=deadline,
             retry_backoff_ms=retry_backoff_ms,
             retry_backoff_max_ms=retry_backoff_max_ms,
-            retry_grace_attempts=retry_grace_attempts,
+            retry_grace_period=retry_grace_period,
             selector=selector,
             resolver=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
-            cache=cache_type,
-            max_cache_size=max_cache_size,
             stream_deadline_ms=stream_deadline_ms,
             keep_alive_time=keep_alive_time,
+            cache=cache_type,
+            max_cache_size=max_cache_size,
+            cert_path=cert_path,
         )
 
         self.resolver = self.setup_resolver()
@@ -112,6 +113,7 @@ class FlagdProvider(AbstractProvider):
                 self.config,
                 self.emit_provider_ready,
                 self.emit_provider_error,
+                self.emit_provider_stale,
                 self.emit_provider_configuration_changed,
             )
         else:
@@ -129,11 +131,6 @@ class FlagdProvider(AbstractProvider):
     def get_metadata(self) -> Metadata:
         """Returns provider metadata"""
         return Metadata(name="FlagdProvider")
-
-    def flag_store_updated_callback(self, flag_keys: typing.List[str]) -> None:
-        self.emit_provider_configuration_changed(
-            ProviderEventDetails(flags_changed=flag_keys)
-        )
 
     def resolve_boolean_details(
         self,

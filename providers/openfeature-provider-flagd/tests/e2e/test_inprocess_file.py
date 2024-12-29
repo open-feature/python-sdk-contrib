@@ -46,9 +46,12 @@ def all_flags(request):
 @pytest.fixture(params=["json", "yaml"], scope="module")
 def file_name(request, all_flags):
     extension = request.param
-    outfile = tempfile.NamedTemporaryFile("w", delete=False, suffix="." + extension)
-    write_test_file(outfile, all_flags)
-    return outfile
+    with tempfile.NamedTemporaryFile(
+        "w", delete=False, suffix="." + extension
+    ) as outfile:
+        write_test_file(outfile, all_flags)
+        yield outfile
+        return outfile
 
 
 def write_test_file(outfile, all_flags):
@@ -87,6 +90,21 @@ def resolver_type() -> ResolverType:
 @pytest.fixture(autouse=True, scope="module")
 def client_name() -> str:
     return "in-process-file"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def port():
+    pass
+
+
+@pytest.fixture(autouse=True, scope="module")
+def image():
+    pass
+
+
+@pytest.fixture(autouse=True, scope="module")
+def container(request, port, image):
+    pass
 
 
 @pytest.fixture(autouse=True, scope="module")

@@ -33,9 +33,14 @@ def test_invalid_payload(flag_configuration: str):
     emit_provider_configuration_changed = MagicMock()
     emit_provider_ready = MagicMock()
     emit_provider_error = MagicMock()
+    emit_provider_stale = MagicMock()
     flag_store = FlagStore(emit_provider_configuration_changed)
     watcher = GrpcWatcher(
-        Config(deadline_ms=200), flag_store, emit_provider_ready, emit_provider_error
+        Config(deadline_ms=200),
+        flag_store,
+        emit_provider_ready,
+        emit_provider_error,
+        emit_provider_stale,
     )
 
     fake_sync_flags = fake_grpc_service(flag_configuration)
