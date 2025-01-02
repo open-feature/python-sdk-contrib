@@ -179,7 +179,6 @@ class GrpcResolver:
             if self.streamline_deadline_seconds > 0
             else {}
         )
-        call_args["wait_for_ready"] = True
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream

@@ -1,4 +1,5 @@
 import time
+import typing
 from pathlib import Path
 
 import grpc
@@ -6,21 +7,32 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_container_is_ready, wait_for_logs
 
+from openfeature.contrib.provider.flagd.config import ResolverType
+
 HEALTH_CHECK = 8014
 
 
 class FlagdContainer(DockerContainer):
     def __init__(
         self,
-        image: str = "ghcr.io/open-feature/flagd-testbed",
-        port: int = 8013,
+        feature: typing.Optional[str] = None,
         **kwargs,
     ) -> None:
+        image: str = "ghcr.io/open-feature/flagd-testbed"
+        if feature is not None:
+            image = f"{image}-{feature}"
         path = Path(__file__).parents[2] / "openfeature/test-harness/version.txt"
         data = path.read_text().rstrip()
         super().__init__(f"{image}:v{data}", **kwargs)
-        self.port = port
-        self.with_exposed_ports(self.port, HEALTH_CHECK)
+        self.rpc = 8013
+        self.ipr = 8015
+        self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK)
+
+    def get_port(self, resolver_type: ResolverType):
+        if resolver_type == ResolverType.RPC:
+            return self.get_exposed_port(self.rpc)
+        else:
+            return self.get_exposed_port(self.ipr)
 
     def start(self) -> "FlagdContainer":
         super().start()
