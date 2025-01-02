@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.1.5...openfeature-provider-flagd/v0.2.0) (2025-01-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **flagd-rpc:** add events for rpc mode, some breaking config fixes ([#108](https://github.com/open-feature/python-sdk-contrib/issues/108))
+
+### 🐛 Bug Fixes
+
+* **flagd:** fix semver version parsing to allow "v" prefix([#106](https://github.com/open-feature/python-sdk-contrib/issues/106)) ([#107](https://github.com/open-feature/python-sdk-contrib/issues/107)) ([93fee85](https://github.com/open-feature/python-sdk-contrib/commit/93fee8593c8c278dff6371b68b21366bea9d5f01))
+* **flagd:** improve targeting and fix fractional issue([#92](https://github.com/open-feature/python-sdk-contrib/issues/92)) ([#105](https://github.com/open-feature/python-sdk-contrib/issues/105)) ([eb31b83](https://github.com/open-feature/python-sdk-contrib/commit/eb31b8324662df113cd27205eb12f09a1cf30b06))
+* object resolution for RPC and Object types, add test-harness ([ca76802](https://github.com/open-feature/python-sdk-contrib/commit/ca7680242085fb9b77d9b0844147468544010074))
+* object resolution for RPC and Object types, add test-harness. ([#103](https://github.com/open-feature/python-sdk-contrib/issues/103)) ([ca76802](https://github.com/open-feature/python-sdk-contrib/commit/ca7680242085fb9b77d9b0844147468544010074))
+* remove modifications to license files ([#81](https://github.com/open-feature/python-sdk-contrib/issues/81)) ([a23f61e](https://github.com/open-feature/python-sdk-contrib/commit/a23f61e1c14c70e45a4bce4a014d5599813f1d28))
+
+
+### ✨ New Features
+
+* attempts with connection improvements ([#118](https://github.com/open-feature/python-sdk-contrib/issues/118)) ([8e23a70](https://github.com/open-feature/python-sdk-contrib/commit/8e23a700244a85291671b41083b1be82670cf79d))
+* Change fractional custom op from percentage-based to relative weighting. ([#91](https://github.com/open-feature/python-sdk-contrib/issues/91)) ([7b34822](https://github.com/open-feature/python-sdk-contrib/commit/7b34822afdabfb89e991ae81a91681cafcbdfbd3))
+* **flagd-rpc:** add caching  ([#110](https://github.com/open-feature/python-sdk-contrib/issues/110)) ([16179e3](https://github.com/open-feature/python-sdk-contrib/commit/16179e3e68eb5bc18b5d12ec80caf511b7dec762))
+* **flagd-rpc:** add events for rpc mode, some breaking config fixes ([#108](https://github.com/open-feature/python-sdk-contrib/issues/108)) ([b62d3d1](https://github.com/open-feature/python-sdk-contrib/commit/b62d3d1ab5ce40f275e795ae2682ae3fe315f431))
+* **flagd-rpc:** adding grace attempts ([#117](https://github.com/open-feature/python-sdk-contrib/issues/117)) ([41d0ad8](https://github.com/open-feature/python-sdk-contrib/commit/41d0ad8b6a5b32272c75684cfcbabffb57e53470))
+* **flagd:** add custom cert path ([#131](https://github.com/open-feature/python-sdk-contrib/issues/131)) ([f50351a](https://github.com/open-feature/python-sdk-contrib/commit/f50351a0435064111fb98753a49139fafa8307e6))
+* **flagd:** add ssl cert path option ([f50351a](https://github.com/open-feature/python-sdk-contrib/commit/f50351a0435064111fb98753a49139fafa8307e6))
+* **flagd:** use test-harness version number for integration tests ([#120](https://github.com/open-feature/python-sdk-contrib/issues/120)) ([3c3e9c8](https://github.com/open-feature/python-sdk-contrib/commit/3c3e9c86e7111fc165eebd650453069a0e8f4dae))
+
+
+### 🧹 Chore
+
+* **deps:** update dependency grpcio-health-checking to v1.68.1 ([#125](https://github.com/open-feature/python-sdk-contrib/issues/125)) ([4e75a36](https://github.com/open-feature/python-sdk-contrib/commit/4e75a366468ab0f588031587a7224d16ae6cd0c6))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/schemas digest to 76d611f ([#138](https://github.com/open-feature/python-sdk-contrib/issues/138)) ([853ece7](https://github.com/open-feature/python-sdk-contrib/commit/853ece72feb558b208cad5680c358c4b09aabf91))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/schemas digest to b81a56e ([#134](https://github.com/open-feature/python-sdk-contrib/issues/134)) ([a2a0ba0](https://github.com/open-feature/python-sdk-contrib/commit/a2a0ba0d9a59c763829fa630fdc2f28b93b2f037))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to d261f68 ([#140](https://github.com/open-feature/python-sdk-contrib/issues/140)) ([6801522](https://github.com/open-feature/python-sdk-contrib/commit/68015220ea9005286c0a45d4cdeb3891d9f43b3b))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to ed0f9ef ([#135](https://github.com/open-feature/python-sdk-contrib/issues/135)) ([bee9205](https://github.com/open-feature/python-sdk-contrib/commit/bee9205d475473b5005fbbea9b4b5c756ad1d20e))
+
+
+### 🔄 Refactoring
+
+* replace typing_extensions import ([#98](https://github.com/open-feature/python-sdk-contrib/issues/98)) ([adb8a69](https://github.com/open-feature/python-sdk-contrib/commit/adb8a69d9ed1b0b03cb96d924b2269d973822794))
+
 ## [0.1.5](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.1.4...openfeature-provider-flagd/v0.1.5) (2024-04-11)
 
 
