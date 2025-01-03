@@ -164,3 +164,17 @@ def test_provider_typecheck_flag_value(ofrep_provider, requests_mock):
 
     with pytest.raises(TypeMismatchError):
         ofrep_provider.resolve_boolean_details("flag_key", False)
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://localhost:8080",
+        "https://localhost:8080/",
+        "https://localhost:8080/tools/feature_flags",
+        "https://localhost:8080/tools/feature_flags/",
+    ],
+)
+def test_provider_api_path_resolution(base_url):
+    provider = OFREPProvider(base_url=base_url)
+    assert provider._get_ofrep_api_url() == f"{base_url.rstrip('/')}/ofrep/v1/"
