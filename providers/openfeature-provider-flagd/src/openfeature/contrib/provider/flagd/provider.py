@@ -106,7 +106,10 @@ class FlagdProvider(AbstractProvider):
                 self.emit_provider_stale,
                 self.emit_provider_configuration_changed,
             )
-        elif self.config.resolver == ResolverType.IN_PROCESS:
+        elif (
+            self.config.resolver == ResolverType.IN_PROCESS
+            or self.config.resolver == ResolverType.FILE
+        ):
             return InProcessResolver(self.config, self)
         else:
             raise ValueError(

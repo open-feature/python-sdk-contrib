@@ -1,11 +1,7 @@
 import pytest
-from tests.e2e.testFilter import TestFilter
 
 from openfeature.contrib.provider.flagd.config import ResolverType
-
-# from tests.e2e.step.config_steps import *
-# from tests.e2e.step.event_steps import *
-# from tests.e2e.step.provider_steps import *
+from tests.e2e.testfilter import TestFilter
 
 resolver = ResolverType.RPC
 feature_list = ["~targetURI", "~unixsocket", "~sync"]

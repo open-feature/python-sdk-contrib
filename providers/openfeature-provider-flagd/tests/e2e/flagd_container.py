@@ -10,6 +10,7 @@ from testcontainers.core.waiting_utils import wait_container_is_ready, wait_for_
 from openfeature.contrib.provider.flagd.config import ResolverType
 
 HEALTH_CHECK = 8014
+LAUNCHPAD = 8080
 
 
 class FlagdContainer(DockerContainer):
@@ -26,13 +27,16 @@ class FlagdContainer(DockerContainer):
         super().__init__(f"{image}:v{data}", **kwargs)
         self.rpc = 8013
         self.ipr = 8015
-        self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK)
+        self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK, LAUNCHPAD)
 
     def get_port(self, resolver_type: ResolverType):
         if resolver_type == ResolverType.RPC:
             return self.get_exposed_port(self.rpc)
         else:
             return self.get_exposed_port(self.ipr)
+
+    def get_launchpad_url(self):
+        return f"http://localhost:{self.get_exposed_port(LAUNCHPAD)}"
 
     def start(self) -> "FlagdContainer":
         super().start()

@@ -1,5 +1,7 @@
 import typing
 
+import requests
+from asserts import assert_equal
 from pytest_bdd import given, parsers, then, when
 
 from openfeature.client import OpenFeatureClient
@@ -8,7 +10,6 @@ from openfeature.event import EventDetails
 from openfeature.flag_evaluation import FlagEvaluationDetails, Reason
 
 from ._utils import JsonPrimitive, type_cast
-from .event_steps import assert_handlers
 
 
 @given(
@@ -44,26 +45,9 @@ def evaluate_with_details(
     raise AssertionError("no valid object type")
 
 
-@when("the flag was modified", target_fixture="event_details")
-def assert_flag_change_event(
-    event_handles,
-):
-    handle = None
-
-    assert_handlers(event_handles, "change", 10)
-    for h in reversed(event_handles):
-        if h["type"] == "change":
-            handle = h
-            break
-
-    assert handle is not None
-
-    # we took a look at all changed events, so we can clean them from the list
-    for event in event_handles:
-        if event["type"] == "change":
-            event_handles.remove(event)
-
-    return handle["event"]
+@when("the flag was modified")
+def assert_flag_change_event(container):
+    requests.post(f"{container.get_launchpad_url()}/change", timeout=1)
 
 
 @then("the flag should be part of the event payload")
@@ -91,7 +75,7 @@ def resolve_details_value(
     value: str,
 ):
     _, _, type_info = key_and_default_and_type
-    assert details.value == type_cast[type_info](value)
+    assert_equal(details.value, type_cast[type_info](value))
 
 
 @then(
@@ -101,7 +85,7 @@ def resolve_details_variant(
     details: FlagEvaluationDetails[JsonPrimitive],
     variant: str,
 ):
-    assert details.variant == variant
+    assert_equal(details.variant, variant)
 
 
 @then(
@@ -111,4 +95,4 @@ def resolve_details_reason(
     details: FlagEvaluationDetails[JsonPrimitive],
     reason: str,
 ):
-    assert details.reason == Reason(reason)
+    assert_equal(details.reason, Reason(reason))

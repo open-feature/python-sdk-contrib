@@ -53,11 +53,13 @@ def assert_handlers(handles, event_type: str, max_wait: int = 2, num_events: int
     parsers.cfparse(
         "a {event_type} event was fired",
     ),
+    target_fixture="event_details",
 )
 def pass_for_event_fired(event_type: str, event_handles):
-    assert_handlers(event_handles, event_type, 20)
+    events = assert_handlers(event_handles, event_type, 20)
     for event in event_handles:
         event_handles.remove(event)
+    return events[0]["event"]
 
 
 @then(

@@ -7,6 +7,3 @@ from tests.e2e.step.flag_step import *  # noqa: F403
 from tests.e2e.step.provider_steps import *  # noqa: F403
 
 JsonPrimitive = typing.Union[str, bool, float, int]
-
-TEST_HARNESS_PATH = "../../openfeature/test-harness"
-SPEC_PATH = "../../openfeature/spec"
