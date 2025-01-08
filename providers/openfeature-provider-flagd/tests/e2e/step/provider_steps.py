@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from pytest_bdd import given, parsers, when
 from tests.e2e.flagd_container import FlagdContainer
-from tests.e2e.step._offline import *  # noqa: F403
 from tests.e2e.step._utils import wait_for
 
 from openfeature import api

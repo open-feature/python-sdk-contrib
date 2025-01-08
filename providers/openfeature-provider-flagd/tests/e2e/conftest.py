@@ -1,5 +1,6 @@
 import typing
 
+from tests.e2e.step._offline import *  # noqa: F403
 from tests.e2e.step.config_steps import *  # noqa: F403
 from tests.e2e.step.context_steps import *  # noqa: F403
 from tests.e2e.step.event_steps import *  # noqa: F403

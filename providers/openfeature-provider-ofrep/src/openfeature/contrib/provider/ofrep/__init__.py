@@ -107,6 +107,12 @@ class OFREPProvider(AbstractProvider):
             FlagType.OBJECT, flag_key, default_value, evaluation_context
         )
 
+    def _get_ofrep_api_url(self, api_version: str = "v1") -> str:
+        ofrep_base_url = (
+            self.base_url if self.base_url.endswith("/") else f"{self.base_url}/"
+        )
+        return urljoin(ofrep_base_url, f"ofrep/{api_version}/")
+
     def _resolve(
         self,
         flag_type: FlagType,
@@ -124,7 +130,7 @@ class OFREPProvider(AbstractProvider):
 
         try:
             response = self.session.post(
-                urljoin(self.base_url, f"/ofrep/v1/evaluate/flags/{flag_key}"),
+                urljoin(self._get_ofrep_api_url(), f"evaluate/flags/{flag_key}"),
                 json=_build_request_data(evaluation_context),
                 timeout=self.timeout,
                 headers=self.headers_factory() if self.headers_factory else None,

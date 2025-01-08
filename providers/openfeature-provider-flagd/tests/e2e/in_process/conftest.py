@@ -1,7 +1,7 @@
 import pytest
 
 from openfeature.contrib.provider.flagd.config import ResolverType
-from tests.e2e.testFilter import TestFilter
+from tests.e2e.testfilter import TestFilter
 
 # from tests.e2e.step.config_steps import *
 # from tests.e2e.step.event_steps import *

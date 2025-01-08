@@ -7,13 +7,14 @@ import time
 
 import pytest
 import yaml
-from e2e.conftest import TEST_HARNESS_PATH
 
 KEY_EVALUATORS = "$evaluators"
 
 KEY_FLAGS = "flags"
 
 MERGED_FILE = "merged_file"
+
+TEST_HARNESS_PATH = "../../openfeature/test-harness"
 
 
 # Everything below here, should be actually part of the provider steps - for now it is just easier this way
