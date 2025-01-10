@@ -594,9 +594,9 @@ def assert_handlers(
 
     logging.info(f"asserting num({event_type}) >= {num_events}: {handles}")
     actual_num_events = sum([h["type"] == event_type for h in handles])
-    assert (
-        num_events <= actual_num_events
-    ), f"Expected {num_events} but got {actual_num_events}: {handles}"
+    assert num_events <= actual_num_events, (
+        f"Expected {num_events} but got {actual_num_events}: {handles}"
+    )
 
 
 @then(
