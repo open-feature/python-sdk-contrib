@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openfeature-provider-ofrep"
-version = "0.1.0"
+version = "0.1.1"
 description = "OpenFeature provider for the OpenFeature Remote Evaluation Protocol (OFREP)"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
