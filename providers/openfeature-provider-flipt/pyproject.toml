@@ -1,0 +1,85 @@
+# pyproject.toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openfeature-provider-flipt"
+version = "0.1.0"
+description = "OpenFeature provider for the Flipt feature flagging service"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = []
+dependencies = [
+  "openfeature-sdk>=0.7.0",
+  "openfeature-provider-ofrep>=0.1.0",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+[tool.hatch]
+
+[tool.hatch.envs.hatch-test]
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+  "requests-mock",
+]
+
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest {args:tests}"
+run-cov = "coverage run -m pytest {args:tests}"
+cov-combine = "coverage combine"
+cov-report = [
+  "coverage xml",
+  "coverage html",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+[tool.hatch.envs.mypy]
+dependencies = [
+  "mypy[faster-cache]>=1.13.0",
+  "types-requests",
+]
+
+[tool.hatch.envs.mypy.scripts]
+run = "mypy"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".gitignore",
+  "schemas",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openfeature"]
+
+[tool.coverage.run]
+omit = [
+  "tests/**",
+]
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+
+python_version = "3.8" # should be identical to the minimum supported version
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+pretty = true
+
+strict = true
+disallow_any_generics = false
