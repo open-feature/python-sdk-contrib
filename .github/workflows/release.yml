@@ -45,13 +45,15 @@ jobs:
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing to pypi
       id-token: write
-    container:
-      image: "python:3.13"
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: recursive
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: '3.13'
 
       - name: Upgrade pip
         run: pip install --upgrade pip
@@ -64,7 +66,6 @@ jobs:
         working-directory: ${{ matrix.path }}
 
       - name: Publish a Python distribution to PyPI
-        # pinning till fixed https://github.com/pypa/gh-action-pypi-publish/issues/300
-        uses: pypa/gh-action-pypi-publish@release/v1.11
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: ${{ matrix.path }}/dist
