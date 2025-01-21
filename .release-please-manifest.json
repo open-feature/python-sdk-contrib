@@ -1,5 +1,6 @@
 {
   "hooks/openfeature-hooks-opentelemetry": "0.1.3",
   "providers/openfeature-provider-flagd": "0.1.5",
-  "providers/openfeature-provider-ofrep": "0.1.0"
+  "providers/openfeature-provider-ofrep": "0.1.0",
+  "providers/openfeature-provider-flipt": "0.1.0"
 }
