@@ -1,6 +1,7 @@
-# openfeature-provider-flipt
+# OpenFeature Flipt OFREP Provider
 
-This provider is designed to evaluate feature flags against the Flipt api using Flipt's [OpenFeature remote evaluation protocol (OFREP)](https://docs.flipt.io/reference/openfeature/overview) API. This is a remote evaluation.
+This provider is designed to evaluate feature flags against the Flipt api using Flipt's [OpenFeature remote evaluation protocol (OFREP)](https://docs.flipt.io/reference/openfeature/overview) API.
+This provider performs flag evaluations via HTTP.
 
 -----
 
