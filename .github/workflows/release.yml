@@ -45,8 +45,6 @@ jobs:
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing to pypi
       id-token: write
-    # container:
-    #   image: "python:3.13"
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
