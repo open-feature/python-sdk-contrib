@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flipt/v0.1.2...openfeature-provider-flipt/v0.1.3) (2025-01-21)
+
+
+### 🧹 Chore
+
+* update readme ([01fd932](https://github.com/open-feature/python-sdk-contrib/commit/01fd932aca73a24c681bc6cde7ab272c75082b20))
+
 ## [0.1.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flipt/v0.1.1...openfeature-provider-flipt/v0.1.2) (2025-01-21)
 
 
