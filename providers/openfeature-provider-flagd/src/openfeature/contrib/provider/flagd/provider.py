@@ -110,7 +110,13 @@ class FlagdProvider(AbstractProvider):
             self.config.resolver == ResolverType.IN_PROCESS
             or self.config.resolver == ResolverType.FILE
         ):
-            return InProcessResolver(self.config, self)
+            return InProcessResolver(
+                self.config,
+                self.emit_provider_ready,
+                self.emit_provider_error,
+                self.emit_provider_stale,
+                self.emit_provider_configuration_changed,
+            )
         else:
             raise ValueError(
                 f"`resolver_type` parameter invalid: {self.config.resolver}"

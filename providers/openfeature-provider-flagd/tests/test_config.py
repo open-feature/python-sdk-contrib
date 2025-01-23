@@ -1,5 +1,6 @@
 import pytest
 
+# not sure if we still need this test, as this is also covered with gherkin tests.
 from openfeature.contrib.provider.flagd.config import (
     DEFAULT_CACHE,
     DEFAULT_CACHE_SIZE,
@@ -20,7 +21,6 @@ from openfeature.contrib.provider.flagd.config import (
     ENV_VAR_KEEP_ALIVE_TIME_MS,
     ENV_VAR_OFFLINE_FLAG_SOURCE_PATH,
     ENV_VAR_PORT,
-    ENV_VAR_RESOLVER_TYPE,
     ENV_VAR_RETRY_BACKOFF_MS,
     ENV_VAR_STREAM_DEADLINE_MS,
     ENV_VAR_TLS,
@@ -84,7 +84,6 @@ def test_overrides_defaults_with_environment(monkeypatch, resolver_type):  # noq
     monkeypatch.setenv(ENV_VAR_KEEP_ALIVE_TIME_MS, str(keep_alive))
     monkeypatch.setenv(ENV_VAR_OFFLINE_FLAG_SOURCE_PATH, offline_path)
     monkeypatch.setenv(ENV_VAR_PORT, str(port))
-    monkeypatch.setenv(ENV_VAR_RESOLVER_TYPE, str(resolver_type.value))
     monkeypatch.setenv(ENV_VAR_RETRY_BACKOFF_MS, str(retry_backoff))
     monkeypatch.setenv(ENV_VAR_STREAM_DEADLINE_MS, str(stream_deadline))
     monkeypatch.setenv(ENV_VAR_TLS, str(tls))
@@ -97,7 +96,6 @@ def test_overrides_defaults_with_environment(monkeypatch, resolver_type):  # noq
     assert config.keep_alive_time == keep_alive
     assert config.offline_flag_source_path == offline_path
     assert config.port == port
-    assert config.resolver == resolver_type
     assert config.retry_backoff_ms == retry_backoff
     assert config.stream_deadline_ms == stream_deadline
     assert config.tls is tls
@@ -122,7 +120,6 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
     monkeypatch.setenv(ENV_VAR_KEEP_ALIVE_TIME_MS, str(keep_alive) + "value")
     monkeypatch.setenv(ENV_VAR_OFFLINE_FLAG_SOURCE_PATH, offline_path + "value")
     monkeypatch.setenv(ENV_VAR_PORT, str(port) + "value")
-    monkeypatch.setenv(ENV_VAR_RESOLVER_TYPE, str(resolver_type) + "value")
     monkeypatch.setenv(ENV_VAR_RETRY_BACKOFF_MS, str(retry_backoff) + "value")
     monkeypatch.setenv(ENV_VAR_STREAM_DEADLINE_MS, str(stream_deadline) + "value")
     monkeypatch.setenv(ENV_VAR_TLS, str(tls) + "value")
@@ -147,7 +144,6 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
     assert config.keep_alive_time == keep_alive
     assert config.offline_flag_source_path == offline_path
     assert config.port == port
-    assert config.resolver == resolver_type
     assert config.retry_backoff_ms == retry_backoff
     assert config.stream_deadline_ms == stream_deadline
     assert config.tls is tls

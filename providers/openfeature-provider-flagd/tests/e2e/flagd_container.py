@@ -1,3 +1,4 @@
+import os.path
 import time
 import typing
 from pathlib import Path
@@ -27,7 +28,10 @@ class FlagdContainer(DockerContainer):
         super().__init__(f"{image}:v{data}", **kwargs)
         self.rpc = 8013
         self.ipr = 8015
+        self.flagDir = Path("./flags")
+        self.flagDir.mkdir(parents=True, exist_ok=True)
         self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK, LAUNCHPAD)
+        self.with_volume_mapping(os.path.abspath(self.flagDir.name), "/flags", "rw")
 
     def get_port(self, resolver_type: ResolverType):
         if resolver_type == ResolverType.RPC:

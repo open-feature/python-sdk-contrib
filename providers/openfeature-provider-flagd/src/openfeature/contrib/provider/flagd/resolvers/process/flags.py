@@ -1,7 +1,43 @@
+import json
+import re
 import typing
 from dataclasses import dataclass
 
+from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError
+
+
+class FlagStore:
+    def __init__(
+        self,
+        emit_provider_configuration_changed: typing.Callable[
+            [ProviderEventDetails], None
+        ],
+    ):
+        self.emit_provider_configuration_changed = emit_provider_configuration_changed
+        self.flags: typing.Mapping[str, Flag] = {}
+
+    def get_flag(self, key: str) -> typing.Optional["Flag"]:
+        return self.flags.get(key)
+
+    def update(self, flags_data: dict) -> None:
+        flags = flags_data.get("flags", {})
+        evaluators: typing.Optional[dict] = flags_data.get("$evaluators")
+        if evaluators:
+            transposed = json.dumps(flags)
+            for name, rule in evaluators.items():
+                transposed = re.sub(
+                    rf"{{\s*\"\$ref\":\s*\"{name}\"\s*}}", json.dumps(rule), transposed
+                )
+            flags = json.loads(transposed)
+
+        if not isinstance(flags, dict):
+            raise ParseError("`flags` key of configuration must be a dictionary")
+        self.flags = {key: Flag.from_dict(key, data) for key, data in flags.items()}
+
+        self.emit_provider_configuration_changed(
+            ProviderEventDetails(flags_changed=list(self.flags.keys()))
+        )
 
 
 @dataclass

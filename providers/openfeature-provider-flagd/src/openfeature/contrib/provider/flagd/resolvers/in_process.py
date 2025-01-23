@@ -1,36 +1,47 @@
 import typing
 
+from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher import (
+    FileWatcher,
+)
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
 from openfeature.exception import FlagNotFoundError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
-from openfeature.provider import AbstractProvider
 
 from ..config import Config
-from .process.file_watcher import FileWatcherFlagStore
+from .process.connector import FlagStateConnector
+from .process.flags import FlagStore
 from .process.targeting import targeting
 
 T = typing.TypeVar("T")
 
 
 class InProcessResolver:
-    def __init__(self, config: Config, provider: AbstractProvider):
+    def __init__(
+        self,
+        config: Config,
+        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_error: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_stale: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_configuration_changed: typing.Callable[
+            [ProviderEventDetails], None
+        ],
+    ):
         self.config = config
-        self.provider = provider
         if not self.config.offline_flag_source_path:
             raise ValueError(
                 "offline_flag_source_path must be provided when using in-process resolver"
             )
-        self.flag_store = FileWatcherFlagStore(
-            self.config.offline_flag_source_path,
-            self.provider,
-            self.config.retry_backoff_ms * 0.001,
+        self.flag_store = FlagStore(emit_provider_configuration_changed)
+        self.connector: FlagStateConnector = FileWatcher(
+            self.config, self.flag_store, emit_provider_ready, emit_provider_error
         )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
-        pass
+        self.connector.initialize(evaluation_context)
 
     def shutdown(self) -> None:
-        self.flag_store.shutdown()
+        self.connector.shutdown()
 
     def resolve_boolean_details(
         self,
@@ -54,7 +65,10 @@ class InProcessResolver:
         default_value: float,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
-        return self._resolve(key, default_value, evaluation_context)
+        result = self._resolve(key, default_value, evaluation_context)
+        if isinstance(result.value, int):
+            result.value = float(result.value)
+        return result
 
     def resolve_integer_details(
         self,

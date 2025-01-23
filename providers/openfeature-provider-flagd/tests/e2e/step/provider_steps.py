@@ -1,8 +1,5 @@
-import json
 import logging
 import os
-import tempfile
-import threading
 import time
 import typing
 from enum import Enum
@@ -10,10 +7,8 @@ from pathlib import Path
 
 import pytest
 import requests
-import yaml
 from pytest_bdd import given, parsers, when
 from tests.e2e.flagd_container import FlagdContainer
-from tests.e2e.paths import TEST_HARNESS_PATH
 from tests.e2e.step._utils import wait_for
 
 from openfeature import api
@@ -47,7 +42,7 @@ def setup_provider_old(
 
 
 def get_default_options_for_provider(
-    provider_type: str, resolver_type: ResolverType, file_name, container
+    provider_type: str, resolver_type: ResolverType, container
 ) -> typing.Tuple[dict, bool]:
     launchpad = "default"
     t = TestProviderType(provider_type)
@@ -74,7 +69,9 @@ def get_default_options_for_provider(
         return options, True
 
     if resolver_type == ResolverType.FILE:
-        options["offline_flag_source_path"] = file_name.name
+        options["offline_flag_source_path"] = os.path.join(
+            container.flagDir.name, "allFlags.json"
+        )
 
     requests.post(
         f"{container.get_launchpad_url()}/start?config={launchpad}", timeout=1
@@ -91,10 +88,9 @@ def setup_provider(
     resolver_type: ResolverType,
     provider_type: str,
     option_values: dict,
-    file_name,
 ) -> OpenFeatureClient:
     default_options, wait = get_default_options_for_provider(
-        provider_type, resolver_type, file_name, container
+        provider_type, resolver_type, container
     )
 
     combined_options = {**default_options, **option_values}
@@ -121,25 +117,11 @@ def flagd_restart(
     container: FlagdContainer,
     provider_type: str,
     resolver_type: ResolverType,
-    file_name,
 ):
-    if resolver_type == ResolverType.FILE:
-        old_name = Path(file_name.name)
-        new_name = Path(file_name.name + "-deactivated")
-
-        def starting():
-            new_name.rename(old_name)
-
-        restart_timer = threading.Timer(interval=int(seconds), function=starting)
-        restart_timer.start()
-        if old_name.exists():
-            old_name.rename(new_name)
-
-    else:
-        requests.post(
-            f"{container.get_launchpad_url()}/restart?seconds={seconds}", timeout=1
-        )
-        pass
+    requests.post(
+        f"{container.get_launchpad_url()}/restart?seconds={seconds}", timeout=1
+    )
+    pass
 
 
 @pytest.fixture(autouse=True, scope="package")
@@ -158,72 +140,3 @@ def container(request):
     request.addfinalizer(fin)
 
     return container
-
-
-@pytest.fixture(scope="module", autouse=True)
-def all_flags(request):
-    result = {KEY_FLAGS: {}, KEY_EVALUATORS: {}}
-
-    path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), f"../{TEST_HARNESS_PATH}/flags/")
-    )
-
-    for f in os.listdir(path):
-        with open(path + "/" + f, "rb") as infile:
-            loaded_json = json.load(infile)
-            result[KEY_FLAGS] = {**result[KEY_FLAGS], **loaded_json[KEY_FLAGS]}
-            if loaded_json.get(KEY_EVALUATORS):
-                result[KEY_EVALUATORS] = {
-                    **result[KEY_EVALUATORS],
-                    **loaded_json[KEY_EVALUATORS],
-                }
-
-    return result
-
-
-@pytest.fixture(scope="module", autouse=True)
-def file_name(request, all_flags):
-    extension = "json"
-    with tempfile.NamedTemporaryFile(
-        "w", delete=False, suffix="." + extension
-    ) as outfile:
-        write_test_file(outfile, all_flags)
-
-        update_thread = threading.Thread(
-            target=changefile, args=("changing-flag", all_flags, outfile)
-        )
-        update_thread.daemon = True  # Makes the thread exit when the main program exits
-        update_thread.start()
-        yield outfile
-        return outfile
-
-
-def write_test_file(outfile, all_flags):
-    with open(outfile.name, "w") as file:
-        if file.name.endswith("json"):
-            json.dump(all_flags, file)
-        else:
-            yaml.dump(all_flags, file)
-
-
-def changefile(
-    flag_key: str,
-    all_flags: dict,
-    file_name,
-):
-    while True:
-        if not os.path.exists(file_name.name):
-            continue
-
-        flag = all_flags[KEY_FLAGS][flag_key]
-
-        other_variant = [
-            k for k in flag["variants"] if flag["defaultVariant"] in k
-        ].pop()
-
-        flag["defaultVariant"] = other_variant
-
-        all_flags[KEY_FLAGS][flag_key] = flag
-        write_test_file(file_name, all_flags)
-        logging.warn("changing flags")
-        time.sleep(5)

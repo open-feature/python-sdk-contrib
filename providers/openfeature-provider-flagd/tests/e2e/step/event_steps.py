@@ -2,6 +2,7 @@ import logging
 import time
 
 import pytest
+from asserts import assert_greater
 from pytest_bdd import given, parsers, then, when
 
 from openfeature.client import OpenFeatureClient
@@ -27,7 +28,7 @@ def event_handles() -> list:
 )
 def add_event_handler(client: OpenFeatureClient, event_type: str, event_handles: list):
     def handler(event):
-        logging.debug((event_type, event))
+        logging.warning((event_type, event))
         event_handles.append(
             {
                 "type": event_type,
@@ -37,11 +38,14 @@ def add_event_handler(client: OpenFeatureClient, event_type: str, event_handles:
 
     client.add_handler(events[event_type], handler)
 
+    logging.warning(("handler added", event_type))
 
-def assert_handlers(handles, event_type: str, max_wait: int = 2, num_events: int = 1):
+
+def assert_handlers(handles, event_type: str, max_wait: int = 2):
     poll_interval = 1
     while max_wait > 0:
-        if not any(h["type"] == event_type for h in handles):
+        found = [h["type"] == event_type for h in handles]
+        if not found:
             max_wait -= poll_interval
             time.sleep(poll_interval)
             continue
@@ -57,6 +61,7 @@ def assert_handlers(handles, event_type: str, max_wait: int = 2, num_events: int
 )
 def pass_for_event_fired(event_type: str, event_handles):
     events = assert_handlers(event_handles, event_type, 20)
+    assert_greater(len(events), 0)
     for event in event_handles:
         event_handles.remove(event)
     return events[0]["event"]
@@ -77,7 +82,8 @@ def assert_handler_run(event_type, event_handles):
     )
 )
 def assert_handler_run_within(event_type, event_handles, time: int):
-    assert_handlers(event_handles, event_type, max_wait=int(time / 1000))
+    events = assert_handlers(event_handles, event_type, max_wait=int(time / 1000))
+    assert_greater(len(events), 0)
 
     for event in event_handles:
         event_handles.remove(event)

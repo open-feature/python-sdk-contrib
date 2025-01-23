@@ -51,3 +51,6 @@ docs/_build/
 
 # Virtual env directories
 .venv
+
+# vscode
+.vscode/
