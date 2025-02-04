@@ -105,7 +105,11 @@ class GrpcResolver:
 
     def shutdown(self) -> None:
         self.active = False
+        self.channel.unsubscribe(self._state_change_callback)
         self.channel.close()
+        if self.timer and self.timer.is_alive():
+            logger.debug("gRPC error timer cancelled due to shutdown")
+            self.timer.cancel()
         if self.cache:
             self.cache.clear()
 
@@ -185,14 +189,16 @@ class GrpcResolver:
         while self.active:
             try:
                 logger.debug("Setting up gRPC sync flags connection")
-                for message in self.stub.EventStream(request, **call_args):
+                for message in self.stub.EventStream(
+                    request, wait_for_ready=True, **call_args
+                ):
                     if message.type == "provider_ready":
-                        self.connected = True
                         self.emit_provider_ready(
                             ProviderEventDetails(
                                 message="gRPC sync connection established"
                             )
                         )
+                        self.connected = True
                     elif message.type == "configuration_change":
                         data = MessageToDict(message)["data"]
                         self.handle_changed_flags(data)

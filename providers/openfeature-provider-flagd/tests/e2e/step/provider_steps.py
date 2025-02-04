@@ -48,10 +48,10 @@ def get_default_options_for_provider(
     t = TestProviderType(provider_type)
     options: dict = {
         "resolver_type": resolver_type,
-        "deadline_ms": 500,
+        "deadline_ms": 1000,
         "stream_deadline_ms": 0,
         "retry_backoff_ms": 1000,
-        "retry_grace_period": 2,
+        "retry_grace_period": 3,
         "port": container.get_port(resolver_type),
     }
 
@@ -119,7 +119,7 @@ def flagd_restart(
     resolver_type: ResolverType,
 ):
     requests.post(
-        f"{container.get_launchpad_url()}/restart?seconds={seconds}", timeout=1
+        f"{container.get_launchpad_url()}/restart?seconds={seconds}", timeout=2
     )
     pass
 

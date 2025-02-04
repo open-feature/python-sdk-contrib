@@ -26,8 +26,8 @@ import warnings
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.provider import AbstractProvider
 from openfeature.provider.metadata import Metadata
-from openfeature.provider.provider import AbstractProvider
 
 from .config import CacheType, Config, ResolverType
 from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver

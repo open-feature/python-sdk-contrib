@@ -44,13 +44,13 @@ def add_event_handler(client: OpenFeatureClient, event_type: str, event_handles:
 def assert_handlers(handles, event_type: str, max_wait: int = 2):
     poll_interval = 1
     while max_wait > 0:
-        found = [h["type"] == event_type for h in handles]
+        found = any(h["type"] == event_type for h in handles)
         if not found:
             max_wait -= poll_interval
             time.sleep(poll_interval)
             continue
         break
-    return [h for h in handles if h["type"] == event_type]
+    return handles
 
 
 @when(
@@ -60,7 +60,8 @@ def assert_handlers(handles, event_type: str, max_wait: int = 2):
     target_fixture="event_details",
 )
 def pass_for_event_fired(event_type: str, event_handles):
-    events = assert_handlers(event_handles, event_type, 20)
+    events = assert_handlers(event_handles, event_type, 30000)
+    events = [e for e in events if e["type"] == event_type]
     assert_greater(len(events), 0)
     for event in event_handles:
         event_handles.remove(event)

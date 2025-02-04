@@ -37,7 +37,7 @@ jobs:
           submodules: recursive
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -60,7 +60,7 @@ jobs:
 
       - if: matrix.python-version == '3.11'
         name: Upload coverage to Codecov
-        uses: codecov/codecov-action@5a605bd92782ce0810fa3b8acc235c921b497052 # v5.2.0
+        uses: codecov/codecov-action@13ce06bfc6bbe3ecf90edbbf1bc32fe5978ca1d3 # v5.3.1
         with:
           name: Code Coverage for ${{ matrix.package }} on Python ${{ matrix.python-version }}
           directory: ${{ matrix.package }}
@@ -73,7 +73,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -91,10 +91,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@dd196fa9ce80b6bacc74ca1c32bd5b0ba22efca7 # v3
+        uses: github/codeql-action/init@dd746615b3b9d728a6a37ca2045b68ca76d4841a # v3
         with:
           languages: python
           config-file: ./.github/codeql-config.yml
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@dd196fa9ce80b6bacc74ca1c32bd5b0ba22efca7 # v3
+        uses: github/codeql-action/analyze@dd746615b3b9d728a6a37ca2045b68ca76d4841a # v3

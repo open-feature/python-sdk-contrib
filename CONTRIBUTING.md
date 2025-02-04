@@ -30,7 +30,13 @@ We use `pytest` for our unit testing, making use of `parametrized` to inject cas
 
 ### Integration tests
 
-These are planned once the SDK has been stabilized and a Flagd provider implemented. At that point, we will utilize the [gherkin integration tests](https://github.com/open-feature/test-harness/blob/main/features/evaluation.feature) to validate against a live, seeded Flagd instance.
+The Flagd provider utilizes the [gherkin integration tests](https://github.com/open-feature/test-harness/blob/main/features/evaluation.feature) to validate against a live, seeded Flagd instance.
+
+To run the integration tests you need to have a container runtime, like docker, ranger, etc. installed.
+
+```bash
+hatch run test
+```
 
 ### Type checking
 
@@ -52,6 +58,13 @@ Navigate to the repository folder
 cd python-sdk-contrib
 ```
 
+Checkout submodules
+
+```bash
+git submodule update --init --recursive
+```
+
+
 Add your fork as an origin
 
 ```bash
@@ -62,7 +75,8 @@ Ensure your development environment is all set up by building and testing
 
 ```bash
 cd <package>
-hatch run test
+hatch build
+hatch test
 ```
 
 To start working on a new feature or bugfix, create a new branch and start working on it.
@@ -70,7 +84,7 @@ To start working on a new feature or bugfix, create a new branch and start worki
 ```bash
 git checkout -b feat/NAME_OF_FEATURE
 # Make your changes
-git commit
+git commit -s -m "feat: my feature"
 git push fork feat/NAME_OF_FEATURE
 ```
 

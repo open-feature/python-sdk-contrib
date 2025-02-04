@@ -3,16 +3,11 @@ import pytest
 from openfeature.contrib.provider.flagd.config import ResolverType
 from tests.e2e.testfilter import TestFilter
 
-# from tests.e2e.step.config_steps import *
-# from tests.e2e.step.event_steps import *
-# from tests.e2e.step.provider_steps import *
-
 resolver = ResolverType.FILE
 feature_list = {
     "~targetURI",
     "~customCert",
     "~unixsocket",
-    "~events",
     "~reconnect",
     "~sync",
     "~caching",
