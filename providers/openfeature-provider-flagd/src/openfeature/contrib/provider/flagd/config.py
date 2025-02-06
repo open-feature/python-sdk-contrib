@@ -44,6 +44,7 @@ ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
 ENV_VAR_RETRY_GRACE_PERIOD_SECONDS = "FLAGD_RETRY_GRACE_PERIOD"
+ENV_VAR_SELECTOR = "FLAGD_SOURCE_SELECTOR"
 ENV_VAR_STREAM_DEADLINE_MS = "FLAGD_STREAM_DEADLINE_MS"
 ENV_VAR_TLS = "FLAGD_TLS"
 ENV_VAR_TLS_CERT = "FLAGD_SERVER_CERT_PATH"
@@ -79,6 +80,7 @@ class Config:
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
+        selector: typing.Optional[str] = None,
         resolver: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         offline_poll_interval_ms: typing.Optional[int] = None,
@@ -220,4 +222,8 @@ class Config:
             env_or_default(ENV_VAR_TLS_CERT, DEFAULT_TLS_CERT)
             if cert_path is None
             else cert_path
+        )
+
+        self.selector = (
+            env_or_default(ENV_VAR_SELECTOR, None) if selector is None else selector
         )
