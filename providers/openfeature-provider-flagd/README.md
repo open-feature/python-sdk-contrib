@@ -1,6 +1,7 @@
 # flagd Provider for OpenFeature
 
-This provider is designed to use flagd's [evaluation protocol](https://github.com/open-feature/schemas/blob/main/protobuf/schema/v1/schema.proto).
+This provider is designed to use
+flagd's [evaluation protocol](https://github.com/open-feature/schemas/blob/main/protobuf/schema/v1/schema.proto).
 
 ## Installation
 
@@ -29,7 +30,34 @@ api.set_provider(FlagdProvider())
 
 ### In-process resolver
 
-This mode performs flag evaluations locally (in-process).
+This mode performs flag evaluations locally (in-process). Flag configurations for evaluation are obtained via gRPC protocol using [sync protobuf schema](https://buf.build/open-feature/flagd/file/main:sync/v1/sync_service.proto) service definition.
+
+Consider the following example to create a `FlagdProvider` with in-process evaluations,
+
+```python
+from openfeature import api
+from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.config import ResolverType
+
+api.set_provider(FlagdProvider(
+    resolver_type=ResolverType.IN_PROCESS,
+))
+```
+
+In the above example, in-process handlers attempt to connect to a sync service on address `localhost:8013` to obtain [flag definitions](https://github.com/open-feature/schemas/blob/main/json/flags.json).
+
+<!--
+#### Sync-metadata
+
+To support the injection of contextual data configured in flagd for in-process evaluation, the provider exposes a `getSyncMetadata` accessor which provides the most recent value returned by the [GetMetadata RPC](https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.FlagSyncService.GetMetadata).
+The value is updated with every (re)connection to the sync implementation.
+This can be used to enrich evaluations with such data.
+If the `in-process` mode is not used, and before the provider is ready, the `getSyncMetadata` returns an empty map.
+-->
+#### Offline mode
+
+In-process resolvers can also work in an offline mode.
+To enable this mode, you should provide a valid flag configuration file with the option `offlineFlagSourcePath`.
 
 ```python
 from openfeature import api
@@ -41,6 +69,10 @@ api.set_provider(FlagdProvider(
     offline_flag_source_path="my-flag.json",
 ))
 ```
+
+Provider will attempt to detect file changes using polling.
+Polling happens at 5 second intervals and this is currently unconfigurable.
+This mode is useful for local development, tests and offline applications.
 
 ### Configuration options
 
