@@ -7,6 +7,7 @@ from enum import Enum
 class ResolverType(Enum):
     RPC = "rpc"
     IN_PROCESS = "in-process"
+    FILE = "file"
 
 
 class CacheType(Enum):
@@ -157,6 +158,17 @@ class Config:
             if offline_flag_source_path is None
             else offline_flag_source_path
         )
+
+        if (
+            self.offline_flag_source_path is not None
+            and self.resolver is ResolverType.IN_PROCESS
+        ):
+            self.resolver = ResolverType.FILE
+
+        if self.resolver is ResolverType.FILE and self.offline_flag_source_path is None:
+            raise AttributeError(
+                "Resolver Type 'FILE' requires a offlineFlagSourcePath"
+            )
 
         self.offline_poll_interval_ms: int = (
             int(

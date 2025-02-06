@@ -1,11 +1,9 @@
 import re
-import sys
 import typing
 
 import pytest
-from asserts import assert_equal
-from pytest_bdd import given, parsers, scenarios, then, when
-from tests.e2e.conftest import TEST_HARNESS_PATH
+from asserts import assert_equal, assert_true
+from pytest_bdd import given, parsers, then, when
 
 from openfeature.contrib.provider.flagd.config import CacheType, Config, ResolverType
 
@@ -37,16 +35,6 @@ type_cast = {
 }
 
 
-@pytest.fixture(autouse=True)
-def container():
-    pass
-
-
-@pytest.fixture(autouse=True)
-def setup_provider(request):
-    pass
-
-
 @pytest.fixture()
 def option_values() -> dict:
     return {}
@@ -75,20 +63,26 @@ def env_with_value(monkeypatch, env: str, value: str):
     parsers.cfparse(
         "a config was initialized",
     ),
-    target_fixture="config",
+    target_fixture="config_or_error",
 )
 def initialize_config(option_values):
-    return Config(**option_values)
+    try:
+        return Config(**option_values), False
+    except AttributeError:
+        return None, True
 
 
 @when(
     parsers.cfparse(
         'a config was initialized for "{resolver_type}"',
     ),
-    target_fixture="config",
+    target_fixture="config_or_error",
 )
 def initialize_config_for(resolver_type: str, option_values: dict):
-    return Config(resolver=ResolverType(resolver_type), **option_values)
+    try:
+        return Config(resolver=ResolverType(resolver_type), **option_values), False
+    except AttributeError:
+        return None, True
 
 
 @then(
@@ -96,13 +90,18 @@ def initialize_config_for(resolver_type: str, option_values: dict):
         'the option "{option}" of type "{type_info}" should have the value "{value}"',
     )
 )
-def check_option_value(option, value, type_info, config):
+def check_option_value(option, value, type_info, config_or_error):
     value = type_cast[type_info](value)
     value = value if value != "null" else None
+    config, _ = config_or_error
     assert_equal(config.__getattribute__(camel_to_snake(option)), value)
 
 
-if sys.version_info >= (3, 9):
-    scenarios(
-        f"{TEST_HARNESS_PATH}/gherkin/config.feature",
+@then(
+    parsers.cfparse(
+        "we should have an error",
     )
+)
+def check_option_error(config_or_error):
+    _, error = config_or_error
+    assert_true(error)
