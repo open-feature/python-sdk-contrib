@@ -1,7 +1,6 @@
 # flagd Provider for OpenFeature
 
-This provider is designed to use
-flagd's [evaluation protocol](https://github.com/open-feature/schemas/blob/main/protobuf/schema/v1/schema.proto).
+This provider is designed to use flagd's [evaluation protocol](https://github.com/open-feature/schemas/blob/main/protobuf/schema/v1/schema.proto), or locally evaluate flags defined in a flagd [flag definition](https://github.com/open-feature/schemas/blob/main/json/flagd-definitions.json) via the OpenFeature Python SDK.
 
 ## Installation
 
@@ -54,7 +53,7 @@ The value is updated with every (re)connection to the sync implementation.
 This can be used to enrich evaluations with such data.
 If the `in-process` mode is not used, and before the provider is ready, the `getSyncMetadata` returns an empty map.
 -->
-#### Offline mode
+### File mode
 
 In-process resolvers can also work in an offline mode.
 To enable this mode, you should provide a valid flag configuration file with the option `offlineFlagSourcePath`.
@@ -65,7 +64,7 @@ from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
 api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.IN_PROCESS,
+    resolver_type=ResolverType.FILE,
     offline_flag_source_path="my-flag.json",
 ))
 ```

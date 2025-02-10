@@ -178,7 +178,7 @@ class GrpcWatcher(FlagStateConnector):
                         self.connected = True
 
                     if not self.active:
-                        logger.info("Terminating gRPC sync thread")
+                        logger.debug("Terminating gRPC sync thread")
                         return
             except grpc.RpcError as e:  # noqa: PERF203
                 logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
