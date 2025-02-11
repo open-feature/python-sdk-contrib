@@ -5,7 +5,7 @@ exclude = [
     "venv",
     "providers/openfeature-provider-flagd/src/openfeature/schemas/**"
 ]
-target-version = "py38"
+target-version = "py39"
 
 [lint]
 select = [

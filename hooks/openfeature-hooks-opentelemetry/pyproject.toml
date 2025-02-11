@@ -20,7 +20,7 @@ dependencies = [
     "openfeature-sdk>=0.6.0",
     "opentelemetry-api",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
@@ -70,7 +70,7 @@ packages = ["src/openfeature"]
 mypy_path = "src"
 files = "src"
 
-python_version = "3.8" # should be identical to the minimum supported version
+python_version = "3.9" # should be identical to the minimum supported version
 namespace_packages = true
 explicit_package_bases = true
 local_partial_types = true
