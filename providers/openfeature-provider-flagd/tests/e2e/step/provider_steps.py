@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-import typing
 from enum import Enum
 from pathlib import Path
 
@@ -43,7 +42,7 @@ def setup_provider_old(
 
 def get_default_options_for_provider(
     provider_type: str, resolver_type: ResolverType, container
-) -> typing.Tuple[dict, bool]:
+) -> tuple[dict, bool]:
     launchpad = "default"
     t = TestProviderType(provider_type)
     options: dict = {

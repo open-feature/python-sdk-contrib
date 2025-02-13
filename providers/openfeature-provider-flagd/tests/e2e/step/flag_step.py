@@ -1,5 +1,3 @@
-import typing
-
 import requests
 from asserts import assert_equal
 from pytest_bdd import given, parsers, then, when
@@ -20,7 +18,7 @@ from ._utils import JsonPrimitive, type_cast
 )
 def setup_key_and_default(
     key: str, default: JsonPrimitive, type_info: str
-) -> typing.Tuple[str, JsonPrimitive, str]:
+) -> tuple[str, JsonPrimitive, str]:
     return key, default, type_info
 
 

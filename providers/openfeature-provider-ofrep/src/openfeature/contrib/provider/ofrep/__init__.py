@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Type, Union
+from typing import Any, Callable, NoReturn, Optional, Union
 from urllib.parse import urljoin
 
 import requests
@@ -25,14 +25,14 @@ from openfeature.provider import AbstractProvider, Metadata
 __all__ = ["OFREPProvider"]
 
 
-TypeMap = Dict[
+TypeMap = dict[
     FlagType,
     Union[
-        Type[bool],
-        Type[int],
-        Type[float],
-        Type[str],
-        Tuple[Type[dict], Type[list]],
+        type[bool],
+        type[int],
+        type[float],
+        type[str],
+        tuple[type[dict], type[list]],
     ],
 ]
 
@@ -42,7 +42,7 @@ class OFREPProvider(AbstractProvider):
         self,
         base_url: str,
         *,
-        headers_factory: Optional[Callable[[], Dict[str, str]]] = None,
+        headers_factory: Optional[Callable[[], dict[str, str]]] = None,
         timeout: float = 5.0,
     ):
         self.base_url = base_url
@@ -54,7 +54,7 @@ class OFREPProvider(AbstractProvider):
     def get_metadata(self) -> Metadata:
         return Metadata(name="OpenFeature Remote Evaluation Protocol Provider")
 
-    def get_provider_hooks(self) -> List[Hook]:
+    def get_provider_hooks(self) -> list[Hook]:
         return []
 
     def resolve_boolean_details(
@@ -191,8 +191,8 @@ class OFREPProvider(AbstractProvider):
 
 def _build_request_data(
     evaluation_context: Optional[EvaluationContext],
-) -> Dict[str, Any]:
-    data: Dict[str, Any] = {}
+) -> dict[str, Any]:
+    data: dict[str, Any] = {}
     if evaluation_context:
         data["context"] = {}
         if evaluation_context.targeting_key:

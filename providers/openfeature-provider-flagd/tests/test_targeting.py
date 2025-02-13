@@ -98,11 +98,11 @@ class VersionPrefixed(Enum):
 @dataclass
 class SemVerTest:
     title: str
-    rule: typing.List[str]
+    rule: list[str]
     result: typing.Optional[bool]
 
 
-semver_operations: typing.List[SemVerTest] = [
+semver_operations: list[SemVerTest] = [
     # Successful and working rules
     SemVerTest("equals", ["1.2.3", "=", "1.2.3"], True),
     SemVerTest("not equals", ["1.2.3", "!=", "1.2.4"], True),
