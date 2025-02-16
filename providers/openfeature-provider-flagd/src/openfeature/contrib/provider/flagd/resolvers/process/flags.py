@@ -75,12 +75,12 @@ class Flag:
         return flag
 
     @property
-    def default(self) -> typing.Tuple[str, typing.Any]:
+    def default(self) -> tuple[str, typing.Any]:
         return self.get_variant(self.default_variant)
 
     def get_variant(
         self, variant_key: typing.Union[str, bool]
-    ) -> typing.Tuple[str, typing.Any]:
+    ) -> tuple[str, typing.Any]:
         if isinstance(variant_key, bool):
             variant_key = str(variant_key).lower()
 

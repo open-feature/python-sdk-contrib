@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         package:
           - "hooks/openfeature-hooks-opentelemetry"
           - "providers/openfeature-provider-flagd"
@@ -50,7 +50,7 @@ jobs:
         working-directory: ${{ matrix.package }}
 
       - name: Type checking
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.13'
         working-directory: ${{ matrix.package }}
         run: hatch run mypy:run
 
@@ -58,7 +58,7 @@ jobs:
         run: hatch test -c
         working-directory: ${{ matrix.package }}
 
-      - if: matrix.python-version == '3.11'
+      - if: matrix.python-version == '3.13'
         name: Upload coverage to Codecov
         uses: codecov/codecov-action@13ce06bfc6bbe3ecf90edbbf1bc32fe5978ca1d3 # v5.3.1
         with:
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: "pip"
 
       - name: Run pre-commit
