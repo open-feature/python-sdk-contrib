@@ -21,7 +21,7 @@ class InProcessResolver:
     def __init__(
         self,
         config: Config,
-        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_ready: typing.Callable[[ProviderEventDetails, dict], None],
         emit_provider_error: typing.Callable[[ProviderEventDetails], None],
         emit_provider_stale: typing.Callable[[ProviderEventDetails], None],
         emit_provider_configuration_changed: typing.Callable[
