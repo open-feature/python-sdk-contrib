@@ -1,4 +1,5 @@
 import os
+import time
 
 import pytest
 
@@ -6,6 +7,7 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEvent
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
 
@@ -84,3 +86,27 @@ def test_flag_disabled():
 
     assert res.value == "fallback"
     assert res.reason == Reason.DISABLED
+
+
+@pytest.mark.parametrize("wait", (500, 250))
+def test_grpc_sync_fail_deadline(wait: int):
+    init_failed = False
+
+    def fail(*args, **kwargs):
+        nonlocal init_failed
+        init_failed = True
+
+    api.get_client().add_handler(ProviderEvent.PROVIDER_ERROR, fail)
+
+    t = time.time()
+    api.set_provider(
+        FlagdProvider(
+            resolver_type=ResolverType.IN_PROCESS,
+            port=99999,  # dead port to test failure
+            deadline_ms=wait,
+        )
+    )
+
+    elapsed = time.time() - t
+    assert abs(elapsed - wait * 0.001) < 0.11
+    assert init_failed

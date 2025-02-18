@@ -10,6 +10,7 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
 from ..config import Config
 from .process.connector import FlagStateConnector
+from .process.connector.grpc_watcher import GrpcWatcher
 from .process.flags import FlagStore
 from .process.targeting import targeting
 
@@ -28,13 +29,19 @@ class InProcessResolver:
         ],
     ):
         self.config = config
-        if not self.config.offline_flag_source_path:
-            raise ValueError(
-                "offline_flag_source_path must be provided when using in-process resolver"
-            )
         self.flag_store = FlagStore(emit_provider_configuration_changed)
-        self.connector: FlagStateConnector = FileWatcher(
-            self.config, self.flag_store, emit_provider_ready, emit_provider_error
+        self.connector: FlagStateConnector = (
+            FileWatcher(
+                self.config, self.flag_store, emit_provider_ready, emit_provider_error
+            )
+            if self.config.offline_flag_source_path
+            else GrpcWatcher(
+                self.config,
+                self.flag_store,
+                emit_provider_ready,
+                emit_provider_error,
+                emit_provider_stale,
+            )
         )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
@@ -112,6 +119,7 @@ class InProcessResolver:
             raise ParseError(
                 "Parsed JSONLogic targeting did not return a string or bool"
             )
+
         variant, value = flag.get_variant(variant)
         if not value:
             raise ParseError(f"Resolved variant {variant} not in variants config.")
