@@ -276,7 +276,7 @@ class GrpcResolver:
             return cached_flag
 
         context = self._convert_context(evaluation_context)
-        call_args = {"timeout": self.deadline}
+        call_args = {"timeout": self.deadline, "wait_for_ready": True}
         try:
             request: Message
             if flag_type == FlagType.BOOLEAN:
