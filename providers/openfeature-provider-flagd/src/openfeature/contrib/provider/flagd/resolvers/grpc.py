@@ -137,7 +137,10 @@ class GrpcResolver:
 
     def _state_change_callback(self, new_state: ChannelConnectivity) -> None:
         logger.debug(f"gRPC state change: {new_state}")
-        if new_state == ChannelConnectivity.READY:
+        if (
+            new_state == grpc.ChannelConnectivity.READY
+            or new_state == grpc.ChannelConnectivity.IDLE
+        ):
             if not self.thread or not self.thread.is_alive():
                 self.thread = threading.Thread(
                     target=self.listen,

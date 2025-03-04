@@ -125,7 +125,7 @@ class FlagdProvider(AbstractProvider):
         ):
             return InProcessResolver(
                 self.config,
-                self.on_provider_ready,
+                self.emit_provider_ready_with_context,
                 self.emit_provider_error,
                 self.emit_provider_stale,
                 self.emit_provider_configuration_changed,
@@ -196,7 +196,9 @@ class FlagdProvider(AbstractProvider):
             key, default_value, evaluation_context
         )
 
-    def on_provider_ready(self, details: ProviderEventDetails, metadata: dict) -> None:
-        self.enriched_context = metadata
+    def emit_provider_ready_with_context(
+        self, details: ProviderEventDetails, context: dict
+    ) -> None:
+        self.enriched_context = context
         self.emit_provider_ready(details)
         pass
