@@ -24,7 +24,7 @@ class FileWatcher(FlagStateConnector):
         self,
         config: Config,
         flag_store: FlagStore,
-        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_ready: typing.Callable[[ProviderEventDetails, dict], None],
         emit_provider_error: typing.Callable[[ProviderEventDetails], None],
     ):
         if config.offline_flag_source_path is None:
@@ -94,7 +94,8 @@ class FileWatcher(FlagStateConnector):
                 self.emit_provider_ready(
                     ProviderEventDetails(
                         message="Reloading file contents recovered from error state"
-                    )
+                    ),
+                    {},
                 )
                 self.should_emit_ready_on_success = False
 

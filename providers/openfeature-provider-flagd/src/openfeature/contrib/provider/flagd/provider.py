@@ -25,12 +25,15 @@ import typing
 import warnings
 
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
 from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider
 from openfeature.provider.metadata import Metadata
 
 from .config import CacheType, Config, ResolverType
 from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver
+from .sync_metadata_hook import SyncMetadataHook
 
 T = typing.TypeVar("T")
 
@@ -96,8 +99,16 @@ class FlagdProvider(AbstractProvider):
             max_cache_size=max_cache_size,
             cert_path=cert_path,
         )
+        self.enriched_context: dict = {}
 
         self.resolver = self.setup_resolver()
+        self.hooks: list[Hook] = [SyncMetadataHook(self.get_enriched_context)]
+
+    def get_enriched_context(self) -> EvaluationContext:
+        return EvaluationContext(attributes=self.enriched_context)
+
+    def get_provider_hooks(self) -> list[Hook]:
+        return self.hooks
 
     def setup_resolver(self) -> AbstractResolver:
         if self.config.resolver == ResolverType.RPC:
@@ -114,7 +125,7 @@ class FlagdProvider(AbstractProvider):
         ):
             return InProcessResolver(
                 self.config,
-                self.emit_provider_ready,
+                self.emit_provider_ready_with_context,
                 self.emit_provider_error,
                 self.emit_provider_stale,
                 self.emit_provider_configuration_changed,
@@ -184,3 +195,10 @@ class FlagdProvider(AbstractProvider):
         return self.resolver.resolve_object_details(
             key, default_value, evaluation_context
         )
+
+    def emit_provider_ready_with_context(
+        self, details: ProviderEventDetails, context: dict
+    ) -> None:
+        self.enriched_context = context
+        self.emit_provider_ready(details)
+        pass
