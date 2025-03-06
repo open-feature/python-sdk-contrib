@@ -55,7 +55,7 @@ class GrpcWatcher(FlagStateConnector):
     def _generate_channel(self, config: Config) -> grpc.Channel:
         target = f"{config.host}:{config.port}"
         # Create the channel with the service config
-        options = [
+        options: list[tuple[str, typing.Any]] = [
             ("grpc.keepalive_time_ms", config.keep_alive_time),
             ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),

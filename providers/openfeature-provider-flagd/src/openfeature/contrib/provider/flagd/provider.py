@@ -21,9 +21,10 @@
 # provider.initialise(schema="https",endpoint="example.com",port=1234,timeout=10)
 """
 
-import grpc
 import typing
 import warnings
+
+import grpc
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails
@@ -59,7 +60,7 @@ class FlagdProvider(AbstractProvider):
         retry_grace_period: typing.Optional[int] = None,
         cert_path: typing.Optional[str] = None,
         default_authority: typing.Optional[str] = None,
-        grpc_credentials: typing.Optional[grpc.ChannelCredentials] = None,
+        channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -101,7 +102,7 @@ class FlagdProvider(AbstractProvider):
             max_cache_size=max_cache_size,
             cert_path=cert_path,
             default_authority=default_authority,
-            channel_credentials=grpc_credentials,
+            channel_credentials=channel_credentials,
         )
 
         self.resolver = self.setup_resolver()

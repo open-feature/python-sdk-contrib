@@ -1,8 +1,9 @@
 import dataclasses
-import grpc
 import os
 import typing
 from enum import Enum
+
+import grpc
 
 
 class ResolverType(Enum):
@@ -235,11 +236,15 @@ class Config:
         )
 
         self.provider_id = (
-            env_or_default(ENV_VAR_PROVIDER_ID, None) if provider_id is None else provider_id
+            env_or_default(ENV_VAR_PROVIDER_ID, None)
+            if provider_id is None
+            else provider_id
         )
 
         self.default_authority = (
-            env_or_default(ENV_VAR_DEFAULT_AUTHORITY, None) if default_authority is None else default_authority
+            env_or_default(ENV_VAR_DEFAULT_AUTHORITY, None)
+            if default_authority is None
+            else default_authority
         )
 
         self.channel_credentials = channel_credentials
