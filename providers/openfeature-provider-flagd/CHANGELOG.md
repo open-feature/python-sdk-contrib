@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.0...openfeature-provider-flagd/v0.2.1) (2025-03-10)
+
+
+### ✨ New Features
+
+* **flagd:** Add features to customize auth to Sync API servers ([#203](https://github.com/open-feature/python-sdk-contrib/issues/203)) ([5151e94](https://github.com/open-feature/python-sdk-contrib/commit/5151e941d229101bdbcc5b40f570f69d77ddda7b))
+* **flagd:** Context value hydration ([#195](https://github.com/open-feature/python-sdk-contrib/issues/195)) ([4fa619b](https://github.com/open-feature/python-sdk-contrib/commit/4fa619b93faf1d1f62a9ead99f33baa21c04e267))
+
 ## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.1.5...openfeature-provider-flagd/v0.2.0) (2025-02-18)
 
 
