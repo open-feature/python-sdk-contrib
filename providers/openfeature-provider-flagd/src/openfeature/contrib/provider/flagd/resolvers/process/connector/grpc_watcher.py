@@ -42,6 +42,7 @@ class GrpcWatcher(FlagStateConnector):
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.selector = config.selector
+        self.provider_id = config.provider_id
         self.emit_provider_ready = emit_provider_ready
         self.emit_provider_error = emit_provider_error
         self.emit_provider_stale = emit_provider_stale
@@ -55,13 +56,23 @@ class GrpcWatcher(FlagStateConnector):
     def _generate_channel(self, config: Config) -> grpc.Channel:
         target = f"{config.host}:{config.port}"
         # Create the channel with the service config
-        options = [
+        options: list[tuple[str, typing.Any]] = [
             ("grpc.keepalive_time_ms", config.keep_alive_time),
             ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
             ("grpc.min_reconnect_backoff_ms", config.stream_deadline_ms),
         ]
-        if config.tls:
+        if config.default_authority is not None:
+            options.append(("grpc.default_authority", config.default_authority))
+
+        if config.channel_credentials is not None:
+            channel_args = {
+                "options": options,
+                "credentials": config.channel_credentials,
+            }
+            channel = grpc.secure_channel(target, **channel_args)
+
+        elif config.tls:
             channel_args = {
                 "options": options,
                 "credentials": grpc.ssl_channel_credentials(),
@@ -157,7 +168,11 @@ class GrpcWatcher(FlagStateConnector):
             if self.streamline_deadline_seconds > 0
             else {}
         )
-        request_args = {"selector": self.selector} if self.selector is not None else {}
+        request_args = {}
+        if self.selector is not None:
+            request_args["selector"] = self.selector
+        if self.provider_id is not None:
+            request_args["provider_id"] = self.provider_id
 
         while self.active:
             try:

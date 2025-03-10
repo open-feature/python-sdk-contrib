@@ -3,6 +3,8 @@ import os
 import typing
 from enum import Enum
 
+import grpc
+
 
 class ResolverType(Enum):
     RPC = "rpc"
@@ -45,9 +47,11 @@ ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
 ENV_VAR_RETRY_GRACE_PERIOD_SECONDS = "FLAGD_RETRY_GRACE_PERIOD"
 ENV_VAR_SELECTOR = "FLAGD_SOURCE_SELECTOR"
+ENV_VAR_PROVIDER_ID = "FLAGD_SOURCE_PROVIDER_ID"
 ENV_VAR_STREAM_DEADLINE_MS = "FLAGD_STREAM_DEADLINE_MS"
 ENV_VAR_TLS = "FLAGD_TLS"
 ENV_VAR_TLS_CERT = "FLAGD_SERVER_CERT_PATH"
+ENV_VAR_DEFAULT_AUTHORITY = "FLAGD_DEFAULT_AUTHORITY"
 
 T = typing.TypeVar("T")
 
@@ -81,6 +85,7 @@ class Config:
         port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         selector: typing.Optional[str] = None,
+        provider_id: typing.Optional[str] = None,
         resolver: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         offline_poll_interval_ms: typing.Optional[int] = None,
@@ -93,6 +98,8 @@ class Config:
         cache: typing.Optional[CacheType] = None,
         max_cache_size: typing.Optional[int] = None,
         cert_path: typing.Optional[str] = None,
+        default_authority: typing.Optional[str] = None,
+        channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -227,3 +234,17 @@ class Config:
         self.selector = (
             env_or_default(ENV_VAR_SELECTOR, None) if selector is None else selector
         )
+
+        self.provider_id = (
+            env_or_default(ENV_VAR_PROVIDER_ID, None)
+            if provider_id is None
+            else provider_id
+        )
+
+        self.default_authority = (
+            env_or_default(ENV_VAR_DEFAULT_AUTHORITY, None)
+            if default_authority is None
+            else default_authority
+        )
+
+        self.channel_credentials = channel_credentials

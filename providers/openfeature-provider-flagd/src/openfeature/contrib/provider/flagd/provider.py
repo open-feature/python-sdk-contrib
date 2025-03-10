@@ -24,6 +24,8 @@
 import typing
 import warnings
 
+import grpc
+
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
 from openfeature.flag_evaluation import FlagResolutionDetails
@@ -50,6 +52,7 @@ class FlagdProvider(AbstractProvider):
         timeout: typing.Optional[int] = None,
         retry_backoff_ms: typing.Optional[int] = None,
         selector: typing.Optional[str] = None,
+        provider_id: typing.Optional[str] = None,
         resolver_type: typing.Optional[ResolverType] = None,
         offline_flag_source_path: typing.Optional[str] = None,
         stream_deadline_ms: typing.Optional[int] = None,
@@ -59,6 +62,8 @@ class FlagdProvider(AbstractProvider):
         retry_backoff_max_ms: typing.Optional[int] = None,
         retry_grace_period: typing.Optional[int] = None,
         cert_path: typing.Optional[str] = None,
+        default_authority: typing.Optional[str] = None,
+        channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -91,6 +96,7 @@ class FlagdProvider(AbstractProvider):
             retry_backoff_max_ms=retry_backoff_max_ms,
             retry_grace_period=retry_grace_period,
             selector=selector,
+            provider_id=provider_id,
             resolver=resolver_type,
             offline_flag_source_path=offline_flag_source_path,
             stream_deadline_ms=stream_deadline_ms,
@@ -98,6 +104,8 @@ class FlagdProvider(AbstractProvider):
             cache=cache,
             max_cache_size=max_cache_size,
             cert_path=cert_path,
+            default_authority=default_authority,
+            channel_credentials=channel_credentials,
         )
         self.enriched_context: dict = {}
 
