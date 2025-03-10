@@ -5,6 +5,7 @@ import time
 import typing
 
 import grpc
+from google.protobuf.json_format import MessageToDict
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
@@ -26,7 +27,7 @@ class GrpcWatcher(FlagStateConnector):
         self,
         config: Config,
         flag_store: FlagStore,
-        emit_provider_ready: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_ready: typing.Callable[[ProviderEventDetails, dict], None],
         emit_provider_error: typing.Callable[[ProviderEventDetails], None],
         emit_provider_stale: typing.Callable[[ProviderEventDetails], None],
     ):
@@ -117,7 +118,10 @@ class GrpcWatcher(FlagStateConnector):
 
     def _state_change_callback(self, new_state: grpc.ChannelConnectivity) -> None:
         logger.debug(f"gRPC state change: {new_state}")
-        if new_state == grpc.ChannelConnectivity.READY:
+        if (
+            new_state == grpc.ChannelConnectivity.READY
+            or new_state == grpc.ChannelConnectivity.IDLE
+        ):
             if not self.thread or not self.thread.is_alive():
                 self.thread = threading.Thread(
                     target=self.listen,
@@ -172,6 +176,12 @@ class GrpcWatcher(FlagStateConnector):
 
         while self.active:
             try:
+                context_values_request = sync_pb2.GetMetadataRequest()
+                context_values_response: sync_pb2.GetMetadataResponse = (
+                    self.stub.GetMetadata(context_values_request, wait_for_ready=True)
+                )
+                context_values = MessageToDict(context_values_response)
+
                 request = sync_pb2.SyncFlagsRequest(**request_args)
 
                 logger.debug("Setting up gRPC sync flags connection")
@@ -188,7 +198,8 @@ class GrpcWatcher(FlagStateConnector):
                         self.emit_provider_ready(
                             ProviderEventDetails(
                                 message="gRPC sync connection established"
-                            )
+                            ),
+                            context_values["metadata"],
                         )
                         self.connected = True
 
