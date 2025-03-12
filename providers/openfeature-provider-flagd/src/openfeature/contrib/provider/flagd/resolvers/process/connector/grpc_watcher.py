@@ -6,6 +6,7 @@ import typing
 
 import grpc
 from google.protobuf.json_format import MessageToDict
+from google.protobuf.struct_pb2 import Struct
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
@@ -162,24 +163,36 @@ class GrpcWatcher(FlagStateConnector):
         self.active = False
         self.channel.close()
 
-    def listen(self) -> None:
-        call_args = (
-            {"timeout": self.streamline_deadline_seconds}
-            if self.streamline_deadline_seconds > 0
-            else {}
-        )
+    def _create_request_args(self) -> dict:
         request_args = {}
         if self.selector is not None:
             request_args["selector"] = self.selector
         if self.provider_id is not None:
             request_args["provider_id"] = self.provider_id
 
+        return request_args
+
+    def listen(self) -> None:
+        call_args = (
+            {"timeout": self.streamline_deadline_seconds}
+            if self.streamline_deadline_seconds > 0
+            else {}
+        )
+        request_args = self._create_request_args()
+
         while self.active:
             try:
-                context_values_request = sync_pb2.GetMetadataRequest()
-                context_values_response: sync_pb2.GetMetadataResponse = (
-                    self.stub.GetMetadata(context_values_request, wait_for_ready=True)
-                )
+                context_values_response: sync_pb2.GetMetadataResponse
+                if self.config.sync_metadata_disabled:
+                    context_values_response = sync_pb2.GetMetadataResponse(
+                        metadata=Struct()
+                    )
+                else:
+                    context_values_request = sync_pb2.GetMetadataRequest()
+                    context_values_response = self.stub.GetMetadata(
+                        context_values_request, wait_for_ready=True
+                    )
+
                 context_values = MessageToDict(context_values_response)
 
                 request = sync_pb2.SyncFlagsRequest(**request_args)
