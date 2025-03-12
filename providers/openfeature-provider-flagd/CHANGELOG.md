@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.1...openfeature-provider-flagd/v0.2.2) (2025-03-12)
+
+
+### 🧹 Chore
+
+* **deps:** update dependency grpcio-health-checking to v1.71.0 ([#209](https://github.com/open-feature/python-sdk-contrib/issues/209)) ([345e793](https://github.com/open-feature/python-sdk-contrib/commit/345e7934b9de3879d3aff45c8213ece1a98e3711))
+* **flagd:** Add sync metadata disabled ([#211](https://github.com/open-feature/python-sdk-contrib/issues/211)) ([2f85057](https://github.com/open-feature/python-sdk-contrib/commit/2f850574943cc92d55d198c8ccd91e80583a2ee6))
+
 ## [0.2.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.0...openfeature-provider-flagd/v0.2.1) (2025-03-10)
 
 
