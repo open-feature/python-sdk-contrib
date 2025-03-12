@@ -253,7 +253,7 @@ class Config:
         # TODO: remove the metadata call entirely after https://github.com/open-feature/flagd/issues/1584
         # This is a temporary stop-gap solutions to support servers that don't implement sync.GetMetadata
         # (see: https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.FlagSyncService.GetMetadata).
-        # Using this option sisables call to sync.GetMetadata
+        # Using this option disables call to sync.GetMetadata
         # Disabling will prevent static context from flagd being used in evaluations.
         # GetMetadata and this option will be removed.
         self.sync_metadata_disabled = sync_metadata_disabled
