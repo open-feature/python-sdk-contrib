@@ -64,6 +64,7 @@ class FlagdProvider(AbstractProvider):
         cert_path: typing.Optional[str] = None,
         default_authority: typing.Optional[str] = None,
         channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
+        sync_metadata_disabled: typing.Optional[bool] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -106,6 +107,7 @@ class FlagdProvider(AbstractProvider):
             cert_path=cert_path,
             default_authority=default_authority,
             channel_credentials=channel_credentials,
+            sync_metadata_disabled=sync_metadata_disabled,
         )
         self.enriched_context: dict = {}
 

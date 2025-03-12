@@ -100,6 +100,7 @@ class Config:
         cert_path: typing.Optional[str] = None,
         default_authority: typing.Optional[str] = None,
         channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
+        sync_metadata_disabled: typing.Optional[bool] = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -248,3 +249,11 @@ class Config:
         )
 
         self.channel_credentials = channel_credentials
+
+        # TODO: remove the metadata call entirely after https://github.com/open-feature/flagd/issues/1584
+        # This is a temporary stop-gap solutions to support servers that don't implement sync.GetMetadata
+        # (see: https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.FlagSyncService.GetMetadata).
+        # Using this option sisables call to sync.GetMetadata
+        # Disabling will prevent static context from flagd being used in evaluations.
+        # GetMetadata and this option will be removed.
+        self.sync_metadata_disabled = sync_metadata_disabled
