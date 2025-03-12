@@ -163,17 +163,22 @@ class GrpcWatcher(FlagStateConnector):
         self.active = False
         self.channel.close()
 
+    def _create_request_args(self) -> dict:
+        request_args = {}
+        if self.selector is not None:
+            request_args["selector"] = self.selector
+        if self.provider_id is not None:
+            request_args["provider_id"] = self.provider_id
+
+        return request_args
+
     def listen(self) -> None:
         call_args = (
             {"timeout": self.streamline_deadline_seconds}
             if self.streamline_deadline_seconds > 0
             else {}
         )
-        request_args = {}
-        if self.selector is not None:
-            request_args["selector"] = self.selector
-        if self.provider_id is not None:
-            request_args["provider_id"] = self.provider_id
+        request_args = self._create_request_args()
 
         while self.active:
             try:
