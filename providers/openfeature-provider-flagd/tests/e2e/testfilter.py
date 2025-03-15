@@ -1,6 +1,8 @@
 import logging
 import os
 
+logger = logging.getLogger("openfeature.contrib.tests")
+
 
 class TestFilter:
     def __init__(self, config, feature_list=None, resolver=None, base_path=None):
@@ -40,7 +42,7 @@ class TestFilter:
             all_tags = self._get_item_tags(item)
 
             # Debug: Print collected tags for each item
-            logging.debug(f"Item: {item.nodeid}, Tags: {all_tags}")
+            logger.debug(f"Item: {item.nodeid}, Tags: {all_tags}")
 
             # Include-only logic: Skip items that do not match include_tags
             if (
