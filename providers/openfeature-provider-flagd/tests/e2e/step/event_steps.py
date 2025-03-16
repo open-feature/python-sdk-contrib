@@ -8,6 +8,8 @@ from pytest_bdd import given, parsers, then, when
 from openfeature.client import OpenFeatureClient
 from openfeature.event import ProviderEvent
 
+logger = logging.getLogger("openfeature.contrib.tests")
+
 events = {
     "ready": ProviderEvent.PROVIDER_READY,
     "error": ProviderEvent.PROVIDER_ERROR,
@@ -28,7 +30,7 @@ def event_handles() -> list:
 )
 def add_event_handler(client: OpenFeatureClient, event_type: str, event_handles: list):
     def handler(event):
-        logging.warning((event_type, event))
+        logger.warning((event_type, event))
         event_handles.append(
             {
                 "type": event_type,
@@ -38,7 +40,7 @@ def add_event_handler(client: OpenFeatureClient, event_type: str, event_handles:
 
     client.add_handler(events[event_type], handler)
 
-    logging.warning(("handler added", event_type))
+    logger.warning(("handler added", event_type))
 
 
 def assert_handlers(handles, event_type: str, max_wait: int = 2):
