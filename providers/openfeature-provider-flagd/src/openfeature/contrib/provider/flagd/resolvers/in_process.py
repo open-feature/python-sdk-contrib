@@ -121,8 +121,6 @@ class InProcessResolver:
             )
 
         variant, value = flag.get_variant(variant)
-        if not value:
-            raise ParseError(f"Resolved variant {variant} not in variants config.")
 
         return FlagResolutionDetails(
             value,
