@@ -90,7 +90,4 @@ class Flag:
         if isinstance(variant_key, bool):
             variant_key = str(variant_key).lower()
 
-        if variant_key not in self.variants:
-            raise ParseError(f"Resolved variant {variant_key} not in variants config.")
-
         return variant_key, self.variants.get(variant_key)
