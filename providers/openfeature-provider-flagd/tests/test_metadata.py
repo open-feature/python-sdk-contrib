@@ -3,12 +3,12 @@ import time
 from time import sleep
 
 import pytest
-from openfeature.event import EventDetails, ProviderEvent
-from openfeature.exception import ErrorCode
 
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
+from openfeature.event import EventDetails, ProviderEvent
+from openfeature.exception import ErrorCode
 
 
 def create_client(file_name):

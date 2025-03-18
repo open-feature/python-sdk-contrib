@@ -7,7 +7,7 @@ from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError
 
 
-def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]):
+def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> None:
     if key is None:
         raise ParseError("Metadata key must be set")
     elif not isinstance(key, str):
@@ -19,11 +19,16 @@ def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]):
         )
     if value is None:
         raise ParseError("Metadata value for key " + str(key) + " must be set")
-    elif not isinstance(value, float | int | str | bool):
+    elif not (
+            isinstance(value, float)
+            or isinstance(value, int)
+            or isinstance(value, str)
+            or isinstance(value, bool)
+    ):
         raise ParseError(
             "Metadata value "
-            + str(value) +
-                         " for key "
+            + str(value)
+            + " for key "
             + str(key)
             + " must be of type float, int, str or bool, but is "
             + str(type(value))

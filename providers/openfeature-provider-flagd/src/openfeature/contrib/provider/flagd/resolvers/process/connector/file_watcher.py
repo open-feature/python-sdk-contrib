@@ -6,15 +6,15 @@ import time
 import typing
 
 import yaml
-from openfeature.evaluation_context import EvaluationContext
-from openfeature.event import ProviderEventDetails
-from openfeature.exception import ParseError, ProviderNotReadyError, ErrorCode
 
 from openfeature.contrib.provider.flagd.config import Config
 from openfeature.contrib.provider.flagd.resolvers.process.connector import (
     FlagStateConnector,
 )
 from openfeature.contrib.provider.flagd.resolvers.process.flags import FlagStore
+from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
+from openfeature.exception import ParseError, ProviderNotReadyError, ErrorCode
 
 logger = logging.getLogger("openfeature.contrib")
 

@@ -74,6 +74,6 @@ def test_file_load_metadata():
     assert isinstance(flag_set_metadata, dict)
     assert len(flag_set_metadata) == 4
     assert flag_set_metadata["string"] == "a"
-    assert flag_set_metadata["integer"] ==  1
-    assert flag_set_metadata["float"] ==  1.2
+    assert flag_set_metadata["integer"] == 1
+    assert flag_set_metadata["float"] == 1.2
     assert flag_set_metadata["bool"]
