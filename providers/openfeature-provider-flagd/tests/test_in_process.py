@@ -9,6 +9,20 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import FlagNotFoundError, ParseError
 
 
+def targeting():
+    return {
+        "if": [
+            {"==": [{"var": "targetingKey"}, "target_variant"]},
+            "target_variant",
+            None,
+        ]
+    }
+
+
+def context(targeting_key):
+    return EvaluationContext(targeting_key=targeting_key)
+
+
 @pytest.fixture
 def config():
     return create_autospec(Config)
@@ -20,30 +34,14 @@ def flag_store():
 
 
 @pytest.fixture
-def targeting():
-    return {
-        "if": [
-            {"==": [{"var": "targetingKey"}, "target_variant"]},
-            "target_variant",
-            None,
-        ]
-    }
-
-
-@pytest.fixture
-def flag(targeting):
+def flag():
     return Flag(
         key="flag",
         state="ENABLED",
         variants={"default_variant": False, "target_variant": True},
         default_variant="default_variant",
-        targeting=targeting,
+        targeting=targeting(),
     )
-
-
-@pytest.fixture
-def context():
-    return EvaluationContext(targeting_key="target_variant")
 
 
 @pytest.fixture
@@ -59,31 +57,6 @@ def resolver(config):
     )
 
 
-@pytest.fixture
-def flag():
-    return Flag(
-        key="flag",
-        state="ENABLED",
-        variants={"default_variant": False},
-        default_variant="default_variant",
-        targeting=None,
-    )
-
-
-def targeting():
-    return {
-        "if": [
-            {"==": [{"var": "targetingKey"}, "target_variant"]},
-            "target_variant",
-            None,
-        ]
-    }
-
-
-def context(targeting_key):
-    return EvaluationContext(targeting_key=targeting_key)
-
-
 def test_resolve_boolean_details_flag_not_found(resolver):
     resolver.flag_store.get_flag = Mock(return_value=None)
     with pytest.raises(FlagNotFoundError):
@@ -97,8 +70,8 @@ def test_resolve_boolean_details_disabled_flag(flag, resolver):
     result = resolver.resolve_boolean_details("disabled_flag", False)
 
     assert result.reason == "DISABLED"
-    assert result.variant == None
-    assert result.value == False
+    assert result.variant is None
+    assert not result.value
 
 
 def test_resolve_boolean_details_invalid_variant(resolver, flag):
@@ -111,89 +84,107 @@ def test_resolve_boolean_details_invalid_variant(resolver, flag):
 
 
 @pytest.mark.parametrize(
-    "variants, targeting,"
-    "context, method, default_value,"
-    "expected_reason, expected_variant, expected_value,",
+    "input_config, resolve_config, expected",
     [
         (
-            {"default_variant": False, "target_variant": True},
-            None,
-            None,
-            "resolve_boolean_details",
-            False,
-            "STATIC",
-            "default_variant",
-            False,
+            {
+                "variants": {"default_variant": False, "target_variant": True},
+                "targeting": None,
+            },
+            {
+                "context": None,
+                "method": "resolve_boolean_details",
+                "default_value": False,
+            },
+            {"reason": "STATIC", "variant": "default_variant", "value": False},
         ),
         (
-            {"default_variant": False, "target_variant": True},
-            targeting(),
-            context("no_target_variant"),
-            "resolve_boolean_details",
-            False,
-            "DEFAULT",
-            "default_variant",
-            False,
+            {
+                "variants": {"default_variant": False, "target_variant": True},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("no_target_variant"),
+                "method": "resolve_boolean_details",
+                "default_value": False,
+            },
+            {"reason": "DEFAULT", "variant": "default_variant", "value": False},
         ),
         (
-            {"default_variant": False, "target_variant": True},
-            targeting(),
-            context("target_variant"),
-            "resolve_boolean_details",
-            False,
-            "TARGETING_MATCH",
-            "target_variant",
-            True,
+            {
+                "variants": {"default_variant": False, "target_variant": True},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("target_variant"),
+                "method": "resolve_boolean_details",
+                "default_value": False,
+            },
+            {"reason": "TARGETING_MATCH", "variant": "target_variant", "value": True},
         ),
         (
-            {"default_variant": "default", "target_variant": "target"},
-            targeting(),
-            context("target_variant"),
-            "resolve_string_details",
-            "placeholder",
-            "TARGETING_MATCH",
-            "target_variant",
-            "target",
+            {
+                "variants": {"default_variant": "default", "target_variant": "target"},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("target_variant"),
+                "method": "resolve_string_details",
+                "default_value": "placeholder",
+            },
+            {
+                "reason": "TARGETING_MATCH",
+                "variant": "target_variant",
+                "value": "target",
+            },
         ),
         (
-            {"default_variant": 1.0, "target_variant": 2.0},
-            targeting(),
-            context("target_variant"),
-            "resolve_float_details",
-            0.0,
-            "TARGETING_MATCH",
-            "target_variant",
-            2.0,
+            {
+                "variants": {"default_variant": 1.0, "target_variant": 2.0},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("target_variant"),
+                "method": "resolve_float_details",
+                "default_value": 0.0,
+            },
+            {"reason": "TARGETING_MATCH", "variant": "target_variant", "value": 2.0},
         ),
         (
-            {"default_variant": True, "target_variant": False},
-            targeting(),
-            context("target_variant"),
-            "resolve_boolean_details",
-            True,
-            "TARGETING_MATCH",
-            "target_variant",
-            False,
+            {
+                "variants": {"default_variant": True, "target_variant": False},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("target_variant"),
+                "method": "resolve_boolean_details",
+                "default_value": True,
+            },
+            {"reason": "TARGETING_MATCH", "variant": "target_variant", "value": False},
         ),
         (
-            {"default_variant": 10, "target_variant": 0},
-            targeting(),
-            context("target_variant"),
-            "resolve_integer_details",
-            1,
-            "TARGETING_MATCH",
-            "target_variant",
-            0,
+            {
+                "variants": {"default_variant": 10, "target_variant": 0},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("target_variant"),
+                "method": "resolve_integer_details",
+                "default_value": 1,
+            },
+            {"reason": "TARGETING_MATCH", "variant": "target_variant", "value": 0},
         ),
         (
-            {"default_variant": {}, "target_variant": {}},
-            targeting(),
-            context("target_variant"),
-            "resolve_object_details",
-            {},
-            "TARGETING_MATCH",
-            "target_variant",
-            {},
+            {
+                "variants": {"default_variant": {}, "target_variant": {}},
+                "targeting": targeting(),
+            },
+            {
+                "context": context("target_variant"),
+                "method": "resolve_object_details",
+                "default_value": {},
+            },
+            {"reason": "TARGETING_MATCH", "variant": "target_variant", "value": {}},
         ),
     ],
     ids=[
@@ -210,21 +201,18 @@ def test_resolve_boolean_details_invalid_variant(resolver, flag):
 def test_resolver_details(
     resolver,
     flag,
-    variants,
-    targeting,
-    context,
-    method,
-    default_value,
-    expected_reason,
-    expected_variant,
-    expected_value,
+    input_config,
+    resolve_config,
+    expected,
 ):
-    flag.variants = variants
-    flag.targeting = targeting
+    flag.variants = input_config["variants"]
+    flag.targeting = input_config["targeting"]
     resolver.flag_store.get_flag = Mock(return_value=flag)
 
-    result = getattr(resolver, method)("flag", default_value, context)
+    result = getattr(resolver, resolve_config["method"])(
+        "flag", resolve_config["default_value"], resolve_config["context"]
+    )
 
-    assert result.reason == expected_reason
-    assert result.variant == expected_variant
-    assert result.value == expected_value
+    assert result.reason == expected["reason"]
+    assert result.variant == expected["variant"]
+    assert result.value == expected["value"]
