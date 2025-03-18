@@ -2,10 +2,10 @@
 	path = providers/openfeature-provider-flagd/openfeature/schemas
 	url = https://github.com/open-feature/schemas
 	branch = protobuf-v0.6.1
-[submodule "providers/openfeature-provider-flagd/test-harness"]
-	path = providers/openfeature-provider-flagd/openfeature/test-harness
-	url = git@github.com:open-feature/flagd-testbed.git
-	branch = v2.5.0
 [submodule "providers/openfeature-provider-flagd/spec"]
 	path = providers/openfeature-provider-flagd/openfeature/spec
 	url = https://github.com/open-feature/spec
+[submodule "providers/openfeature-provider-flagd/openfeature/test-harness"]
+	path = providers/openfeature-provider-flagd/openfeature/test-harness
+	url = https://github.com/open-feature/flagd-testbed.git
+    branch = v2.6.0
