@@ -18,13 +18,17 @@ T = typing.TypeVar("T")
 
 
 def _merge_metadata(
-    flag_metadata: typing.Optional[typing.Mapping[str, typing.Union[float, int, str, bool]]],
-    flag_set_metadata: typing.Optional[typing.Mapping[str, typing.Union[float, int, str, bool]]],
+    flag_metadata: typing.Optional[
+        typing.Mapping[str, typing.Union[float, int, str, bool]]
+    ],
+    flag_set_metadata: typing.Optional[
+        typing.Mapping[str, typing.Union[float, int, str, bool]]
+    ],
 ) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
     metadata = {}
 
     if flag_set_metadata is not None:
-        metadata = { key: value for key, value in flag_set_metadata }
+        metadata = dict(flag_set_metadata)
 
     if flag_metadata is not None:
         for key, value in flag_metadata.items():
