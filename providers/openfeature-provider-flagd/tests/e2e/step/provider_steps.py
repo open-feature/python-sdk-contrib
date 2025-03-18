@@ -22,6 +22,8 @@ KEY_FLAGS = "flags"
 
 MERGED_FILE = "merged_file"
 
+logger = logging.getLogger("openfeature.contrib.tests")
+
 
 class TestProviderType(Enum):
     UNAVAILABLE = "unavailable"
@@ -140,7 +142,7 @@ def container(request):
         try:
             container.stop()
         except:  # noqa: E722 - we want to ensure all containers are stopped, even if we do have an exception here
-            logging.debug("container was not running anymore")
+            logger.debug("container was not running anymore")
 
     # Teardown code
     request.addfinalizer(fin)
