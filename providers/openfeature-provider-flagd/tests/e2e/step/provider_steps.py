@@ -41,7 +41,7 @@ def setup_provider_old(
 
 
 def get_default_options_for_provider(
-    provider_type: str, resolver_type: ResolverType, container
+    provider_type: str, resolver_type: ResolverType, container, option_values: dict
 ) -> tuple[dict, bool]:
     launchpad = "default"
     t = TestProviderType(provider_type)
@@ -68,9 +68,16 @@ def get_default_options_for_provider(
         return options, True
 
     if resolver_type == ResolverType.FILE:
-        options["offline_flag_source_path"] = os.path.join(
-            container.flagDir.name, "allFlags.json"
-        )
+        if "selector" in option_values:
+            path = option_values["selector"]
+            path = path.replace("rawflags/", "")
+            options["offline_flag_source_path"] = os.path.join(
+                "..", "openfeature", "test-harness", "flags", path
+            )
+        else:
+            options["offline_flag_source_path"] = os.path.join(
+                container.flagDir.name, "allFlags.json"
+            )
 
     requests.post(
         f"{container.get_launchpad_url()}/start?config={launchpad}", timeout=1
@@ -89,7 +96,7 @@ def setup_provider(
     option_values: dict,
 ) -> OpenFeatureClient:
     default_options, wait = get_default_options_for_provider(
-        provider_type, resolver_type, container
+        provider_type, resolver_type, container, option_values
     )
 
     combined_options = {**default_options, **option_values}
