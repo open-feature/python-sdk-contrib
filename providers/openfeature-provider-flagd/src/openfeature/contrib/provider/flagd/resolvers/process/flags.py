@@ -11,13 +11,23 @@ def _validate_metadata(key, value):
     if key is None:
         raise ParseError("Metadata key must be set")
     elif not isinstance(key, str):
-        raise ParseError("Metadata key " + str(key) + " must be of type str, but is " + str(type(key)))
+        raise ParseError(
+            "Metadata key "
+            + str(key)
+            + " must be of type str, but is "
+            + str(type(key))
+        )
     if value is None:
         raise ParseError("Metadata value for key " + str(key) + " must be set")
     elif not isinstance(value, typing.Union[float, int, str, bool]):
-        raise ParseError("Metadata value " + str(value) +
-                         " for key " + str(key) +
-                         " must be of type float, int, str or bool, but is " + str(type(value)))
+        raise ParseError(
+            "Metadata value "
+            + str(value) +
+                         " for key "
+            + str(key)
+            + " must be of type float, int, str or bool, but is "
+            + str(type(value))
+        )
 
 
 class FlagStore:
@@ -29,7 +39,9 @@ class FlagStore:
     ):
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
         self.flags: typing.Mapping[str, Flag] = {}
-        self.flag_set_metadata: typing.Mapping[str, typing.Union[float, int, str, bool]] = {}
+        self.flag_set_metadata: typing.Mapping[
+            str, typing.Union[float, int, str, bool]
+        ] = {}
 
     def get_flag(self, key: str) -> typing.Optional["Flag"]:
         return self.flags.get(key)
@@ -57,7 +69,9 @@ class FlagStore:
         self.flag_set_metadata = metadata
 
         self.emit_provider_configuration_changed(
-            ProviderEventDetails(flags_changed=list(self.flags.keys()), metadata=metadata)
+            ProviderEventDetails(
+                flags_changed=list(self.flags.keys()), metadata=metadata
+            )
         )
 
 
@@ -68,7 +82,9 @@ class Flag:
     variants: typing.Mapping[str, typing.Any]
     default_variant: typing.Union[bool, str]
     targeting: typing.Optional[dict] = None
-    metadata: typing.Optional[typing.Mapping[str, typing.Union[float, int, str, bool]]] = None
+    metadata: typing.Optional[
+        typing.Mapping[str, typing.Union[float, int, str, bool]]
+    ] = None
 
     def __post_init__(self) -> None:
         if not self.state or not isinstance(self.state, str):

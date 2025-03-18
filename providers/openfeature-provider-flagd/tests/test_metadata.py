@@ -32,7 +32,7 @@ def test_should_load_flag_set_metadata():
     assert res.flag_metadata["string"] == "a"
     assert res.flag_metadata["integer"] == 1
     assert res.flag_metadata["float"] == 1.2
-    assert res.flag_metadata["bool"] == True
+    assert res.flag_metadata["bool"]
 
 
 def test_should_load_flag_metadata():
@@ -45,7 +45,7 @@ def test_should_load_flag_metadata():
     assert res.flag_metadata["string"] == "a"
     assert res.flag_metadata["integer"] == 1
     assert res.flag_metadata["float"] == 1.2
-    assert res.flag_metadata["bool"] == True
+    assert res.flag_metadata["bool"]
 
 
 def test_should_load_flag_combined_metadata():
@@ -58,23 +58,26 @@ def test_should_load_flag_combined_metadata():
     assert res.flag_metadata["string"] == "a"
     assert res.flag_metadata["integer"] == 1
     assert res.flag_metadata["float"] == 1.2
-    assert res.flag_metadata["bool"] == True
+    assert res.flag_metadata["bool"]
     assert res.flag_metadata["flag-set-string"] == "c"
     assert res.flag_metadata["flag-set-integer"] == 3
     assert res.flag_metadata["flag-set-float"] == 3.2
-    assert res.flag_metadata["flag-set-bool"] == False
+    assert not res.flag_metadata["flag-set-bool"]
+
 
 class Channel:
     parse_error_received = False
 
 def create_error_handler():
     channel = Channel()
+
     def error_handler(details: EventDetails):
         nonlocal channel
         if details.error_code == ErrorCode.PARSE_ERROR:
             channel.parse_error_received = True
 
     return error_handler, channel
+
 
 @pytest.mark.parametrize(
     "file_name",
@@ -97,5 +100,5 @@ def test_invalid_flag_set_metadata(file_name):
     while not channel.parse_error_received:
         now = time.time()
         if now - start > max_timeout:
-            assert False
+            raise AssertionError()
         sleep(0.01)

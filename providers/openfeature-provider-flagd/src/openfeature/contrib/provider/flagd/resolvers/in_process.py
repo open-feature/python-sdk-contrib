@@ -19,7 +19,7 @@ T = typing.TypeVar("T")
 
 def _merge_metadata(
     flag_metadata: typing.Mapping[str, typing.Union[float, int, str, bool]],
-    flag_set_metadata: typing.Mapping[str, typing.Union[float, int, str, bool]]
+    flag_set_metadata: typing.Mapping[str, typing.Union[float, int, str, bool]],
 ) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
     metadata = {}
     if flag_set_metadata is not None:
@@ -122,17 +122,23 @@ class InProcessResolver:
         metadata = _merge_metadata(flag.metadata, self.flag_store.flag_set_metadata)
 
         if flag.state == "DISABLED":
-            return FlagResolutionDetails(default_value, flag_metadata=metadata, reason=Reason.DISABLED)
+            return FlagResolutionDetails(
+                default_value, flag_metadata=metadata, reason=Reason.DISABLED
+            )
 
         if not flag.targeting:
             variant, value = flag.default
-            return FlagResolutionDetails(value, variant=variant, flag_metadata=metadata, reason=Reason.STATIC)
+            return FlagResolutionDetails(
+                value, variant=variant, flag_metadata=metadata, reason=Reason.STATIC
+            )
 
         variant = targeting(flag.key, flag.targeting, evaluation_context)
 
         if variant is None:
             variant, value = flag.default
-            return FlagResolutionDetails(value, variant=variant, flag_metadata=metadata, reason=Reason.DEFAULT)
+            return FlagResolutionDetails(
+                value, variant=variant, flag_metadata=metadata, reason=Reason.DEFAULT
+            )
         if not isinstance(variant, (str, bool)):
             raise ParseError(
                 "Parsed JSONLogic targeting did not return a string or bool"
@@ -146,5 +152,5 @@ class InProcessResolver:
             value,
             variant=variant,
             reason=Reason.TARGETING_MATCH,
-            flag_metadata=metadata
+            flag_metadata=metadata,
         )
