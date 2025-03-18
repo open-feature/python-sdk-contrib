@@ -14,7 +14,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector import (
 from openfeature.contrib.provider.flagd.resolvers.process.flags import FlagStore
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ParseError, ProviderNotReadyError, ErrorCode
+from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
 
 logger = logging.getLogger("openfeature.contrib")
 

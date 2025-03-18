@@ -19,12 +19,7 @@ def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> 
         )
     if value is None:
         raise ParseError("Metadata value for key " + str(key) + " must be set")
-    elif not (
-            isinstance(value, float)
-            or isinstance(value, int)
-            or isinstance(value, str)
-            or isinstance(value, bool)
-    ):
+    elif not isinstance(value, (float, int, str, bool)):
         raise ParseError(
             "Metadata value "
             + str(value)

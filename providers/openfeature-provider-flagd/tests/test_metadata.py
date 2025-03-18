@@ -68,6 +68,7 @@ def test_should_load_flag_combined_metadata():
 class Channel:
     parse_error_received = False
 
+
 def create_error_handler():
     channel = Channel()
 
