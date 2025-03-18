@@ -17,6 +17,8 @@ def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> 
             + " must be of type str, but is "
             + str(type(key))
         )
+    elif not key:
+        raise ParseError("key must not be empty")
     if value is None:
         raise ParseError("Metadata value for key " + str(key) + " must be set")
     elif not isinstance(value, (float, int, str, bool)):
@@ -109,7 +111,6 @@ class Flag:
                 raise ParseError("Flag metadata is not a valid json object")
             for key, value in self.metadata.items():
                 _validate_metadata(key, value)
-
 
     @classmethod
     def from_dict(cls, key: str, data: dict) -> "Flag":
