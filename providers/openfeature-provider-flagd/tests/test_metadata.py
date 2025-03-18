@@ -8,7 +8,7 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 from openfeature.contrib.provider.flagd.resolvers.process.flags import (
-    _validate_metadata
+    _validate_metadata,
 )
 from openfeature.event import EventDetails, ProviderEvent
 from openfeature.exception import ErrorCode, ParseError
