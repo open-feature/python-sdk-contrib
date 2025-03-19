@@ -25,9 +25,9 @@ def _merge_metadata(
         typing.Mapping[str, typing.Union[float, int, str, bool]]
     ],
 ) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
-    metadata = {}
-
-    if flag_set_metadata is not None:
+    if flag_set_metadata is None:
+        metadata = {}
+    else:
         metadata = dict(flag_set_metadata)
 
     if flag_metadata is not None:

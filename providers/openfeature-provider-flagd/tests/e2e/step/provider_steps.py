@@ -31,6 +31,7 @@ class TestProviderType(Enum):
     UNSTABLE = "unstable"
     SSL = "ssl"
     SOCKET = "socket"
+    METADATA = "metadata"
 
 
 @given("a provider is registered", target_fixture="client")
@@ -68,6 +69,8 @@ def get_default_options_for_provider(
         launchpad = "ssl"
     elif t == TestProviderType.SOCKET:
         return options, True
+    elif t == TestProviderType.METADATA:
+        launchpad = "metadata"
 
     if resolver_type == ResolverType.FILE:
         if "selector" in option_values:
