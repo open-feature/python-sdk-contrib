@@ -25,10 +25,7 @@ def _merge_metadata(
         typing.Mapping[str, typing.Union[float, int, str, bool]]
     ],
 ) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
-    if flag_set_metadata is None:
-        metadata = {}
-    else:
-        metadata = dict(flag_set_metadata)
+    metadata = {} if flag_set_metadata is None else dict(flag_set_metadata)
 
     if flag_metadata is not None:
         for key, value in flag_metadata.items():
