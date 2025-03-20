@@ -1,3 +1,5 @@
+from time import sleep
+
 import requests
 from asserts import assert_equal
 from pytest_bdd import given, parsers, then, when
@@ -46,6 +48,7 @@ def evaluate_with_details(
 @when("the flag was modified")
 def assert_flag_change_event(container):
     requests.post(f"{container.get_launchpad_url()}/change", timeout=1)
+    sleep(.2)
 
 
 @then("the flag should be part of the event payload")

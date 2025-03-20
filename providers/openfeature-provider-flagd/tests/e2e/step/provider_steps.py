@@ -77,7 +77,7 @@ def get_default_options_for_provider(
             path = option_values["selector"]
             path = path.replace("rawflags/", "")
             options["offline_flag_source_path"] = os.path.join(
-                "..", "openfeature", "test-harness", "flags", path
+                Path(__file__).parents[3], "openfeature", "test-harness", "flags", path
             )
         else:
             options["offline_flag_source_path"] = os.path.join(
