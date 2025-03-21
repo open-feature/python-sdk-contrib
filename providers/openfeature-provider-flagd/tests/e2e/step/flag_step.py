@@ -1,5 +1,3 @@
-from time import sleep
-
 import requests
 from asserts import assert_equal
 from pytest_bdd import given, parsers, then, when
