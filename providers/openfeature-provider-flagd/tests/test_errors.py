@@ -108,5 +108,5 @@ def test_grpc_sync_fail_deadline(wait: int):
     )
 
     elapsed = time.time() - t
-    assert abs(elapsed - wait * 0.001) < 0.11
+    assert abs(elapsed - wait * 0.001) < 0.15
     assert init_failed

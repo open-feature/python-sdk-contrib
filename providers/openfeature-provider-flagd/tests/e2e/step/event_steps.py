@@ -44,7 +44,7 @@ def add_event_handler(client: OpenFeatureClient, event_type: str, event_handles:
 
 
 def assert_handlers(handles, event_type: str, max_wait: int = 2):
-    poll_interval = 1
+    poll_interval = .2
     while max_wait > 0:
         found = any(h["type"] == event_type for h in handles)
         if not found:
