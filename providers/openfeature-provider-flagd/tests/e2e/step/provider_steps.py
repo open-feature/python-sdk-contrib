@@ -130,7 +130,8 @@ def flagd_restart(
     resolver_type: ResolverType,
 ):
     requests.post(
-        f"{container.get_launchpad_url()}/restart?seconds={seconds}", timeout=float(seconds) + 2
+        f"{container.get_launchpad_url()}/restart?seconds={seconds}",
+        timeout=float(seconds) + 2,
     )
     pass
 
