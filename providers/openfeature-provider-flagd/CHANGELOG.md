@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.2...openfeature-provider-flagd/v0.2.3) (2025-03-21)
+
+
+### 🧹 Chore
+
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to aad6193 ([#194](https://github.com/open-feature/python-sdk-contrib/issues/194)) ([277ad0e](https://github.com/open-feature/python-sdk-contrib/commit/277ad0e744764bbc4eb5c5ebb773287bc2607ac3))
+
 ## [0.2.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.1...openfeature-provider-flagd/v0.2.2) (2025-03-18)
 
 
