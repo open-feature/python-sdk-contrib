@@ -1,0 +1,29 @@
+{
+  "flags": {
+    "basic-flag": {
+      "state": "ENABLED",
+      "variants": {
+        "true": true,
+        "false": false
+      },
+      "defaultVariant": "false",
+      "targeting": {},
+      "metadata": {
+        "string": "a",
+        "integer": 1,
+        "float": 1.2,
+        "bool": true
+      }
+    }
+  },
+  "metadata": {
+    "string": "b",
+    "integer": 2,
+    "float": 2.2,
+    "bool": false,
+    "flag-set-string": "c",
+    "flag-set-integer": 3,
+    "flag-set-float": 3.2,
+    "flag-set-bool": false
+  }
+}
