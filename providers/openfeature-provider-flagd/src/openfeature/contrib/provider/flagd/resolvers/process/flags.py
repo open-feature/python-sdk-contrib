@@ -17,7 +17,9 @@ def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> 
     if value is None:
         raise ParseError(f"Metadata value for key {key} must be set")
     elif not isinstance(value, (float, int, str, bool)):
-        raise ParseError(f"Metadata value {value} for key  {key} must be of type float, int, str or bool, but is {type(value)}")
+        raise ParseError(
+            f"Metadata value {value} for key  {key} must be of type float, int, str or bool, but is {type(value)}"
+        )
 
 
 class FlagStore:
