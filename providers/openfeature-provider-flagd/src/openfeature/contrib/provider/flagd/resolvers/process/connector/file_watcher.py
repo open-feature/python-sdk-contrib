@@ -14,7 +14,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector import (
 from openfeature.contrib.provider.flagd.resolvers.process.flags import FlagStore
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ParseError, ProviderNotReadyError
+from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
 
 logger = logging.getLogger("openfeature.contrib")
 
@@ -76,8 +76,15 @@ class FileWatcher(FlagStateConnector):
             self.handle_error("Could not parse JSON flag data from file")
         except yaml.error.YAMLError:
             self.handle_error("Could not parse YAML flag data from file")
-        except ParseError:
-            self.handle_error("Could not parse flag data using flagd syntax")
+        except ParseError as e:
+            self.handle_error(
+                "Could not parse flag data using flagd syntax: "
+                + (
+                    "no error message provided"
+                    if e is None or e.error_message is None
+                    else e.error_message
+                )
+            )
         except Exception:
             self.handle_error("Could not read flags from file")
 
@@ -104,4 +111,8 @@ class FileWatcher(FlagStateConnector):
     def handle_error(self, error_message: str) -> None:
         logger.exception(error_message)
         self.should_emit_ready_on_success = True
-        self.emit_provider_error(ProviderEventDetails(message=error_message))
+        self.emit_provider_error(
+            ProviderEventDetails(
+                message=error_message, error_code=ErrorCode.PARSE_ERROR
+            )
+        )
