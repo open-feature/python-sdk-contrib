@@ -11,7 +11,7 @@ def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> 
     if key is None:
         raise ParseError("Metadata key must be set")
     elif not isinstance(key, str):
-        raise ParseError(f"Metadata key {key} must be of type str, but is {type(key}")
+        raise ParseError(f"Metadata key {key} must be of type str, but is {type(key)}")
     elif not key:
         raise ParseError("key must not be empty")
     if value is None:
