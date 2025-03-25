@@ -8,4 +8,4 @@
 [submodule "providers/openfeature-provider-flagd/openfeature/test-harness"]
 	path = providers/openfeature-provider-flagd/openfeature/test-harness
 	url = https://github.com/open-feature/flagd-testbed.git
-    branch = v2.7.0
+	branch = v2.7.3
