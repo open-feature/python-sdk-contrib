@@ -158,52 +158,52 @@ class FlagdProvider(AbstractProvider):
 
     def resolve_boolean_details(
         self,
-        key: str,
+        flag_key: str,
         default_value: bool,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
         return self.resolver.resolve_boolean_details(
-            key, default_value, evaluation_context
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_string_details(
         self,
-        key: str,
+        flag_key: str,
         default_value: str,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[str]:
         return self.resolver.resolve_string_details(
-            key, default_value, evaluation_context
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_float_details(
         self,
-        key: str,
+        flag_key: str,
         default_value: float,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
         return self.resolver.resolve_float_details(
-            key, default_value, evaluation_context
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_integer_details(
         self,
-        key: str,
+        flag_key: str,
         default_value: int,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[int]:
         return self.resolver.resolve_integer_details(
-            key, default_value, evaluation_context
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_object_details(
         self,
-        key: str,
+        flag_key: str,
         default_value: typing.Union[dict, list],
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[typing.Union[dict, list]]:
         return self.resolver.resolve_object_details(
-            key, default_value, evaluation_context
+            flag_key, default_value, evaluation_context
         )
 
     def emit_provider_ready_with_context(
