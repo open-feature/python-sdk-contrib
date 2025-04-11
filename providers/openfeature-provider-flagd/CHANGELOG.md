@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.2...openfeature-provider-flagd/v0.2.3) (2025-04-11)
+
+
+### 🐛 Bug Fixes
+
+* **flagd:** fix parameter name inconsistency with SDK version 0.8.1 ([#232](https://github.com/open-feature/python-sdk-contrib/issues/232)) ([55ee420](https://github.com/open-feature/python-sdk-contrib/commit/55ee42087bd9a948a130b08671395138baa33621))
+
+
+### ✨ New Features
+
+* add support for flagd flag metadata ([#215](https://github.com/open-feature/python-sdk-contrib/issues/215)) ([6dc72c0](https://github.com/open-feature/python-sdk-contrib/commit/6dc72c0e16b01cd40e6c103884a2d457e95871d1))
+
+
+### 🧹 Chore
+
+* **deps:** update dependency providers/openfeature-provider-flagd/openfeature/test-harness to v2.7.3 ([#226](https://github.com/open-feature/python-sdk-contrib/issues/226)) ([9a0971c](https://github.com/open-feature/python-sdk-contrib/commit/9a0971c1fd67998259903a3ea4b42772413fc259))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to 130df3e ([#222](https://github.com/open-feature/python-sdk-contrib/issues/222)) ([fa7f429](https://github.com/open-feature/python-sdk-contrib/commit/fa7f4293e060a3d56b204db851c19a668076e7a7))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to 27e4461 ([#223](https://github.com/open-feature/python-sdk-contrib/issues/223)) ([9bf2e42](https://github.com/open-feature/python-sdk-contrib/commit/9bf2e421e52922516afa2e5b8648b52a035a038d))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to aad6193 ([#194](https://github.com/open-feature/python-sdk-contrib/issues/194)) ([277ad0e](https://github.com/open-feature/python-sdk-contrib/commit/277ad0e744764bbc4eb5c5ebb773287bc2607ac3))
+
 ## [0.2.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.1...openfeature-provider-flagd/v0.2.2) (2025-03-18)
 
 
