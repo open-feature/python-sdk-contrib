@@ -41,7 +41,7 @@ jobs:
     strategy:
       matrix:
         path: ${{ fromJSON(needs.release-please.outputs.paths_released || '[]') }}
-    environment: release
+    environment: publish
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing to pypi
       id-token: write
