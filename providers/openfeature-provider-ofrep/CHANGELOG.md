@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-ofrep/v0.1.1...openfeature-provider-ofrep/v0.2.0) (2025-04-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop Python 3.8 support ([#187](https://github.com/open-feature/python-sdk-contrib/issues/187))
+
+### 🧹 Chore
+
+* drop Python 3.8 support ([#187](https://github.com/open-feature/python-sdk-contrib/issues/187)) ([b55cc1e](https://github.com/open-feature/python-sdk-contrib/commit/b55cc1e0f823d05a330c12af6861dbd3bec69c3a))
+
 ## [0.1.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-ofrep/v0.1.0...openfeature-provider-ofrep/v0.1.1) (2025-01-21)
 
 
