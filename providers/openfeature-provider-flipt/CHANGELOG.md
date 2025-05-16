@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flipt/v0.1.3...openfeature-provider-flipt/v0.2.0) (2025-05-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop Python 3.8 support ([#187](https://github.com/open-feature/python-sdk-contrib/issues/187))
+
+### 🧹 Chore
+
+* drop Python 3.8 support ([#187](https://github.com/open-feature/python-sdk-contrib/issues/187)) ([b55cc1e](https://github.com/open-feature/python-sdk-contrib/commit/b55cc1e0f823d05a330c12af6861dbd3bec69c3a))
+
 ## [0.1.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flipt/v0.1.2...openfeature-provider-flipt/v0.1.3) (2025-01-21)
 
 
