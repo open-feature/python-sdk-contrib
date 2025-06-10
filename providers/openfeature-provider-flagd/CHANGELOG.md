@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.2.4](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.3...openfeature-provider-flagd/v0.2.4) (2025-06-10)
+
+
+### 🐛 Bug Fixes
+
+* add retry policy to grpc calls. ([#261](https://github.com/open-feature/python-sdk-contrib/issues/261)) ([07ee909](https://github.com/open-feature/python-sdk-contrib/commit/07ee90925126817b6e17387182656a2a0f5603e3))
+
+
+### 🧹 Chore
+
+* **deps:** update dependency grpcio-health-checking to v1.72.1 ([#258](https://github.com/open-feature/python-sdk-contrib/issues/258)) ([e087353](https://github.com/open-feature/python-sdk-contrib/commit/e0873538bf34ec773fb5dc8af60b422c111492e9))
+* **deps:** update dependency grpcio-health-checking to v1.73.0 ([#259](https://github.com/open-feature/python-sdk-contrib/issues/259)) ([7a080b0](https://github.com/open-feature/python-sdk-contrib/commit/7a080b077dc50d3b2512a967bb845fee5af05460))
+* **deps:** update dependency providers/openfeature-provider-flagd/openfeature/test-harness to v2.7.4 ([#237](https://github.com/open-feature/python-sdk-contrib/issues/237)) ([65f70d2](https://github.com/open-feature/python-sdk-contrib/commit/65f70d2dde6e5bdbfd110ac4ec4e4f9cb4793c9c))
+* **deps:** update dependency providers/openfeature-provider-flagd/openfeature/test-harness to v2.8.0 ([#239](https://github.com/open-feature/python-sdk-contrib/issues/239)) ([709ed25](https://github.com/open-feature/python-sdk-contrib/commit/709ed25dfa23ae85aebb5b1dfed1f7ba06b60e39))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to 18cde17 ([#233](https://github.com/open-feature/python-sdk-contrib/issues/233)) ([bf9ef82](https://github.com/open-feature/python-sdk-contrib/commit/bf9ef82b73c8b14784c9a3bc1e27681d8445005d))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to 36944c6 ([#240](https://github.com/open-feature/python-sdk-contrib/issues/240)) ([030c6ed](https://github.com/open-feature/python-sdk-contrib/commit/030c6edfd9439e3e8c61492936c450ca9a5a062e))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to bb2dc2c ([#256](https://github.com/open-feature/python-sdk-contrib/issues/256)) ([34979b6](https://github.com/open-feature/python-sdk-contrib/commit/34979b61793a3e60e36da9e010ff606ede392b63))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to cbfa0a9 ([#260](https://github.com/open-feature/python-sdk-contrib/issues/260)) ([d0ec36f](https://github.com/open-feature/python-sdk-contrib/commit/d0ec36feb113f5ad11c49c49821527e70be2afd0))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to d27e000 ([#242](https://github.com/open-feature/python-sdk-contrib/issues/242)) ([fd97b35](https://github.com/open-feature/python-sdk-contrib/commit/fd97b35ca91ffdcf7a7a2d6962ca0e1b87b66dd3))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to edf0deb ([#248](https://github.com/open-feature/python-sdk-contrib/issues/248)) ([1771423](https://github.com/open-feature/python-sdk-contrib/commit/1771423afa23c4fa6b430c5d22686fa7c36fb1e8))
+* **deps:** update providers/openfeature-provider-flagd/openfeature/spec digest to f014806 ([#253](https://github.com/open-feature/python-sdk-contrib/issues/253)) ([067f19f](https://github.com/open-feature/python-sdk-contrib/commit/067f19f5e56e48c8d2866691397b2082c396936f))
+
 ## [0.2.3](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.2...openfeature-provider-flagd/v0.2.3) (2025-04-11)
 
 
