@@ -62,6 +62,44 @@ class GrpcWatcher(FlagStateConnector):
             ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
             ("grpc.min_reconnect_backoff_ms", config.stream_deadline_ms),
+            (
+                "grpc.service_config",
+                json.dumps(
+                    {
+                        "methodConfig": [
+                            {
+                                "name": [
+                                    {"service": "flagd.sync.v1.FlagSyncService"},
+                                    {"service": "flagd.evaluation.v1.Service"},
+                                ],
+                                "retryPolicy": {
+                                    "maxAttempts": 3,
+                                    "initialBackoff": "1s",
+                                    "maxBackoff": "5s",
+                                    "backoffMultiplier": 2.0,
+                                    "retryableStatusCodes": [
+                                        "CANCELLED",
+                                        "UNKNOWN",
+                                        "INVALID_ARGUMENT",
+                                        "NOT_FOUND",
+                                        "ALREADY_EXISTS",
+                                        "PERMISSION_DENIED",
+                                        "RESOURCE_EXHAUSTED",
+                                        "FAILED_PRECONDITION",
+                                        "ABORTED",
+                                        "OUT_OF_RANGE",
+                                        "UNIMPLEMENTED",
+                                        "INTERNAL",
+                                        "UNAVAILABLE",
+                                        "DATA_LOSS",
+                                        "UNAUTHENTICATED",
+                                    ],
+                                },
+                            }
+                        ]
+                    }
+                ),
+            ),
         ]
         if config.default_authority is not None:
             options.append(("grpc.default_authority", config.default_authority))
