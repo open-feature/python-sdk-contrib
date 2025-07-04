@@ -1,0 +1,39 @@
+[project]
+name = "openfeature-provider-env-var"
+version = "0.1.0"
+description = "OpenFeature Python Environment Variable Provider"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openfeature-sdk>=0.6.0",
+]
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.ruff.lint]
+extend-select = ["B"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "ruff>=0.11.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+fallback-version = "0.0.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
