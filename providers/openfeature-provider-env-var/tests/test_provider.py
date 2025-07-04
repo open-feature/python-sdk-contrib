@@ -1,3 +1,4 @@
+import json
 import os
 
 import pytest
@@ -54,3 +55,21 @@ def test_boolean_flag_key_evaluates_the_flag():
     result = provider.resolve_boolean_details(key, True, None)
 
     assert result.value == value
+
+
+def test_object_flag_key_evaluates_the_flag():
+    key = "test-flag-key"
+    value = {"a": 23}
+    os.environ[key] = str(json.dumps(value))
+
+    provider = EnvVarProvider()
+    result = provider.resolve_object_details(key, True, None)
+
+    assert result.value == value
+
+
+def test_provider_returns_correct_metadata():
+    provider = EnvVarProvider()
+    metadata = provider.get_metadata()
+    assert metadata is not None
+    assert metadata.name == "EnvVarProvider"
