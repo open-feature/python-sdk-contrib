@@ -35,6 +35,15 @@
         "README.md"
       ]
     },
+    "providers/openfeature-provider-env-var": {
+      "package-name": "openfeature-provider-env-var",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
+    },
     "hooks/openfeature-hooks-opentelemetry": {
       "package-name": "openfeature-hooks-opentelemetry",
       "bump-minor-pre-major": true,
