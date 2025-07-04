@@ -30,3 +30,8 @@ packages = ["."]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+
+[tool.hatch]
+
+[tool.hatch.envs.mypy]
+dependencies = ["mypy"]
