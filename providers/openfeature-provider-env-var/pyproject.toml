@@ -9,9 +9,8 @@ dependencies = [
 ]
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
 
-
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.ruff.lint]
@@ -26,12 +25,6 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
-
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
-
-[tool.uv-dynamic-versioning]
-fallback-version = "0.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
