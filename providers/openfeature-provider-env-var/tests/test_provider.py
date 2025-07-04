@@ -12,12 +12,45 @@ def test_unknown_flag_key_throws_flag_not_found_error():
         provider.resolve_boolean_details("unknown_flag_key", True, None)
 
 
-def test_known_flag_key_evaluates_the_flag():
+def test_string_flag_key_evaluates_the_flag():
     key = "test-flag-key"
     value = "test-value"
     os.environ[key] = value
 
     provider = EnvVarProvider()
     result = provider.resolve_string_details(key, True, None)
+
+    assert result.value == value
+
+
+def test_int_flag_key_evaluates_the_flag():
+    key = "test-flag-key"
+    value = 324
+    os.environ[key] = str(value)
+
+    provider = EnvVarProvider()
+    result = provider.resolve_integer_details(key, True, None)
+
+    assert result.value == value
+
+
+def test_float_flag_key_evaluates_the_flag():
+    key = "test-flag-key"
+    value = 324.34
+    os.environ[key] = str(value)
+
+    provider = EnvVarProvider()
+    result = provider.resolve_float_details(key, True, None)
+
+    assert result.value == value
+
+
+def test_boolean_flag_key_evaluates_the_flag():
+    key = "test-flag-key"
+    value = True
+    os.environ[key] = str(value)
+
+    provider = EnvVarProvider()
+    result = provider.resolve_boolean_details(key, True, None)
 
     assert result.value == value

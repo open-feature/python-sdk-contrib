@@ -26,11 +26,6 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/openfeature"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = "test_*.py"
-python_functions = "test_*"
-
 [tool.hatch]
 
 pre-install-commands = [
@@ -46,3 +41,21 @@ dependencies = ["mypy"]
 [tool.mypy]
 mypy_path = "src"
 files = "src"
+
+[tool.hatch.envs.hatch-test]
+dependencies = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "pytest",
+]
+
+[tool.coverage.run]
+omit = [
+    "tests/**",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "--cov --cov-report xml --cov-report html --junit-xml=tests-results.xml"
