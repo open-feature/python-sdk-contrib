@@ -63,7 +63,7 @@ addopts = "--cov --cov-report xml --cov-report html --junit-xml=tests-results.xm
 [tool.hatch.envs.hatch-test.scripts]
 run = "uv run pytest"
 run-cov = "uv run pytest --cov --cov-report xml --cov-report html --junit-xml=tests-results.xml"
-cov-combine = "coverage combine"
+cov-combine = "."
 cov-report = [
     "coverage xml",
     "coverage html",
