@@ -54,12 +54,6 @@ omit = [
     "tests/**",
 ]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = "test_*.py"
-python_functions = "test_*"
-addopts = "--cov --cov-report xml --cov-report html --junit-xml=tests-results.xml"
-
 [tool.hatch.envs.hatch-test.scripts]
 run = "uv run pytest"
 run-cov = "uv run pytest --cov --cov-report xml --cov-report html --junit-xml=tests-results.xml"
