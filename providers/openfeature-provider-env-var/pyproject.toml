@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+packages = ["src/openfeature"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -33,5 +33,16 @@ python_functions = "test_*"
 
 [tool.hatch]
 
+pre-install-commands = [
+    "hatch build",
+]
+
+[tool.hatch.envs.mypy.scripts]
+run = "mypy"
+
 [tool.hatch.envs.mypy]
 dependencies = ["mypy"]
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
