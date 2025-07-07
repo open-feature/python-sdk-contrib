@@ -59,4 +59,13 @@ class EnvVarProvider(AbstractProvider):
         default_value: typing.Union[dict, list],
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[typing.Union[dict, list]]:
-        return _load_and_parse_env_var(flag_key, lambda v: json.loads(v))
+        def parse(value: str) -> typing.Union[dict, list]:
+            result = json.loads(value)
+            if isinstance(result, dict) or isinstance(result, list):
+                return result
+            else:
+                raise TypeError(
+                    f'Value for feature flag with key "${flag_key}" does not resolve to a JSON object or list'
+                )
+
+        return _load_and_parse_env_var(flag_key, parse)

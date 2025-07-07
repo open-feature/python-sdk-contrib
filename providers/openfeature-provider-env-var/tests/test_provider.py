@@ -13,7 +13,7 @@ def test_unknown_flag_key_throws_flag_not_found_error():
         provider.resolve_boolean_details("unknown_flag_key", True, None)
 
 
-def test_string_flag_key_evaluates_the_flag():
+def test_string_flag_evaluates_the_flag():
     key = "test-flag-key"
     value = "test-value"
     os.environ[key] = value
@@ -24,7 +24,7 @@ def test_string_flag_key_evaluates_the_flag():
     assert result.value == value
 
 
-def test_int_flag_key_evaluates_the_flag():
+def test_int_flag_evaluates_the_flag():
     key = "test-flag-key"
     value = 324
     os.environ[key] = str(value)
@@ -35,7 +35,7 @@ def test_int_flag_key_evaluates_the_flag():
     assert result.value == value
 
 
-def test_float_flag_key_evaluates_the_flag():
+def test_float_flag_evaluates_the_flag():
     key = "test-flag-key"
     value = 324.34
     os.environ[key] = str(value)
@@ -46,7 +46,7 @@ def test_float_flag_key_evaluates_the_flag():
     assert result.value == value
 
 
-def test_boolean_flag_key_evaluates_the_flag():
+def test_boolean_flag_evaluates_the_flag():
     key = "test-flag-key"
     value = True
     os.environ[key] = str(value)
@@ -57,7 +57,7 @@ def test_boolean_flag_key_evaluates_the_flag():
     assert result.value == value
 
 
-def test_object_flag_key_evaluates_the_flag():
+def test_object_flag_evaluates_the_flag():
     key = "test-flag-key"
     value = {"a": 23}
     os.environ[key] = str(json.dumps(value))
@@ -66,6 +66,17 @@ def test_object_flag_key_evaluates_the_flag():
     result = provider.resolve_object_details(key, True, None)
 
     assert result.value == value
+
+
+def test_object_flag_with_invalid_json_object_raises_an_error():
+    key = "test-flag-key"
+    value = 23
+    os.environ[key] = str(json.dumps(value))
+
+    provider = EnvVarProvider()
+
+    with pytest.raises(TypeError):
+        provider.resolve_object_details(key, True, None)
 
 
 def test_provider_returns_correct_metadata():
