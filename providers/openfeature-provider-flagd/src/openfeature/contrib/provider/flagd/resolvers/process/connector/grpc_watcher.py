@@ -258,7 +258,7 @@ class GrpcWatcher(FlagStateConnector):
                         logger.debug("Terminating gRPC sync thread")
                         return
             except grpc.RpcError as e:  # noqa: PERF203
-                logger.error(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
             except json.JSONDecodeError:
                 logger.exception(
                     f"Could not parse JSON flag data from SyncFlags endpoint: {flag_str=}"
