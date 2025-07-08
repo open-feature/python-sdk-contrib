@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.4...openfeature-provider-flagd/v0.2.5) (2025-07-08)
+
+
+### 🐛 Bug Fixes
+
+* **flagd:** reduce loglevel of expected logs ([#277](https://github.com/open-feature/python-sdk-contrib/issues/277)) ([cca865f](https://github.com/open-feature/python-sdk-contrib/commit/cca865f490cc699ecf038c934dfccacad9bda8d2))
+
 ## [0.2.4](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.3...openfeature-provider-flagd/v0.2.4) (2025-06-10)
 
 
