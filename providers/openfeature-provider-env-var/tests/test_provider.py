@@ -4,7 +4,7 @@ import os
 import pytest
 from src.openfeature.contrib.provider.envvar import EnvVarProvider
 
-from openfeature.exception import FlagNotFoundError
+from openfeature.exception import FlagNotFoundError, ParseError
 
 
 def test_unknown_flag_key_throws_flag_not_found_error():
@@ -68,6 +68,17 @@ def test_object_flag_evaluates_the_flag():
     assert result.value == value
 
 
+def test_int_flag_with_invalid_format_raises_exception():
+    key = "test-flag-key"
+    value = "23.23"
+    os.environ[key] = str(value)
+
+    provider = EnvVarProvider()
+
+    with pytest.raises(ParseError):
+        provider.resolve_integer_details(key, True, None)
+
+
 def test_object_flag_with_invalid_json_object_raises_an_error():
     key = "test-flag-key"
     value = 23
@@ -75,7 +86,7 @@ def test_object_flag_with_invalid_json_object_raises_an_error():
 
     provider = EnvVarProvider()
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ParseError):
         provider.resolve_object_details(key, True, None)
 
 
