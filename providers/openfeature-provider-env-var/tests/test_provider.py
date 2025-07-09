@@ -2,9 +2,9 @@ import json
 import os
 
 import pytest
-from openfeature.exception import FlagNotFoundError
-
 from src.openfeature.contrib.provider.envvar import EnvVarProvider
+
+from openfeature.exception import FlagNotFoundError
 
 
 def test_unknown_flag_key_throws_flag_not_found_error():
