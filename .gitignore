@@ -54,3 +54,6 @@ docs/_build/
 
 # vscode
 .vscode/
+
+# test coverage
+/providers/openfeature-provider-env-var/tests-results.xml
