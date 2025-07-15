@@ -19,7 +19,7 @@ keywords = []
 dependencies = [
   "openfeature-sdk>=0.6.0",
   "grpcio>=1.68.1",
-  "protobuf>=4.29.2",
+  "protobuf>=5.26.1",
   "mmh3>=4.1.0",
   "panzi-json-logic>=1.0.1",
   "semver>=3,<4",
@@ -40,7 +40,7 @@ dependencies = [
   "pytest-bdd",
   "testcontainers",
   "asserts",
-  "grpcio-health-checking==1.73.1",
+  "grpcio-health-checking",
 ]
 pre-install-commands = [
   "hatch build",
@@ -77,6 +77,7 @@ run = "mypy"
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
 dependencies = [
+    "protobuf==5.26.1",
     "hatch-protobuf",
     "mypy-protobuf~=3.0",
 ]
