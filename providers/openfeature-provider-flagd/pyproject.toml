@@ -24,7 +24,9 @@ dependencies = [
   "panzi-json-logic>=1.0.1",
   "semver>=3,<4",
   "pyyaml>=6.0.1",
-  "cachebox"
+  "cachebox",
+  "jsonschema",
+  "types-jsonschema"
 ]
 requires-python = ">=3.9"
 
@@ -96,7 +98,9 @@ outputs = ["{proto_path}/{proto_name}_pb2_grpc.pyi"]
 [tool.hatch.build.targets.sdist]
 exclude = [
   ".gitignore",
-  "/openfeature",
+]
+include = [
+    "/openfeature/schemas/json/*.json"
 ]
 
 [tool.hatch.build.targets.wheel]

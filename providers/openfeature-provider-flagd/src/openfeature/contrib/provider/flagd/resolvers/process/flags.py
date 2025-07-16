@@ -2,24 +2,30 @@ import json
 import re
 import typing
 from dataclasses import dataclass
+from pathlib import Path
+
+from jsonschema import Draft7Validator, ValidationError
+from referencing import Registry, Resource
 
 from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError
 
+project_root = Path(__file__).resolve().parents[7]
+SCHEMAS = project_root / "openfeature/schemas/json"
 
-def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> None:
-    if key is None:
-        raise ParseError("Metadata key must be set")
-    elif not isinstance(key, str):
-        raise ParseError(f"Metadata key {key} must be of type str, but is {type(key)}")
-    elif not key:
-        raise ParseError("key must not be empty")
-    if value is None:
-        raise ParseError(f"Metadata value for key {key} must be set")
-    elif not isinstance(value, (float, int, str, bool)):
-        raise ParseError(
-            f"Metadata value {value} for key  {key} must be of type float, int, str or bool, but is {type(value)}"
-        )
+
+def retrieve_from_filesystem(uri: str) -> Resource:
+    path = SCHEMAS / Path(uri.removeprefix("https://flagd.dev/schema/v0/"))
+    contents = json.loads(path.read_text())
+    return Resource.from_contents(contents)
+
+
+registry = Registry(retrieve=retrieve_from_filesystem)  # type: ignore[call-arg]
+
+validator = Draft7Validator(
+    registry=registry,
+    schema={"$ref": "https://flagd.dev/schema/v0/flags.json"},
+)
 
 
 class FlagStore:
@@ -39,6 +45,11 @@ class FlagStore:
         return self.flags.get(key)
 
     def update(self, flags_data: dict) -> None:
+        try:
+            validator.validate(flags_data)
+        except ValidationError as e:
+            raise ParseError(e.message) from e
+
         flags = flags_data.get("flags", {})
         metadata = flags_data.get("metadata", {})
         evaluators: typing.Optional[dict] = flags_data.get("$evaluators")
@@ -54,8 +65,6 @@ class FlagStore:
             raise ParseError("`flags` key of configuration must be a dictionary")
         if not isinstance(metadata, dict):
             raise ParseError("`metadata` key of configuration must be a dictionary")
-        for key, value in metadata.items():
-            _validate_metadata(key, value)
 
         self.flags = {key: Flag.from_dict(key, data) for key, data in flags.items()}
         self.flag_set_metadata = metadata
@@ -79,28 +88,8 @@ class Flag:
     ] = None
 
     def __post_init__(self) -> None:
-        if not self.state or not isinstance(self.state, str):
-            raise ParseError("Incorrect 'state' value provided in flag config")
-
-        if not self.variants or not isinstance(self.variants, dict):
-            raise ParseError("Incorrect 'variants' value provided in flag config")
-
-        if not self.default_variant or not isinstance(
-            self.default_variant, (str, bool)
-        ):
-            raise ParseError("Incorrect 'defaultVariant' value provided in flag config")
-
-        if self.targeting and not isinstance(self.targeting, dict):
-            raise ParseError("Incorrect 'targeting' value provided in flag config")
-
         if self.default_variant not in self.variants:
             raise ParseError("Default variant does not match set of variants")
-
-        if self.metadata:
-            if not isinstance(self.metadata, dict):
-                raise ParseError("Flag metadata is not a valid json object")
-            for key, value in self.metadata.items():
-                _validate_metadata(key, value)
 
     @classmethod
     def from_dict(cls, key: str, data: dict) -> "Flag":
