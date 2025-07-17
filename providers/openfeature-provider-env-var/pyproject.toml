@@ -1,6 +1,6 @@
 [project]
 name = "openfeature-provider-env-var"
-version = "0.1.0"
+version = "0.1.1"
 description = "OpenFeature Python Environment Variable Provider"
 readme = "README.md"
 requires-python = ">=3.9"
