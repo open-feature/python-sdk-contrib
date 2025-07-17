@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.6](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.5...openfeature-provider-flagd/v0.2.6) (2025-07-17)
+
+
+### 🐛 Bug Fixes
+
+* **flagd:** Add upperbound to protobuf version to reduce potential conflict with other version ([5ad2896](https://github.com/open-feature/python-sdk-contrib/commit/5ad289683a0d9128a53d142d2804f9fffb9dd36f))
+* **flagd:** fix protobuf version for file generation to lowest 5.x version ([#280](https://github.com/open-feature/python-sdk-contrib/issues/280)) ([5ad2896](https://github.com/open-feature/python-sdk-contrib/commit/5ad289683a0d9128a53d142d2804f9fffb9dd36f))
+
 ## [0.2.5](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.4...openfeature-provider-flagd/v0.2.5) (2025-07-08)
 
 
