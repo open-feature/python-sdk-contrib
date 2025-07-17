@@ -26,7 +26,6 @@ dependencies = [
   "pyyaml>=6.0.1",
   "cachebox",
   "jsonschema",
-  "types-jsonschema"
 ]
 requires-python = ">=3.9"
 
@@ -68,6 +67,7 @@ dependencies = [
   "mypy[faster-cache]>=1.13.0",
   "types-protobuf",
   "types-pyyaml",
+  "types-jsonschema"
 ]
 pre-install-commands = [
   "hatch build",
