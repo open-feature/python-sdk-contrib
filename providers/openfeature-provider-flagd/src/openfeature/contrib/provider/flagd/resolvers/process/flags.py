@@ -79,22 +79,14 @@ class Flag:
     ] = None
 
     def __post_init__(self) -> None:
-        if not self.state or not isinstance(self.state, str):
+        if not self.state or not (self.state == "ENABLED" or self.state == "DISABLED"):
             raise ParseError("Incorrect 'state' value provided in flag config")
 
         if not self.variants or not isinstance(self.variants, dict):
             raise ParseError("Incorrect 'variants' value provided in flag config")
 
-        if not self.default_variant or not isinstance(
-            self.default_variant, (str, bool)
-        ):
+        if not self.default_variant or not isinstance(self.default_variant, str):
             raise ParseError("Incorrect 'defaultVariant' value provided in flag config")
-
-        if self.targeting and not isinstance(self.targeting, dict):
-            raise ParseError("Incorrect 'targeting' value provided in flag config")
-
-        if self.default_variant not in self.variants:
-            raise ParseError("Default variant does not match set of variants")
 
         if self.metadata:
             if not isinstance(self.metadata, dict):

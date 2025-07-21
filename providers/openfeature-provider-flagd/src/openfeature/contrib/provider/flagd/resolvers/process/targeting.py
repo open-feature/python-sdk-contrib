@@ -5,6 +5,7 @@ from json_logic import builtins, jsonLogic
 from json_logic.types import JsonValue
 
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.exception import ParseError
 
 from .custom_ops import (
     ends_with,
@@ -27,6 +28,9 @@ def targeting(
     targeting: dict,
     evaluation_context: typing.Optional[EvaluationContext] = None,
 ) -> JsonValue:
+    if not isinstance(targeting, dict):
+        raise ParseError(f"Invalid 'targeting' value in flag: {targeting}")
+
     json_logic_context = evaluation_context.attributes if evaluation_context else {}
     json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}
     json_logic_context["targetingKey"] = (

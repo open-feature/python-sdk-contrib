@@ -1,5 +1,5 @@
 import requests
-from asserts import assert_equal
+from asserts import assert_equal, assert_is_none
 from pytest_bdd import given, parsers, then, when
 
 from openfeature.client import OpenFeatureClient
@@ -94,6 +94,25 @@ def resolve_details_reason(
     reason: str,
 ):
     assert_equal(details.reason, Reason(reason))
+
+
+@then(
+    parsers.cfparse('the error-code should be "{error_code}"'),
+)
+def resolve_details_error_code(
+    details: FlagEvaluationDetails[JsonPrimitive],
+    error_code: str,
+):
+    assert_equal(details.error_code, error_code)
+
+
+@then(
+    parsers.cfparse('the error-code should be ""'),
+)
+def resolve_details_empty_error_code(
+    details: FlagEvaluationDetails[JsonPrimitive],
+):
+    assert_is_none(details.error_code)
 
 
 @then(parsers.cfparse("the resolved metadata should contain"))

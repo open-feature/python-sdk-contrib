@@ -5,7 +5,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
 )
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import FlagNotFoundError, ParseError
+from openfeature.exception import FlagNotFoundError, GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
 from ..config import Config
@@ -129,25 +129,35 @@ class InProcessResolver:
 
         if not flag.targeting:
             variant, value = flag.default
+            if variant not in flag.variants:
+                raise GeneralError(
+                    f"Resolved variant {variant} not in variants config."
+                )
             return FlagResolutionDetails(
                 value, variant=variant, flag_metadata=metadata, reason=Reason.STATIC
             )
 
-        variant = targeting(flag.key, flag.targeting, evaluation_context)
+        try:
+            variant = targeting(flag.key, flag.targeting, evaluation_context)
+            if variant is None:
+                variant, value = flag.default
+                return FlagResolutionDetails(
+                    value,
+                    variant=variant,
+                    flag_metadata=metadata,
+                    reason=Reason.DEFAULT,
+                )
+            if variant not in flag.variants:
+                raise GeneralError(
+                    f"Resolved variant {variant} not in variants config."
+                )
 
-        if variant is None:
-            variant, value = flag.default
-            return FlagResolutionDetails(
-                value, variant=variant, flag_metadata=metadata, reason=Reason.DEFAULT
-            )
-        if not isinstance(variant, (str, bool)):
-            raise ParseError(
-                "Parsed JSONLogic targeting did not return a string or bool"
-            )
+        except ReferenceError:
+            raise ParseError(f"Invalid targeting {targeting}") from ReferenceError
 
         variant, value = flag.get_variant(variant)
         if value is None:
-            raise ParseError(f"Resolved variant {variant} not in variants config.")
+            raise GeneralError(f"Resolved variant {variant} not in variants config.")
 
         return FlagResolutionDetails(
             value,
