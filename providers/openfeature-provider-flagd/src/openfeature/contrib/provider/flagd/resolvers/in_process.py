@@ -127,42 +127,14 @@ class InProcessResolver:
                 default_value, flag_metadata=metadata, reason=Reason.DISABLED
             )
 
+
         if not flag.targeting:
-            variant, value = flag.default
-            if variant is None:
-                return FlagResolutionDetails(
-                    value,
-                    variant=variant,
-                    reason=Reason.ERROR,
-                    error_code=ErrorCode.FLAG_NOT_FOUND,
-                    flag_metadata=metadata,
-                )
-            if variant not in flag.variants:
-                raise GeneralError(
-                    f"Resolved variant {variant} not in variants config."
-                )
-            return FlagResolutionDetails(
-                value, variant=variant, flag_metadata=metadata, reason=Reason.STATIC
-            )
+            return _default_resolve(flag, metadata, Reason.STATIC)
 
         try:
             variant = targeting(flag.key, flag.targeting, evaluation_context)
             if variant is None:
-                variant, value = flag.default
-                if variant is None:
-                    return FlagResolutionDetails(
-                        value,
-                        variant=variant,
-                        reason=Reason.ERROR,
-                        error_code=ErrorCode.FLAG_NOT_FOUND,
-                        flag_metadata=metadata,
-                    )
-                return FlagResolutionDetails(
-                    value,
-                    variant=variant,
-                    flag_metadata=metadata,
-                    reason=Reason.DEFAULT,
-                )
+                return _default_resolve(flag, metadata, Reason.DEFAULT)
 
             # convert to string to support shorthand (boolean in python is with capital T hence the special case)
             if isinstance(variant, bool):
@@ -188,3 +160,21 @@ class InProcessResolver:
             reason=Reason.TARGETING_MATCH,
             flag_metadata=metadata,
         )
+
+def _default_resolve(flag, metadata, reason) -> FlagResolutionDetails:
+    variant, value = flag.default
+    if variant is None:
+        return FlagResolutionDetails(
+            value,
+            variant=variant,
+            reason=Reason.ERROR,
+            error_code=ErrorCode.FLAG_NOT_FOUND,
+            flag_metadata=metadata,
+        )
+    if variant not in flag.variants:
+        raise GeneralError(
+            f"Resolved variant {variant} not in variants config."
+        )
+    return FlagResolutionDetails(
+        value, variant=variant, flag_metadata=metadata, reason=reason
+    )

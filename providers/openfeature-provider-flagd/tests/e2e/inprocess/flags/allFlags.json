@@ -1,0 +1,787 @@
+{
+  "$evaluators": {
+    "is_ballmer": {
+      "==": [
+        "ballmer@macrosoft.com",
+        {
+          "var": [
+            "email"
+          ]
+        }
+      ]
+    }
+  },
+  "flags": {
+    "boolean-flag": {
+      "defaultVariant": "on",
+      "state": "ENABLED",
+      "variants": {
+        "off": false,
+        "on": true
+      }
+    },
+    "boolean-targeted-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "$ref": "is_ballmer"
+          },
+          "zero"
+        ]
+      },
+      "variants": {
+        "non-zero": true,
+        "zero": false
+      }
+    },
+    "boolean-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "variants": {
+        "non-zero": true,
+        "zero": false
+      }
+    },
+    "changing-flag": {
+      "defaultVariant": "bar",
+      "state": "ENABLED",
+      "variants": {
+        "bar": "bar",
+        "foo": "foo"
+      }
+    },
+    "context-aware": {
+      "defaultVariant": "external",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "and": [
+              {
+                "==": [
+                  {
+                    "var": [
+                      "fn"
+                    ]
+                  },
+                  "Sulisław"
+                ]
+              },
+              {
+                "==": [
+                  {
+                    "var": [
+                      "ln"
+                    ]
+                  },
+                  "Świętopełk"
+                ]
+              },
+              {
+                "==": [
+                  {
+                    "var": [
+                      "age"
+                    ]
+                  },
+                  29
+                ]
+              },
+              {
+                "==": [
+                  {
+                    "var": [
+                      "customer"
+                    ]
+                  },
+                  false
+                ]
+              }
+            ]
+          },
+          "internal",
+          "external"
+        ]
+      },
+      "variants": {
+        "external": "EXTERNAL",
+        "internal": "INTERNAL"
+      }
+    },
+    "empty-targeting-flag": {
+      "defaultVariant": "false",
+      "state": "ENABLED",
+      "targeting": {},
+      "variants": {
+        "false": 1,
+        "true": 2
+      }
+    },
+    "equal-greater-lesser-version-flag": {
+      "defaultVariant": "none",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "sem_ver": [
+              {
+                "var": "version"
+              },
+              "=",
+              "2.0.0"
+            ]
+          },
+          "equal",
+          {
+            "if": [
+              {
+                "sem_ver": [
+                  {
+                    "var": "version"
+                  },
+                  "\u003e",
+                  "2.0.0"
+                ]
+              },
+              "greater",
+              {
+                "if": [
+                  {
+                    "sem_ver": [
+                      {
+                        "var": "version"
+                      },
+                      "\u003c",
+                      "2.0.0"
+                    ]
+                  },
+                  "lesser",
+                  {
+                    "if": [
+                      {
+                        "sem_ver": [
+                          {
+                            "var": "version"
+                          },
+                          "=",
+                          "2.0.0.0"
+                        ]
+                      },
+                      "fail",
+                      "none"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "variants": {
+        "equal": "equal",
+        "greater": "greater",
+        "lesser": "lesser",
+        "none": "none"
+      }
+    },
+    "error-targeting-flag": {
+      "defaultVariant": "two",
+      "state": "ENABLED",
+      "targeting": {
+        "invalid": [
+          "this is not valid targeting"
+        ]
+      },
+      "variants": {
+        "one": 1,
+        "two": 2
+      }
+    },
+    "flagd-context-aware": {
+      "defaultVariant": "external",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": [
+                  "injectedmetadata"
+                ]
+              },
+              "set"
+            ]
+          },
+          "internal",
+          "external"
+        ]
+      },
+      "variants": {
+        "external": "EXTERNAL",
+        "internal": "INTERNAL"
+      }
+    },
+    "float-flag": {
+      "defaultVariant": "half",
+      "state": "ENABLED",
+      "variants": {
+        "half": 0.5,
+        "tenth": 0.1
+      }
+    },
+    "float-targeted-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "$ref": "is_ballmer"
+          },
+          "zero"
+        ]
+      },
+      "variants": {
+        "non-zero": 1,
+        "zero": 0
+      }
+    },
+    "float-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "variants": {
+        "non-zero": 1,
+        "zero": 0
+      }
+    },
+    "fractional-flag": {
+      "defaultVariant": "wild",
+      "state": "ENABLED",
+      "targeting": {
+        "fractional": [
+          {
+            "cat": [
+              {
+                "var": "$flagd.flagKey"
+              },
+              {
+                "var": "user.name"
+              }
+            ]
+          },
+          [
+            "clubs",
+            25
+          ],
+          [
+            "diamonds",
+            25
+          ],
+          [
+            "hearts",
+            25
+          ],
+          [
+            "spades",
+            25
+          ]
+        ]
+      },
+      "variants": {
+        "clubs": "clubs",
+        "diamonds": "diamonds",
+        "hearts": "hearts",
+        "spades": "spades",
+        "wild": "wild"
+      }
+    },
+    "fractional-flag-A-shared-seed": {
+      "defaultVariant": "wild",
+      "state": "ENABLED",
+      "targeting": {
+        "fractional": [
+          {
+            "cat": [
+              "shared-seed",
+              {
+                "var": "user.name"
+              }
+            ]
+          },
+          [
+            "clubs",
+            25
+          ],
+          [
+            "diamonds",
+            25
+          ],
+          [
+            "hearts",
+            25
+          ],
+          [
+            "spades",
+            25
+          ]
+        ]
+      },
+      "variants": {
+        "clubs": "clubs",
+        "diamonds": "diamonds",
+        "hearts": "hearts",
+        "spades": "spades",
+        "wild": "wild"
+      }
+    },
+    "fractional-flag-B-shared-seed": {
+      "defaultVariant": "wild",
+      "state": "ENABLED",
+      "targeting": {
+        "fractional": [
+          {
+            "cat": [
+              "shared-seed",
+              {
+                "var": "user.name"
+              }
+            ]
+          },
+          [
+            "clubs",
+            25
+          ],
+          [
+            "diamonds",
+            25
+          ],
+          [
+            "hearts",
+            25
+          ],
+          [
+            "spades",
+            25
+          ]
+        ]
+      },
+      "variants": {
+        "clubs": "ace-of-clubs",
+        "diamonds": "ace-of-diamonds",
+        "hearts": "ace-of-hearts",
+        "spades": "ace-of-spades",
+        "wild": "wild"
+      }
+    },
+    "fractional-flag-shorthand": {
+      "defaultVariant": "draw",
+      "state": "ENABLED",
+      "targeting": {
+        "fractional": [
+          [
+            "heads"
+          ],
+          [
+            "tails",
+            1
+          ]
+        ]
+      },
+      "variants": {
+        "draw": "draw",
+        "heads": "heads",
+        "tails": "tails"
+      }
+    },
+    "integer-flag": {
+      "defaultVariant": "ten",
+      "state": "ENABLED",
+      "variants": {
+        "one": 1,
+        "ten": 10
+      }
+    },
+    "integer-targeted-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "$ref": "is_ballmer"
+          },
+          "zero"
+        ]
+      },
+      "variants": {
+        "non-zero": 1,
+        "zero": 0
+      }
+    },
+    "integer-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "variants": {
+        "non-zero": 1,
+        "zero": 0
+      }
+    },
+    "major-minor-version-flag": {
+      "defaultVariant": "none",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "sem_ver": [
+              {
+                "var": "version"
+              },
+              "~",
+              "3.0.0"
+            ]
+          },
+          "minor",
+          {
+            "if": [
+              {
+                "sem_ver": [
+                  {
+                    "var": "version"
+                  },
+                  "^",
+                  "3.0.0"
+                ]
+              },
+              "major",
+              "none"
+            ]
+          }
+        ]
+      },
+      "variants": {
+        "major": "major",
+        "minor": "minor",
+        "none": "none"
+      }
+    },
+    "metadata-flag": {
+      "defaultVariant": "false",
+      "metadata": {
+        "boolean": true,
+        "float": 1.2,
+        "integer": 1,
+        "string": "a"
+      },
+      "state": "ENABLED",
+      "targeting": {},
+      "variants": {
+        "false": false,
+        "true": true
+      }
+    },
+    "missing-variant-targeting-flag": {
+      "defaultVariant": "two",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          true,
+          "three",
+          "one"
+        ]
+      },
+      "variants": {
+        "one": 1,
+        "two": 2
+      }
+    },
+    "no-default-flag-null-targeting-variant": {
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "==": [
+              "jobs@orange.com",
+              {
+                "var": [
+                  "email"
+                ]
+              }
+            ]
+          },
+          "special",
+          null
+        ]
+      },
+      "variants": {
+        "normal": "CFO",
+        "special": "CEO"
+      }
+    },
+    "no-default-flag-undefined-targeting-variant": {
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "==": [
+              "jobs@orange.com",
+              {
+                "var": [
+                  "email"
+                ]
+              }
+            ]
+          },
+          "special"
+        ]
+      },
+      "variants": {
+        "normal": "CFO",
+        "special": "CEO"
+      }
+    },
+    "non-string-variant-targeting-flag": {
+      "defaultVariant": "false",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          true,
+          true,
+          false
+        ]
+      },
+      "variants": {
+        "false": 1,
+        "true": 2
+      }
+    },
+    "null-default-flag": {
+      "defaultVariant": null,
+      "state": "ENABLED",
+      "variants": {
+        "off": false,
+        "on": true
+      }
+    },
+    "object-flag": {
+      "defaultVariant": "template",
+      "state": "ENABLED",
+      "variants": {
+        "empty": {},
+        "template": {
+          "imagesPerPage": 100,
+          "showImages": true,
+          "title": "Check out these pics!"
+        }
+      }
+    },
+    "some-email-targeted-flag": {
+      "defaultVariant": "none",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "$ref": "is_ballmer"
+          },
+          "hi",
+          "bye"
+        ]
+      },
+      "variants": {
+        "bye": "bye",
+        "hi": "hi",
+        "none": "none"
+      }
+    },
+    "some-other-email-targeted-flag": {
+      "defaultVariant": "none",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "$ref": "is_ballmer"
+          },
+          "yes",
+          "no"
+        ]
+      },
+      "variants": {
+        "no": "no",
+        "none": "none",
+        "yes": "yes"
+      }
+    },
+    "starts-ends-flag": {
+      "defaultVariant": "none",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "starts_with": [
+              {
+                "var": "id"
+              },
+              "abc"
+            ]
+          },
+          "prefix",
+          {
+            "if": [
+              {
+                "ends_with": [
+                  {
+                    "var": "id"
+                  },
+                  "xyz"
+                ]
+              },
+              "postfix",
+              {
+                "if": [
+                  {
+                    "ends_with": [
+                      {
+                        "var": "id"
+                      },
+                      3
+                    ]
+                  },
+                  "fail",
+                  "none"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "variants": {
+        "none": "none",
+        "postfix": "postfix",
+        "prefix": "prefix"
+      }
+    },
+    "string-flag": {
+      "defaultVariant": "greeting",
+      "state": "ENABLED",
+      "variants": {
+        "greeting": "hi",
+        "parting": "bye"
+      }
+    },
+    "string-targeted-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "$ref": "is_ballmer"
+          },
+          "zero"
+        ]
+      },
+      "variants": {
+        "non-zero": "str",
+        "zero": ""
+      }
+    },
+    "string-zero-flag": {
+      "defaultVariant": "zero",
+      "state": "ENABLED",
+      "variants": {
+        "non-zero": "str",
+        "zero": ""
+      }
+    },
+    "targeting-key-flag": {
+      "defaultVariant": "miss",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "==": [
+              {
+                "var": "targetingKey"
+              },
+              "5c3d8535-f81a-4478-a6d3-afaa4d51199e"
+            ]
+          },
+          "hit",
+          null
+        ]
+      },
+      "variants": {
+        "hit": "hit",
+        "miss": "miss"
+      }
+    },
+    "targeting-null-variant-flag": {
+      "defaultVariant": "two",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          true,
+          null,
+          "one"
+        ]
+      },
+      "variants": {
+        "one": 1,
+        "two": 2
+      }
+    },
+    "timestamp-flag": {
+      "defaultVariant": "none",
+      "state": "ENABLED",
+      "targeting": {
+        "if": [
+          {
+            "\u003e": [
+              {
+                "var": "$flagd.timestamp"
+              },
+              {
+                "var": "time"
+              }
+            ]
+          },
+          "past",
+          {
+            "if": [
+              {
+                "\u003c": [
+                  {
+                    "var": "$flagd.timestamp"
+                  },
+                  {
+                    "var": "time"
+                  }
+                ]
+              },
+              "future",
+              "none"
+            ]
+          }
+        ]
+      },
+      "variants": {
+        "future": 1,
+        "none": 0,
+        "past": -1
+      }
+    },
+    "undefined-default-flag": {
+      "state": "ENABLED",
+      "variants": {
+        "big": 1000,
+        "small": 10
+      }
+    },
+    "wrong-flag": {
+      "defaultVariant": "one",
+      "state": "ENABLED",
+      "variants": {
+        "one": "uno",
+        "two": "dos"
+      }
+    }
+  }
+}
