@@ -127,7 +127,6 @@ class InProcessResolver:
                 default_value, flag_metadata=metadata, reason=Reason.DISABLED
             )
 
-
         if not flag.targeting:
             return _default_resolve(flag, metadata, Reason.STATIC)
 
@@ -161,6 +160,7 @@ class InProcessResolver:
             flag_metadata=metadata,
         )
 
+
 def _default_resolve(flag, metadata, reason) -> FlagResolutionDetails:
     variant, value = flag.default
     if variant is None:
@@ -172,9 +172,7 @@ def _default_resolve(flag, metadata, reason) -> FlagResolutionDetails:
             flag_metadata=metadata,
         )
     if variant not in flag.variants:
-        raise GeneralError(
-            f"Resolved variant {variant} not in variants config."
-        )
+        raise GeneralError(f"Resolved variant {variant} not in variants config.")
     return FlagResolutionDetails(
         value, variant=variant, flag_metadata=metadata, reason=reason
     )
