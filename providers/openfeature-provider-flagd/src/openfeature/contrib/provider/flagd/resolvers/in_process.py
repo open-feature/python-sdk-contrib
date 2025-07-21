@@ -5,7 +5,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
 )
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import FlagNotFoundError, GeneralError, ParseError, ErrorCode
+from openfeature.exception import ErrorCode, FlagNotFoundError, GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
 from ..config import Config

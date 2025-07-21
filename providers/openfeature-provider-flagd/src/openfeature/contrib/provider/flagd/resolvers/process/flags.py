@@ -98,7 +98,7 @@ class Flag:
     def from_dict(cls, key: str, data: dict) -> "Flag":
         if "defaultVariant" in data:
             data["default_variant"] = data["defaultVariant"]
-            if data["default_variant"] is "":
+            if data["default_variant"] == "":
                 data["default_variant"] = None
             del data["defaultVariant"]
 
