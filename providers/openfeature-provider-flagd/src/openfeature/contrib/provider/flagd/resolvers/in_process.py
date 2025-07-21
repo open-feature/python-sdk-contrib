@@ -5,7 +5,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
 )
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import FlagNotFoundError, GeneralError, ParseError
+from openfeature.exception import FlagNotFoundError, GeneralError, ParseError, ErrorCode
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
 from ..config import Config
@@ -129,6 +129,14 @@ class InProcessResolver:
 
         if not flag.targeting:
             variant, value = flag.default
+            if variant is None:
+                return FlagResolutionDetails(
+                    value,
+                    variant=variant,
+                    reason=Reason.ERROR,
+                    error_code=ErrorCode.FLAG_NOT_FOUND,
+                    flag_metadata=metadata,
+                )
             if variant not in flag.variants:
                 raise GeneralError(
                     f"Resolved variant {variant} not in variants config."
@@ -141,6 +149,14 @@ class InProcessResolver:
             variant = targeting(flag.key, flag.targeting, evaluation_context)
             if variant is None:
                 variant, value = flag.default
+                if variant is None:
+                    return FlagResolutionDetails(
+                        value,
+                        variant=variant,
+                        reason=Reason.ERROR,
+                        error_code=ErrorCode.FLAG_NOT_FOUND,
+                        flag_metadata=metadata,
+                    )
                 return FlagResolutionDetails(
                     value,
                     variant=variant,
@@ -148,7 +164,12 @@ class InProcessResolver:
                     reason=Reason.DEFAULT,
                 )
 
-            variant = str(variant).lower()  # convert to string to support shorthand
+            # convert to string to support shorthand (boolean in python is with capital T hence the special case)
+            if isinstance(variant, bool):
+                variant = str(variant).lower()
+            elif not isinstance(variant, str):
+                variant = str(variant)
+
             if variant not in flag.variants:
                 raise GeneralError(
                     f"Resolved variant {variant} not in variants config."

@@ -12,8 +12,7 @@ feature_list = {
     "~sync",
     "~caching",
     "~grace",
-    "~contextEnrichment",
-    "~no-default",
+    "~contextEnrichment"
 }
 
 

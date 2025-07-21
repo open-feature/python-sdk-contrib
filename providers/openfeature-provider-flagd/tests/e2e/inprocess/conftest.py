@@ -4,7 +4,7 @@ from openfeature.contrib.provider.flagd.config import ResolverType
 from tests.e2e.testfilter import TestFilter
 
 resolver = ResolverType.IN_PROCESS
-feature_list = ["~targetURI", "~unixsocket", "~no-default"]
+feature_list = ["~targetURI", "~unixsocket"]
 
 
 def pytest_collection_modifyitems(config, items):

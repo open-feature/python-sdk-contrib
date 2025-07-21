@@ -35,6 +35,18 @@ def update_context(
     """a context containing a key and value."""
     evaluation_context.attributes[key] = type_cast[type_info](value)
 
+@given(
+    parsers.cfparse(
+        'a context containing a key "{key}", with type "{type_info}" and with value ""'
+    ),
+)
+def update_context_without_value(
+        evaluation_context: EvaluationContext, key: str, type_info: str
+):
+    """a context containing a key and value."""
+    update_context(evaluation_context, key, type_info, "")
+
+
 
 @when(
     parsers.cfparse(
