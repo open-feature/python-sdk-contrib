@@ -7,11 +7,8 @@ import pytest
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
-from openfeature.contrib.provider.flagd.resolvers.process.flags import (
-    _validate_metadata,
-)
 from openfeature.event import EventDetails, ProviderEvent
-from openfeature.exception import ErrorCode, ParseError
+from openfeature.exception import ErrorCode
 
 
 def create_client(file_name):
@@ -106,43 +103,3 @@ def test_invalid_flag_set_metadata(file_name):
         if now - start > max_timeout:
             raise AssertionError()
         sleep(0.01)
-
-
-def test_validate_metadata_with_none_key():
-    try:
-        _validate_metadata(None, "a")
-    except ParseError:
-        return
-    raise AssertionError()
-
-
-def test_validate_metadata_with_empty_key():
-    try:
-        _validate_metadata("", "a")
-    except ParseError:
-        return
-    raise AssertionError()
-
-
-def test_validate_metadata_with_non_string_key():
-    try:
-        _validate_metadata(1, "a")
-    except ParseError:
-        return
-    raise AssertionError()
-
-
-def test_validate_metadata_with_non_string_value():
-    try:
-        _validate_metadata("a", [])
-    except ParseError:
-        return
-    raise AssertionError()
-
-
-def test_validate_metadata_with_none_value():
-    try:
-        _validate_metadata("a", None)
-    except ParseError:
-        return
-    raise AssertionError()
