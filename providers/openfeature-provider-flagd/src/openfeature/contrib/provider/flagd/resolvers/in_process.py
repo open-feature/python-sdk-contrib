@@ -147,6 +147,8 @@ class InProcessResolver:
                     flag_metadata=metadata,
                     reason=Reason.DEFAULT,
                 )
+            if isinstance(variant, bool):
+                variant = str(variant).lower()
             if variant not in flag.variants:
                 raise GeneralError(
                     f"Resolved variant {variant} not in variants config."
