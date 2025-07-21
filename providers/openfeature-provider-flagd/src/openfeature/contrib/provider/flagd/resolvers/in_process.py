@@ -148,7 +148,7 @@ class InProcessResolver:
                     reason=Reason.DEFAULT,
                 )
 
-            variant = str(variant).lower() # convert to string to support shorthand
+            variant = str(variant).lower()  # convert to string to support shorthand
             if variant not in flag.variants:
                 raise GeneralError(
                     f"Resolved variant {variant} not in variants config."
