@@ -11,7 +11,7 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from ..config import Config
 from .process.connector import FlagStateConnector
 from .process.connector.grpc_watcher import GrpcWatcher
-from .process.flags import FlagStore
+from .process.flags import FlagStore, Flag
 from .process.targeting import targeting
 
 T = typing.TypeVar("T")
@@ -161,7 +161,7 @@ class InProcessResolver:
         )
 
 
-def _default_resolve(flag, metadata, reason) -> FlagResolutionDetails:
+def _default_resolve(flag: Flag, metadata: typing.Mapping[str, typing.Union[float, int, str, bool]], reason: Reason) -> FlagResolutionDetails:
     variant, value = flag.default
     if variant is None:
         return FlagResolutionDetails(
