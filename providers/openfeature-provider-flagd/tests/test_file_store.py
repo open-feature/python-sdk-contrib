@@ -21,6 +21,7 @@ def create_client(provider: FlagdProvider):
     "file_name",
     [
         "basic-flag.json",
+        "basic-flag-without-default.json",
         "basic-flag.yaml",
     ],
 )

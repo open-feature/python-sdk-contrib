@@ -6,7 +6,7 @@ from openfeature.contrib.provider.flagd.config import Config
 from openfeature.contrib.provider.flagd.resolvers.in_process import InProcessResolver
 from openfeature.contrib.provider.flagd.resolvers.process.flags import Flag, FlagStore
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import FlagNotFoundError, ParseError
+from openfeature.exception import FlagNotFoundError, GeneralError
 
 
 def targeting():
@@ -79,7 +79,7 @@ def test_resolve_boolean_details_invalid_variant(resolver, flag):
 
     resolver.flag_store.get_flag = Mock(return_value=flag)
 
-    with pytest.raises(ParseError):
+    with pytest.raises(GeneralError):
         resolver.resolve_boolean_details("flag", False)
 
 

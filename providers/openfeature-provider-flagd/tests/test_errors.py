@@ -23,11 +23,9 @@ def create_client(provider: FlagdProvider):
         "not-a-flag.json",
         "basic-flag-wrong-structure.json",
         "basic-flag-invalid.not-json",
-        "basic-flag-wrong-variant.json",
         "basic-flag-broken-state.json",
         "basic-flag-broken-variants.json",
         "basic-flag-broken-default.json",
-        "basic-flag-broken-targeting.json",
     ],
 )
 def test_file_load_errors(file_name: str):
@@ -44,6 +42,38 @@ def test_file_load_errors(file_name: str):
     assert res.value is False
     assert res.reason == Reason.ERROR
     assert res.error_code == ErrorCode.FLAG_NOT_FOUND
+
+
+def test_non_existent_variant():
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "./flags/"))
+    client = create_client(
+        FlagdProvider(
+            resolver_type=ResolverType.IN_PROCESS,
+            offline_flag_source_path=f"{path}/basic-flag-wrong-variant.json",
+        )
+    )
+
+    res = client.get_boolean_details("basic-flag", False)
+
+    assert res.value is False
+    assert res.reason == Reason.ERROR
+    assert res.error_code == ErrorCode.GENERAL
+
+
+def test_broken_targeting():
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "./flags/"))
+    client = create_client(
+        FlagdProvider(
+            resolver_type=ResolverType.IN_PROCESS,
+            offline_flag_source_path=f"{path}/basic-flag-broken-targeting.json",
+        )
+    )
+
+    res = client.get_boolean_details("basic-flag", False)
+
+    assert res.value is False
+    assert res.reason == Reason.ERROR
+    assert res.error_code == ErrorCode.PARSE_ERROR
 
 
 @pytest.mark.parametrize(

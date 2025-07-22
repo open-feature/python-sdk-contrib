@@ -48,7 +48,7 @@ class FlagdContainer(DockerContainer):
         return self
 
     @wait_container_is_ready(ConnectionError)
-    def _checker(self, host: str, port: str) -> None:
+    def _checker(self, host: str, port: int) -> None:
         # First we wait for Flagd to say it's listening
         wait_for_logs(
             self,
@@ -58,7 +58,7 @@ class FlagdContainer(DockerContainer):
 
         time.sleep(1)
         # Second we use the GRPC health check endpoint
-        with grpc.insecure_channel(host + ":" + port) as channel:
+        with grpc.insecure_channel(host + ":" + str(port)) as channel:
             health_stub = health_pb2_grpc.HealthStub(channel)
 
             def health_check_call(stub: health_pb2_grpc.HealthStub):

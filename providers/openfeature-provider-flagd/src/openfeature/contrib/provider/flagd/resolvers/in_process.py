@@ -5,13 +5,13 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
 )
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import FlagNotFoundError, ParseError
+from openfeature.exception import ErrorCode, FlagNotFoundError, GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
 from ..config import Config
 from .process.connector import FlagStateConnector
 from .process.connector.grpc_watcher import GrpcWatcher
-from .process.flags import FlagStore
+from .process.flags import Flag, FlagStore
 from .process.targeting import targeting
 
 T = typing.TypeVar("T")
@@ -128,26 +128,30 @@ class InProcessResolver:
             )
 
         if not flag.targeting:
-            variant, value = flag.default
-            return FlagResolutionDetails(
-                value, variant=variant, flag_metadata=metadata, reason=Reason.STATIC
-            )
+            return _default_resolve(flag, metadata, Reason.STATIC)
 
-        variant = targeting(flag.key, flag.targeting, evaluation_context)
+        try:
+            variant = targeting(flag.key, flag.targeting, evaluation_context)
+            if variant is None:
+                return _default_resolve(flag, metadata, Reason.DEFAULT)
 
-        if variant is None:
-            variant, value = flag.default
-            return FlagResolutionDetails(
-                value, variant=variant, flag_metadata=metadata, reason=Reason.DEFAULT
-            )
-        if not isinstance(variant, (str, bool)):
-            raise ParseError(
-                "Parsed JSONLogic targeting did not return a string or bool"
-            )
+            # convert to string to support shorthand (boolean in python is with capital T hence the special case)
+            if isinstance(variant, bool):
+                variant = str(variant).lower()
+            elif not isinstance(variant, str):
+                variant = str(variant)
+
+            if variant not in flag.variants:
+                raise GeneralError(
+                    f"Resolved variant {variant} not in variants config."
+                )
+
+        except ReferenceError:
+            raise ParseError(f"Invalid targeting {targeting}") from ReferenceError
 
         variant, value = flag.get_variant(variant)
         if value is None:
-            raise ParseError(f"Resolved variant {variant} not in variants config.")
+            raise GeneralError(f"Resolved variant {variant} not in variants config.")
 
         return FlagResolutionDetails(
             value,
@@ -155,3 +159,24 @@ class InProcessResolver:
             reason=Reason.TARGETING_MATCH,
             flag_metadata=metadata,
         )
+
+
+def _default_resolve(
+    flag: Flag,
+    metadata: typing.Mapping[str, typing.Union[float, int, str, bool]],
+    reason: Reason,
+) -> FlagResolutionDetails:
+    variant, value = flag.default
+    if variant is None:
+        return FlagResolutionDetails(
+            value,
+            variant=variant,
+            reason=Reason.ERROR,
+            error_code=ErrorCode.FLAG_NOT_FOUND,
+            flag_metadata=metadata,
+        )
+    if variant not in flag.variants:
+        raise GeneralError(f"Resolved variant {variant} not in variants config.")
+    return FlagResolutionDetails(
+        value, variant=variant, flag_metadata=metadata, reason=reason
+    )

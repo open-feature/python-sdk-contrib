@@ -72,29 +72,21 @@ class Flag:
     key: str
     state: str
     variants: typing.Mapping[str, typing.Any]
-    default_variant: typing.Union[bool, str]
+    default_variant: typing.Optional[typing.Union[bool, str]] = None
     targeting: typing.Optional[dict] = None
     metadata: typing.Optional[
         typing.Mapping[str, typing.Union[float, int, str, bool]]
     ] = None
 
     def __post_init__(self) -> None:
-        if not self.state or not isinstance(self.state, str):
+        if not self.state or not (self.state == "ENABLED" or self.state == "DISABLED"):
             raise ParseError("Incorrect 'state' value provided in flag config")
 
         if not self.variants or not isinstance(self.variants, dict):
             raise ParseError("Incorrect 'variants' value provided in flag config")
 
-        if not self.default_variant or not isinstance(
-            self.default_variant, (str, bool)
-        ):
+        if self.default_variant and not isinstance(self.default_variant, (str, bool)):
             raise ParseError("Incorrect 'defaultVariant' value provided in flag config")
-
-        if self.targeting and not isinstance(self.targeting, dict):
-            raise ParseError("Incorrect 'targeting' value provided in flag config")
-
-        if self.default_variant not in self.variants:
-            raise ParseError("Default variant does not match set of variants")
 
         if self.metadata:
             if not isinstance(self.metadata, dict):
@@ -106,6 +98,8 @@ class Flag:
     def from_dict(cls, key: str, data: dict) -> "Flag":
         if "defaultVariant" in data:
             data["default_variant"] = data["defaultVariant"]
+            if data["default_variant"] == "":
+                data["default_variant"] = None
             del data["defaultVariant"]
 
         data.pop("source", None)
@@ -119,13 +113,16 @@ class Flag:
             raise ParseError from err
 
     @property
-    def default(self) -> tuple[str, typing.Any]:
+    def default(self) -> tuple[typing.Optional[str], typing.Any]:
         return self.get_variant(self.default_variant)
 
     def get_variant(
-        self, variant_key: typing.Union[str, bool]
-    ) -> tuple[str, typing.Any]:
+        self, variant_key: typing.Union[str, bool, None]
+    ) -> tuple[typing.Optional[str], typing.Any]:
         if isinstance(variant_key, bool):
             variant_key = str(variant_key).lower()
+
+        if not variant_key:
+            return None, None
 
         return variant_key, self.variants.get(variant_key)
