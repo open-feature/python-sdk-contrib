@@ -85,7 +85,7 @@ class Flag:
         if not self.variants or not isinstance(self.variants, dict):
             raise ParseError("Incorrect 'variants' value provided in flag config")
 
-        if self.default_variant and not isinstance(self.default_variant, str):
+        if self.default_variant and not isinstance(self.default_variant, (str, bool)):
             raise ParseError("Incorrect 'defaultVariant' value provided in flag config")
 
         if self.metadata:
