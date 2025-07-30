@@ -214,8 +214,12 @@ class GrpcWatcher(FlagStateConnector):
             return None
 
         context_values_request = sync_pb2.GetMetadataRequest()
+        context_values_response: sync_pb2.GetMetadataResponse
         try:
-            return self.stub.GetMetadata(context_values_request, wait_for_ready=True)
+            context_values_response = self.stub.GetMetadata(
+                context_values_request, wait_for_ready=True
+            )
+            return context_values_response
         except grpc.RpcError as e:
             logger.debug(f"Error getting sync metadata: {e}")
             return None
@@ -230,9 +234,7 @@ class GrpcWatcher(FlagStateConnector):
 
         while self.active:
             try:
-                context_values_response: typing.Optional[
-                    sync_pb2.GetMetadataResponse
-                ] = self._fetch_metadata()
+                context_values_response = self._fetch_metadata()
 
                 request = sync_pb2.SyncFlagsRequest(**request_args)
 
@@ -246,7 +248,7 @@ class GrpcWatcher(FlagStateConnector):
                     )
                     self.flag_store.update(json.loads(flag_str))
 
-                    context_values = None
+                    context_values = {}
                     if flag_rsp.sync_context:
                         context_values = MessageToDict(flag_rsp.sync_context)
                     elif context_values_response:
