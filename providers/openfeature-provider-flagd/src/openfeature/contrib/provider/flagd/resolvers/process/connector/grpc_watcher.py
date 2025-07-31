@@ -215,11 +215,12 @@ class GrpcWatcher(FlagStateConnector):
             return {}
 
         context_values_request = sync_pb2.GetMetadataRequest()
+        context_values_response: sync_pb2.GetMetadataResponse
         try:
             context_values_response = self.stub.GetMetadata(
                 context_values_request, wait_for_ready=True
             )
-            return MessageToDict(context_values_response)
+            return MessageToDict(context_values_response)["metadata"]
         except grpc.RpcError as e:
             if e.code() == StatusCode.UNIMPLEMENTED:
                 logger.debug("Metadata endpoint disabled")
@@ -237,7 +238,7 @@ class GrpcWatcher(FlagStateConnector):
 
         while self.active:
             try:
-                context_values = self._fetch_metadata()["metadata"]
+                context_values = self._fetch_metadata()
 
                 request = sync_pb2.SyncFlagsRequest(**request_args)
 
