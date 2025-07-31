@@ -21,7 +21,7 @@ from openfeature.exception import (
     ProviderNotReadyError,
     TypeMismatchError,
 )
-from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
@@ -300,9 +300,13 @@ class GrpcResolver:
     def resolve_object_details(
         self,
         key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[typing.Union[dict, list]]:
+    ) -> FlagResolutionDetails[
+        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
     def _resolve(  # noqa: PLR0915 C901
@@ -387,7 +391,7 @@ class GrpcResolver:
         if evaluation_context:
             try:
                 s["targetingKey"] = evaluation_context.targeting_key
-                s.update(evaluation_context.attributes)
+                s.update(evaluation_context.attributes)  # type: ignore[arg-type]
             except ValueError as exc:
                 message = (
                     "could not serialize evaluation context to google.protobuf.Struct"
