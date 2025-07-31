@@ -210,9 +210,9 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
-    def _fetch_metadata(self) -> dict:
+    def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
         if self.config.sync_metadata_disabled:
-            return {}
+            return None
 
         context_values_request = sync_pb2.GetMetadataRequest()
         context_values_response: sync_pb2.GetMetadataResponse
@@ -220,11 +220,11 @@ class GrpcWatcher(FlagStateConnector):
             context_values_response = self.stub.GetMetadata(
                 context_values_request, wait_for_ready=True
             )
-            return MessageToDict(context_values_response)["metadata"]
+            return context_values_response
         except grpc.RpcError as e:
             if e.code() == StatusCode.UNIMPLEMENTED:
-                logger.debug("Metadata endpoint disabled")
-                return {}
+                logger.debug(f"Error getting sync metadata: {e}")
+                return None
             else:
                 raise e
 
@@ -238,7 +238,7 @@ class GrpcWatcher(FlagStateConnector):
 
         while self.active:
             try:
-                context_values = self._fetch_metadata()
+                context_values_response = self._fetch_metadata()
 
                 request = sync_pb2.SyncFlagsRequest(**request_args)
 
@@ -252,8 +252,13 @@ class GrpcWatcher(FlagStateConnector):
                     )
                     self.flag_store.update(json.loads(flag_str))
 
+                    context_values = {}
                     if flag_rsp.sync_context:
                         context_values = MessageToDict(flag_rsp.sync_context)
+                    elif context_values_response:
+                        context_values = MessageToDict(context_values_response)[
+                            "metadata"
+                        ]
 
                     if not self.connected:
                         self.emit_provider_ready(
