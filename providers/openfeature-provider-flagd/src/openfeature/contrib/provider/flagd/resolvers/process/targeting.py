@@ -32,8 +32,8 @@ def targeting(
         raise ParseError(f"Invalid 'targeting' value in flag: {targeting}")
 
     json_logic_context = evaluation_context.attributes if evaluation_context else {}
-    json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}
-    json_logic_context["targetingKey"] = (
+    json_logic_context["$flagd"] = {"flagKey": key, "timestamp": int(time.time())}  # type: ignore[index]
+    json_logic_context["targetingKey"] = (  # type: ignore[index]
         evaluation_context.targeting_key if evaluation_context else None
     )
     return jsonLogic(targeting, json_logic_context, OPERATORS)
