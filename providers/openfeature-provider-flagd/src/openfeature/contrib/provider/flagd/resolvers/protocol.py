@@ -3,7 +3,7 @@ import typing
 from typing_extensions import Protocol
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
 
 
 class AbstractResolver(Protocol):
@@ -42,6 +42,10 @@ class AbstractResolver(Protocol):
     def resolve_object_details(
         self,
         key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[typing.Union[dict, list]]: ...
+    ) -> FlagResolutionDetails[
+        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]: ...

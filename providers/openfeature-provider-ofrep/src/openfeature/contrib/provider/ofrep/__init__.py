@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Callable, NoReturn, Optional, Union
@@ -18,7 +19,12 @@ from openfeature.exception import (
     TargetingKeyMissingError,
     TypeMismatchError,
 )
-from openfeature.flag_evaluation import FlagResolutionDetails, FlagType, Reason
+from openfeature.flag_evaluation import (
+    FlagResolutionDetails,
+    FlagType,
+    FlagValueType,
+    Reason,
+)
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata
 
@@ -100,9 +106,11 @@ class OFREPProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[dict, list],
+        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
         evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[Union[dict, list]]:
+    ) -> FlagResolutionDetails[
+        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+    ]:
         return self._resolve(
             FlagType.OBJECT, flag_key, default_value, evaluation_context
         )
@@ -117,7 +125,16 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_type: FlagType,
         flag_key: str,
-        default_value: Union[bool, str, int, float, dict, list],
+        default_value: Union[
+            bool,
+            str,
+            int,
+            float,
+            dict,
+            list,
+            Sequence[FlagValueType],
+            Mapping[str, FlagValueType],
+        ],
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[Any]:
         now = datetime.now(timezone.utc)

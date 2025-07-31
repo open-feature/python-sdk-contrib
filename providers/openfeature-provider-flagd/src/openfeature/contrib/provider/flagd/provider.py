@@ -28,7 +28,7 @@ import grpc
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider
 from openfeature.provider.metadata import Metadata
@@ -199,9 +199,13 @@ class FlagdProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[typing.Union[dict, list]]:
+    ) -> FlagResolutionDetails[
+        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]:
         return self.resolver.resolve_object_details(
             flag_key, default_value, evaluation_context
         )

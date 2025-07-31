@@ -5,7 +5,7 @@ description = "OpenFeature Python Environment Variable Provider"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "openfeature-sdk>=0.6.0",
+    "openfeature-sdk>=0.8.2",
 ]
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
 

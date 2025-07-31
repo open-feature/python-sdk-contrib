@@ -6,7 +6,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
 from openfeature.exception import ErrorCode, FlagNotFoundError, GeneralError, ParseError
-from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 
 from ..config import Config
 from .process.connector import FlagStateConnector
@@ -105,9 +105,13 @@ class InProcessResolver:
     def resolve_object_details(
         self,
         key: str,
-        default_value: typing.Union[dict, list],
+        default_value: typing.Union[
+            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
         evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[typing.Union[dict, list]]:
+    ) -> FlagResolutionDetails[
+        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]:
         return self._resolve(key, default_value, evaluation_context)
 
     def _resolve(
