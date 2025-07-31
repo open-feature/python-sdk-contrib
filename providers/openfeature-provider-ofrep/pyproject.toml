@@ -17,7 +17,7 @@ classifiers = [
 ]
 keywords = []
 dependencies = [
-  "openfeature-sdk>=0.7.0",
+  "openfeature-sdk>=0.8.2",
   "requests>=2.27.0"
 ]
 requires-python = ">=3.9"
