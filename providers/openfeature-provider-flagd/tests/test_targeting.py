@@ -7,7 +7,7 @@ from enum import Enum
 from math import floor
 
 import pytest
-from json_logic import builtins, jsonLogic  # type: ignore[import-untyped]
+from json_logic import builtins, jsonLogic
 
 from openfeature.contrib.provider.flagd.resolvers.process.custom_ops import (
     ends_with,
