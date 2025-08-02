@@ -12,9 +12,10 @@ Python 3.9 and above are supported by the SDK.
 
 ### Installation and Dependencies
 
-We use [Hatch](https://hatch.pypa.io/) to manage the project. Hatch does not have built-in support for monorepos yet, so you must run it inside each package directory.
+We use [uv](https://github.com/astral-sh/uv) for fast Python package management and dependency resolution.
+uv does have built-in support for monorepos via workspace, but it is not supported by release-please yet.
 
-To install Hatch, just run `pip install hatch`.
+To install uv, follow the [installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 
 You will also need to setup the `pre-commit` hooks. Run `pre-commit install` in the root directory of the repository. If you don't have `pre-commit` installed, you can install it with `pip install pre-commit`.
 
@@ -35,12 +36,12 @@ The Flagd provider utilizes the [gherkin integration tests](https://github.com/o
 To run the integration tests you need to have a container runtime, like docker, ranger, etc. installed.
 
 ```bash
-hatch run test
+uv run test --frozen
 ```
 
 ### Type checking
 
-Run `mypy` by entering the package directory and running `hatch run mypy:run`.
+Run `mypy` by entering the package directory and running `uv run mypy-check --frozen`.
 
 ## Pull Request
 
@@ -75,8 +76,8 @@ Ensure your development environment is all set up by building and testing
 
 ```bash
 cd <package>
-hatch build
-hatch test
+uv build
+uv run test --frozen
 ```
 
 To start working on a new feature or bugfix, create a new branch and start working on it.
