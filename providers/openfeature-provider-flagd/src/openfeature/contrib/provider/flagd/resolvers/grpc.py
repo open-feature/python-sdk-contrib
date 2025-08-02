@@ -391,7 +391,11 @@ class GrpcResolver:
         if evaluation_context:
             try:
                 s["targetingKey"] = evaluation_context.targeting_key
-                s.update(evaluation_context.attributes)  # type: ignore[arg-type]
+                s.update(
+                    typing.cast(
+                        "typing.Mapping[str, typing.Any]", evaluation_context.attributes
+                    )
+                )
             except ValueError as exc:
                 message = (
                     "could not serialize evaluation context to google.protobuf.Struct"
