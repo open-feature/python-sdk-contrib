@@ -2,6 +2,16 @@ version = 1
 revision = 3
 requires-python = ">=3.9"
 
+[manifest]
+members = [
+    "openfeature-hooks-opentelemetry",
+    "openfeature-provider-env-var",
+    "openfeature-provider-flagd",
+    "openfeature-provider-flipt",
+    "openfeature-provider-ofrep",
+    "openfeature-python-contrib",
+]
+
 [[package]]
 name = "asserts"
 version = "0.13.1"
@@ -105,11 +115,11 @@ wheels = [
 
 [[package]]
 name = "certifi"
-version = "2025.7.14"
+version = "2025.8.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b3/76/52c535bcebe74590f296d6c77c86dabf761c41980e1347a2422e4aa2ae41/certifi-2025.7.14.tar.gz", hash = "sha256:8ea99dbdfaaf2ba2f9bac77b9249ef62ec5218e7c2b2e903378ed5fccf765995", size = 163981, upload-time = "2025-07-14T03:29:28.449Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/67/960ebe6bf230a96cda2e0abcf73af550ec4f090005363542f0765df162e0/certifi-2025.8.3.tar.gz", hash = "sha256:e564105f78ded564e3ae7c923924435e1daa7463faeab5bb932bc53ffae63407", size = 162386, upload-time = "2025-08-03T03:07:47.08Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/52/34c6cf5bb9285074dc3531c437b3919e825d976fde097a7a73f79e726d03/certifi-2025.7.14-py3-none-any.whl", hash = "sha256:6b31f564a415d79ee77df69d757bb49a5bb53bd9f756cbbe24394ffd6fc1f4b2", size = 162722, upload-time = "2025-07-14T03:29:26.863Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/48/1549795ba7742c948d2ad169c1c8cdbae65bc450d6cd753d124b17c8cd32/certifi-2025.8.3-py3-none-any.whl", hash = "sha256:f6c12493cfb1b06ba2ff328595af9350c65d6644968e5d3a2ffd78699af217a5", size = 161216, upload-time = "2025-08-03T03:07:45.777Z" },
 ]
 
 [[package]]
@@ -411,6 +421,18 @@ wheels = [
 ]
 
 [[package]]
+name = "importlib-metadata"
+version = "8.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "zipp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641, upload-time = "2025-04-27T15:29:01.736Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/b0/36bd937216ec521246249be3bf9855081de4c5e06a0c9b4219dbeda50373/importlib_metadata-8.7.0-py3-none-any.whl", hash = "sha256:e5dd1551894c77868a30651cef00984d50e1002d06942a7101d34870c5f02afd", size = 27656, upload-time = "2025-04-27T15:29:00.214Z" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -693,9 +715,63 @@ wheels = [
 ]
 
 [[package]]
+name = "openfeature-hooks-opentelemetry"
+version = "0.2.0"
+source = { editable = "hooks/openfeature-hooks-opentelemetry" }
+dependencies = [
+    { name = "openfeature-sdk" },
+    { name = "opentelemetry-api" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "mypy", extra = ["faster-cache"] },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openfeature-sdk", specifier = ">=0.6.0" },
+    { name = "opentelemetry-api" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
+    { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.0,<2.0.0" },
+    { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
+]
+
+[[package]]
+name = "openfeature-provider-env-var"
+version = "0.1.0"
+source = { editable = "providers/openfeature-provider-env-var" }
+dependencies = [
+    { name = "openfeature-sdk" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "mypy", extra = ["faster-cache"] },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "openfeature-sdk", specifier = ">=0.8.2" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
+    { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.0,<2.0.0" },
+    { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
+]
+
+[[package]]
 name = "openfeature-provider-flagd"
 version = "0.2.6"
-source = { editable = "." }
+source = { editable = "providers/openfeature-provider-flagd" }
 dependencies = [
     { name = "cachebox" },
     { name = "grpcio" },
@@ -746,12 +822,126 @@ dev = [
 ]
 
 [[package]]
+name = "openfeature-provider-flipt"
+version = "0.1.3"
+source = { editable = "providers/openfeature-provider-flipt" }
+dependencies = [
+    { name = "openfeature-provider-ofrep" },
+    { name = "openfeature-sdk" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "mypy", extra = ["faster-cache"] },
+    { name = "pytest" },
+    { name = "requests-mock" },
+    { name = "types-requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openfeature-provider-ofrep", editable = "providers/openfeature-provider-ofrep" },
+    { name = "openfeature-sdk", specifier = ">=0.7.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
+    { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.0,<2.0.0" },
+    { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
+    { name = "requests-mock", specifier = ">=1.12.0,<2.0.0" },
+    { name = "types-requests", specifier = ">=2.32.0,<3.0.0" },
+]
+
+[[package]]
+name = "openfeature-provider-ofrep"
+version = "0.1.1"
+source = { editable = "providers/openfeature-provider-ofrep" }
+dependencies = [
+    { name = "openfeature-sdk" },
+    { name = "requests" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "mypy", extra = ["faster-cache"] },
+    { name = "pytest" },
+    { name = "requests-mock" },
+    { name = "types-requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openfeature-sdk", specifier = ">=0.8.2" },
+    { name = "requests", specifier = ">=2.27.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
+    { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.0,<2.0.0" },
+    { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
+    { name = "requests-mock", specifier = ">=1.12.0,<2.0.0" },
+    { name = "types-requests", specifier = ">=2.32.0,<3.0.0" },
+]
+
+[[package]]
+name = "openfeature-python-contrib"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "openfeature-hooks-opentelemetry" },
+    { name = "openfeature-provider-env-var" },
+    { name = "openfeature-provider-flagd" },
+    { name = "openfeature-provider-flipt" },
+    { name = "openfeature-provider-ofrep" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "mypy", extra = ["faster-cache"] },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openfeature-hooks-opentelemetry", editable = "hooks/openfeature-hooks-opentelemetry" },
+    { name = "openfeature-provider-env-var", editable = "providers/openfeature-provider-env-var" },
+    { name = "openfeature-provider-flagd", editable = "providers/openfeature-provider-flagd" },
+    { name = "openfeature-provider-flipt", editable = "providers/openfeature-provider-flipt" },
+    { name = "openfeature-provider-ofrep", editable = "providers/openfeature-provider-ofrep" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
+    { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.0,<2.0.0" },
+    { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
+]
+
+[[package]]
 name = "openfeature-sdk"
 version = "0.8.2"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/30/eb/9cf0f1d541a2d4435d0fe3905cb8098cc04ff814f941ad083196cce12094/openfeature_sdk-0.8.2.tar.gz", hash = "sha256:a8a0bc7d77d796a946a1e330f5dbb91879cfcd82ae2ce29a2106180d872cf2a8", size = 32928, upload-time = "2025-07-30T21:29:55.146Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/00/4327b243fd43cf2cbbdfed5ad4b2f9abf84880d5f8634ac57dd847530e3c/openfeature_sdk-0.8.2-py3-none-any.whl", hash = "sha256:74aebf333b2e6d4f80ae5b2bbc25f5bc7709bc31631ce14fc5eb4b02463cdceb", size = 35473, upload-time = "2025-07-30T21:29:54.035Z" },
+]
+
+[[package]]
+name = "opentelemetry-api"
+version = "1.36.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "importlib-metadata" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/d2/c782c88b8afbf961d6972428821c302bd1e9e7bc361352172f0ca31296e2/opentelemetry_api-1.36.0.tar.gz", hash = "sha256:9a72572b9c416d004d492cbc6e61962c0501eaf945ece9b5a0f56597d8348aa0", size = 64780, upload-time = "2025-07-29T15:12:06.02Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bb/ee/6b08dde0a022c463b88f55ae81149584b125a42183407dc1045c486cc870/opentelemetry_api-1.36.0-py3-none-any.whl", hash = "sha256:02f20bcacf666e1333b6b1f04e647dc1d5111f86b8e510238fcc56d7762cda8c", size = 65564, upload-time = "2025-07-29T15:11:47.998Z" },
 ]
 
 [[package]]
@@ -1066,6 +1256,18 @@ wheels = [
 ]
 
 [[package]]
+name = "requests-mock"
+version = "1.12.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/32/587625f91f9a0a3d84688bf9cfc4b2480a7e8ec327cefd0ff2ac891fd2cf/requests-mock-1.12.1.tar.gz", hash = "sha256:e9e12e333b525156e82a3c852f22016b9158220d2f47454de9cae8a77d371401", size = 60901, upload-time = "2024-03-29T03:54:29.446Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/ec/889fbc557727da0c34a33850950310240f2040f3b1955175fdb2b36a8910/requests_mock-1.12.1-py2.py3-none-any.whl", hash = "sha256:b1e37054004cdd5e56c84454cc7df12b25f90f382159087f4b6915aaeef39563", size = 27695, upload-time = "2024-03-29T03:54:27.64Z" },
+]
+
+[[package]]
 name = "semver"
 version = "3.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1154,6 +1356,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4e/22/59e2aeb48ceeee1f7cd4537db9568df80d62bdb44a7f9e743502ea8aab9c/types_pyyaml-6.0.12.20250516.tar.gz", hash = "sha256:9f21a70216fc0fa1b216a8176db5f9e0af6eb35d2f2932acb87689d03a5bf6ba", size = 17378, upload-time = "2025-05-16T03:08:04.897Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/5f/e0af6f7f6a260d9af67e1db4f54d732abad514252a7a378a6c4d17dd1036/types_pyyaml-6.0.12.20250516-py3-none-any.whl", hash = "sha256:8478208feaeb53a34cb5d970c56a7cd76b72659442e733e268a94dc72b2d0530", size = 20312, upload-time = "2025-05-16T03:08:04.019Z" },
+]
+
+[[package]]
+name = "types-requests"
+version = "2.32.4.20250611"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6d/7f/73b3a04a53b0fd2a911d4ec517940ecd6600630b559e4505cc7b68beb5a0/types_requests-2.32.4.20250611.tar.gz", hash = "sha256:741c8777ed6425830bf51e54d6abe245f79b4dcb9019f1622b773463946bf826", size = 23118, upload-time = "2025-06-11T03:11:41.272Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/ea/0be9258c5a4fa1ba2300111aa5a0767ee6d18eb3fd20e91616c12082284d/types_requests-2.32.4.20250611-py3-none-any.whl", hash = "sha256:ad2fe5d3b0cb3c2c902c8815a70e7fb2302c4b8c1f77bdcd738192cdb3878072", size = 20643, upload-time = "2025-06-11T03:11:40.186Z" },
 ]
 
 [[package]]
@@ -1247,4 +1461,13 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2b/49/364a615a0cc0872685646c495c7172e4fc7bf1959e3b12a1807a03014e05/wrapt-1.17.2-cp39-cp39-win32.whl", hash = "sha256:f393cda562f79828f38a819f4788641ac7c4085f30f1ce1a68672baa686482bb", size = 36423, upload-time = "2025-01-14T10:35:40.177Z" },
     { url = "https://files.pythonhosted.org/packages/00/ad/5d2c1b34ba3202cd833d9221833e74d6500ce66730974993a8dc9a94fb8c/wrapt-1.17.2-cp39-cp39-win_amd64.whl", hash = "sha256:36ccae62f64235cf8ddb682073a60519426fdd4725524ae38874adf72b5f2aeb", size = 38772, upload-time = "2025-01-14T10:35:42.763Z" },
     { url = "https://files.pythonhosted.org/packages/2d/82/f56956041adef78f849db6b289b282e72b55ab8045a75abad81898c28d19/wrapt-1.17.2-py3-none-any.whl", hash = "sha256:b18f2d1533a71f069c7f82d524a52599053d4c7166e9dd374ae2136b7f40f7c8", size = 23594, upload-time = "2025-01-14T10:35:44.018Z" },
+]
+
+[[package]]
+name = "zipp"
+version = "3.23.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/02/0f2892c661036d50ede074e376733dca2ae7c6eb617489437771209d4180/zipp-3.23.0.tar.gz", hash = "sha256:a07157588a12518c9d4034df3fbbee09c814741a33ff63c05fa29d26a2404166", size = 25547, upload-time = "2025-06-08T17:06:39.4Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2e/54/647ade08bf0db230bfea292f893923872fd20be6ac6f53b2b936ba839d75/zipp-3.23.0-py3-none-any.whl", hash = "sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e", size = 10276, upload-time = "2025-06-08T17:06:38.034Z" },
 ]

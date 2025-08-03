@@ -67,4 +67,5 @@ jobs:
       - name: Publish a Python distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: ${{ matrix.path }}/dist
+          # `uv` stores the build packages in the root `dist` folder
+          packages-dir: dist

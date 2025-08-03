@@ -34,9 +34,6 @@ dev = [
   "types-requests>=2.32.0,<3.0.0",
 ]
 
-[tool.uv]
-required-version = "~=0.8.0"
-
 [tool.uv.build-backend]
 module-name = "openfeature"
 module-root = "src"
