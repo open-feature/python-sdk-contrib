@@ -30,7 +30,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 [tool.hatch.envs.hatch-test]
 dependencies = [
   "coverage[toml]>=6.5",
-  "pytest",
+  "pytest>=8.0",
   "requests-mock",
 ]
 

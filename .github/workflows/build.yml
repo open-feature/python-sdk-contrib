@@ -21,17 +21,36 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read # needed for `dorny/paths-filter`
+    outputs:
+      packages: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        with:
+          filters: |
+            hooks/openfeature-hooks-opentelemetry:
+              - 'hooks/openfeature-hooks-opentelemetry/**'
+            providers/openfeature-provider-env-var:
+              - 'providers/openfeature-provider-env-var/**'
+            providers/providers/openfeature-provider-flagd:
+              - 'providers/providers/openfeature-provider-flagd/**'
+            providers/openfeature-provider-flipt:
+              - 'providers/openfeature-provider-flipt/**'
+            providers/openfeature-provider-ofrep:
+              - 'providers/openfeature-provider-ofrep/**'
+
   build:
+    needs: changes
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        package:
-          - "hooks/openfeature-hooks-opentelemetry"
-          - "providers/openfeature-provider-flagd"
-          - "providers/openfeature-provider-ofrep"
-          - "providers/openfeature-provider-env-var"
-
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
