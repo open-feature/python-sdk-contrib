@@ -60,13 +60,6 @@ class TestGrpcWatcher(unittest.TestCase):
         self.mock_stub.GetMetadata = Mock(return_value=self.mock_metadata)
         self.grpc_watcher.stub = self.mock_stub
         self.grpc_watcher.active = True
-        self.shutdown_thread = lambda: threading.Thread(
-            target=self.shutdown_after_x_seconds
-        )
-
-    def shutdown_after_x_seconds(self, seconds=1):
-        time.sleep(seconds)
-        self.grpc_watcher.shutdown()
 
     def test_listen_with_sync_metadata_and_sync_context(self):
         sync_context = Struct()
@@ -81,9 +74,12 @@ class TestGrpcWatcher(unittest.TestCase):
         )
         self.mock_stub.SyncFlags = Mock(return_value=mock_stream_with_sync_context)
 
-        self.shutdown_thread().start()
+        listener = threading.Thread(target=self.grpc_watcher.listen)
+        listener.start()
 
-        self.grpc_watcher.listen()
+        time.sleep(0.5)
+        self.grpc_watcher.shutdown()
+        listener.join(timeout=1)
 
         self.emit_provider_ready.assert_called_once_with(
             ProviderEventDetails(message="gRPC sync connection established"),
@@ -98,9 +94,12 @@ class TestGrpcWatcher(unittest.TestCase):
         )
         self.mock_stub.SyncFlags = Mock(return_value=mock_stream_no_sync_context)
 
-        self.shutdown_thread().start()
+        listener = threading.Thread(target=self.grpc_watcher.listen)
+        listener.start()
 
-        self.grpc_watcher.listen()
+        time.sleep(0.5)
+        self.grpc_watcher.shutdown()
+        listener.join(timeout=1)
 
         self.emit_provider_ready.assert_called_once_with(
             ProviderEventDetails(message="gRPC sync connection established"),
@@ -115,9 +114,13 @@ class TestGrpcWatcher(unittest.TestCase):
             ]
         )
         self.mock_stub.SyncFlags = Mock(return_value=mock_stream_no_sync_context)
-        self.shutdown_thread().start()
 
-        self.grpc_watcher.listen()
+        listener = threading.Thread(target=self.grpc_watcher.listen)
+        listener.start()
+
+        time.sleep(0.5)
+        self.grpc_watcher.shutdown()
+        listener.join(timeout=1)
 
         self.mock_stub.GetMetadata.assert_not_called()
 
