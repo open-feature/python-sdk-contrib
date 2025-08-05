@@ -37,8 +37,8 @@ jobs:
               - 'hooks/openfeature-hooks-opentelemetry/**'
             providers/openfeature-provider-env-var:
               - 'providers/openfeature-provider-env-var/**'
-            providers/providers/openfeature-provider-flagd:
-              - 'providers/providers/openfeature-provider-flagd/**'
+            providers/openfeature-provider-flagd:
+              - 'providers/openfeature-provider-flagd/**'
             providers/openfeature-provider-flipt:
               - 'providers/openfeature-provider-flipt/**'
             providers/openfeature-provider-ofrep:
