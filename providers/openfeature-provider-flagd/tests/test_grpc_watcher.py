@@ -1,5 +1,6 @@
 import threading
 import time
+import typing
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -39,10 +40,12 @@ class TestGrpcWatcher(unittest.TestCase):
 
         flag_store = Mock(spec=FlagStore)
         flag_store.update.return_value = None
-        self.emit_provider_ready = Mock()
         emit_provider_error = Mock()
         emit_provider_stale = Mock()
         channel = Mock(spec=Channel)
+        self.provider_done = False
+        self.provider_details: typing.Optional[ProviderEventDetails] = None
+        self.context: typing.Optional[dict] = None
 
         with patch(
             "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.GrpcWatcher._generate_channel",
@@ -51,7 +54,7 @@ class TestGrpcWatcher(unittest.TestCase):
             self.grpc_watcher = GrpcWatcher(
                 config=config,
                 flag_store=flag_store,
-                emit_provider_ready=self.emit_provider_ready,
+                emit_provider_ready=self.provider_ready,
                 emit_provider_error=emit_provider_error,
                 emit_provider_stale=emit_provider_stale,
             )
@@ -60,6 +63,23 @@ class TestGrpcWatcher(unittest.TestCase):
         self.mock_stub.GetMetadata = Mock(return_value=self.mock_metadata)
         self.grpc_watcher.stub = self.mock_stub
         self.grpc_watcher.active = True
+
+    def provider_ready(self, details: ProviderEventDetails, context: dict):
+        self.provider_done = True
+        self.provider_details = details
+        self.context = context
+
+    def run_listen_and_shutdown_after(self):
+        listener = threading.Thread(target=self.grpc_watcher.listen)
+        listener.start()
+        for _i in range(0, 100):
+            if self.provider_done:
+                break
+            time.sleep(0.001)
+
+        self.assertTrue(self.provider_done)
+        self.grpc_watcher.shutdown()
+        listener.join(timeout=0.5)
 
     def test_listen_with_sync_metadata_and_sync_context(self):
         sync_context = Struct()
@@ -74,17 +94,12 @@ class TestGrpcWatcher(unittest.TestCase):
         )
         self.mock_stub.SyncFlags = Mock(return_value=mock_stream_with_sync_context)
 
-        listener = threading.Thread(target=self.grpc_watcher.listen)
-        listener.start()
+        self.run_listen_and_shutdown_after()
 
-        time.sleep(0.5)
-        self.grpc_watcher.shutdown()
-        listener.join(timeout=1)
-
-        self.emit_provider_ready.assert_called_once_with(
-            ProviderEventDetails(message="gRPC sync connection established"),
-            MessageToDict(sync_context),
+        self.assertEqual(
+            self.provider_details.message, "gRPC sync connection established"
         )
+        self.assertEqual(self.context, MessageToDict(sync_context))
 
     def test_listen_with_sync_metadata_only(self):
         mock_stream_no_sync_context = iter(
@@ -94,17 +109,12 @@ class TestGrpcWatcher(unittest.TestCase):
         )
         self.mock_stub.SyncFlags = Mock(return_value=mock_stream_no_sync_context)
 
-        listener = threading.Thread(target=self.grpc_watcher.listen)
-        listener.start()
+        self.run_listen_and_shutdown_after()
 
-        time.sleep(0.5)
-        self.grpc_watcher.shutdown()
-        listener.join(timeout=1)
-
-        self.emit_provider_ready.assert_called_once_with(
-            ProviderEventDetails(message="gRPC sync connection established"),
-            MessageToDict(self.mock_metadata.metadata),
+        self.assertEqual(
+            self.provider_details.message, "gRPC sync connection established"
         )
+        self.assertEqual(self.context, MessageToDict(self.mock_metadata.metadata))
 
     def test_listen_with_sync_metadata_disabled_in_config(self):
         self.grpc_watcher.config.sync_metadata_disabled = True
@@ -115,15 +125,11 @@ class TestGrpcWatcher(unittest.TestCase):
         )
         self.mock_stub.SyncFlags = Mock(return_value=mock_stream_no_sync_context)
 
-        listener = threading.Thread(target=self.grpc_watcher.listen)
-        listener.start()
-
-        time.sleep(0.5)
-        self.grpc_watcher.shutdown()
-        listener.join(timeout=1)
+        self.run_listen_and_shutdown_after()
 
         self.mock_stub.GetMetadata.assert_not_called()
 
-        self.emit_provider_ready.assert_called_once_with(
-            ProviderEventDetails(message="gRPC sync connection established"), {}
+        self.assertEqual(
+            self.provider_details.message, "gRPC sync connection established"
         )
+        self.assertEqual(self.context, {})
