@@ -32,6 +32,7 @@ class TestProviderType(Enum):
     SSL = "ssl"
     SOCKET = "socket"
     METADATA = "metadata"
+    SYNCPAYLOAD = "syncpayload"
 
 
 @given("a provider is registered", target_fixture="client")
@@ -71,6 +72,8 @@ def get_default_options_for_provider(
         return options, True
     elif t == TestProviderType.METADATA:
         launchpad = "metadata"
+    elif t == TestProviderType.SYNCPAYLOAD:
+        launchpad = "sync-payload"
 
     if resolver_type == ResolverType.FILE:
         if "selector" in option_values:
