@@ -6,7 +6,7 @@ import typing
 
 import grpc
 from google.protobuf.json_format import MessageToDict
-from google.protobuf.struct_pb2 import Struct
+from grpc import StatusCode
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
@@ -210,6 +210,23 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
+    def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
+        if self.config.sync_metadata_disabled:
+            return None
+
+        context_values_request = sync_pb2.GetMetadataRequest()
+        try:
+            context_values_response: sync_pb2.GetMetadataResponse = (
+                self.stub.GetMetadata(context_values_request, wait_for_ready=True)
+            )
+            return context_values_response
+        except grpc.RpcError as e:
+            if e.code() == StatusCode.UNIMPLEMENTED:
+                logger.debug(f"Error getting sync metadata: {e}")
+                return None
+            else:
+                raise e
+
     def listen(self) -> None:
         call_args = (
             {"timeout": self.streamline_deadline_seconds}
@@ -220,18 +237,7 @@ class GrpcWatcher(FlagStateConnector):
 
         while self.active:
             try:
-                context_values_response: sync_pb2.GetMetadataResponse
-                if self.config.sync_metadata_disabled:
-                    context_values_response = sync_pb2.GetMetadataResponse(
-                        metadata=Struct()
-                    )
-                else:
-                    context_values_request = sync_pb2.GetMetadataRequest()
-                    context_values_response = self.stub.GetMetadata(
-                        context_values_request, wait_for_ready=True
-                    )
-
-                context_values = MessageToDict(context_values_response)
+                context_values_response = self._fetch_metadata()
 
                 request = sync_pb2.SyncFlagsRequest(**request_args)
 
@@ -245,12 +251,20 @@ class GrpcWatcher(FlagStateConnector):
                     )
                     self.flag_store.update(json.loads(flag_str))
 
+                    context_values = {}
+                    if flag_rsp.sync_context:
+                        context_values = MessageToDict(flag_rsp.sync_context)
+                    elif context_values_response:
+                        context_values = MessageToDict(context_values_response)[
+                            "metadata"
+                        ]
+
                     if not self.connected:
                         self.emit_provider_ready(
                             ProviderEventDetails(
                                 message="gRPC sync connection established"
                             ),
-                            context_values["metadata"],
+                            context_values,
                         )
                         self.connected = True
 
