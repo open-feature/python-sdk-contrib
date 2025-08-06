@@ -38,7 +38,11 @@ dev = [
 module-name = "openfeature"
 module-root = "src"
 namespace = true
-
+source-exclude = [
+  # `openfeature-sdk` already includes the `py.typed` file,
+  # but it is necessary for local type checking of `flipt`
+  "openfeature/py.typed"
+]
 
 [tool.coverage.run]
 omit = [
