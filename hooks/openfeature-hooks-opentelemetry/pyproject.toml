@@ -1,7 +1,6 @@
-# pyproject.toml
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build~=0.8.0"]
+build-backend = "uv_build"
 
 [project]
 name = "openfeature-hooks-opentelemetry"
@@ -25,46 +24,17 @@ requires-python = ">=3.9"
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
-[tool.hatch]
-
-[tool.hatch.envs.hatch-test]
-dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest",
-]
-pre-install-commands = [
-  "hatch build",
+[dependency-groups]
+dev = [
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "mypy[faster-cache]>=1.17.0,<2.0.0",
+  "pytest>=8.4.0,<9.0.0",
 ]
 
-[tool.hatch.envs.hatch-test.scripts]
-run = "pytest {args:tests}"
-run-cov = "coverage run -m pytest {args:tests}"
-cov-combine = "coverage combine"
-cov-report = [
-  "coverage xml",
-  "coverage html",
-  "coverage report",
-]
-cov = [
-  "test-cov",
-  "cov-report",
-]
-
-[tool.hatch.envs.mypy]
-dependencies = [
-  "mypy[faster-cache]>=1.13.0",
-]
-
-[tool.hatch.envs.mypy.scripts]
-run = "mypy"
-
-[tool.hatch.build.targets.sdist]
-exclude = [
-  ".gitignore",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/openfeature"]
+[tool.uv.build-backend]
+module-name = "openfeature"
+module-root = "src"
+namespace = true
 
 [tool.mypy]
 mypy_path = "src"
@@ -78,3 +48,13 @@ pretty = true
 
 strict = true
 disallow_any_generics = false
+
+[project.scripts]
+# workaround while UV doesn't support scripts directly in the pyproject.toml
+# see: https://github.com/astral-sh/uv/issues/5903
+cov-report = "scripts.scripts:cov_report"
+cov = "scripts.scripts:cov"
+# don't name it `mypy` otherwise `uv` will override the actual binary
+mypy-check = "scripts.scripts:mypy"
+test = "scripts.scripts:test"
+test-cov = "scripts.scripts:test_cov"

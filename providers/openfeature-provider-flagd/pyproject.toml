@@ -1,5 +1,5 @@
-# pyproject.toml
 [build-system]
+# `uv_build` backend doesn't support build hooks yet https://github.com/astral-sh/uv/issues/14561
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
@@ -31,48 +31,18 @@ requires-python = ">=3.9"
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
-[tool.hatch]
-
-[tool.hatch.envs.hatch-test]
-dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest",
-  "pytest-bdd",
-  "testcontainers",
-  "asserts",
-  "grpcio-health-checking",
+[dependency-groups]
+dev = [
+  "asserts>=0.13.0,<0.14.0",
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "grpcio-health-checking>=1.74.0,<2.0.0",
+  "mypy[faster-cache]>=1.17.0,<2.0.0",
+  "pytest>=8.4.0,<9.0.0",
+  "pytest-bdd>=8.1.0,<9.0.0",
+  "testcontainers>=4.12.0,<5.0.0",
+  "types-protobuf>=6.30.0,<7.0.0",
+  "types-pyyaml>=6.0.0,<7.0.0",
 ]
-pre-install-commands = [
-  "hatch build",
-]
-
-[tool.hatch.envs.hatch-test.scripts]
-run = "pytest {args:tests}"
-run-cov = "coverage run -m pytest {args:tests}"
-cov-combine = "coverage combine"
-cov-report = [
-  "coverage xml",
-  "coverage html",
-  "coverage report",
-]
-cov = [
-  "test-cov",
-  "cov-report",
-]
-
-
-[tool.hatch.envs.mypy]
-dependencies = [
-  "mypy[faster-cache]>=1.13.0",
-  "types-protobuf",
-  "types-pyyaml",
-]
-pre-install-commands = [
-  "hatch build",
-]
-
-[tool.hatch.envs.mypy.scripts]
-run = "mypy"
 
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
@@ -135,3 +105,13 @@ module = [
     "openfeature.schemas.*"
 ]
 warn_unused_ignores = false
+
+[project.scripts]
+# workaround while UV doesn't support scripts directly in the pyproject.toml
+# see: https://github.com/astral-sh/uv/issues/5903
+cov-report = "scripts.scripts:cov_report"
+cov = "scripts.scripts:cov"
+# don't name it `mypy` otherwise `uv` will override the actual binary
+mypy-check = "scripts.scripts:mypy"
+test = "scripts.scripts:test"
+test-cov = "scripts.scripts:test_cov"
