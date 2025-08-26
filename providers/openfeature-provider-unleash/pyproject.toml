@@ -1,0 +1,70 @@
+[build-system]
+requires = ["uv_build~=0.8.0"]
+build-backend = "uv_build"
+
+[project]
+name = "openfeature-provider-unleash"
+version = "0.1.0"
+description = "OpenFeature provider for Unleash"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = []
+dependencies = [
+  "openfeature-sdk>=0.8.2",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+
+[dependency-groups]
+dev = [
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "mypy[faster-cache]>=1.17.0,<2.0.0",
+  "pytest>=8.4.0,<9.0.0",
+]
+
+[tool.uv.build-backend]
+module-name = "openfeature"
+module-root = "src"
+namespace = true
+source-exclude = [
+  # `openfeature-sdk` already includes the `py.typed` file,
+  # but it is necessary for local type checking
+  "openfeature/py.typed"
+]
+
+[tool.coverage.run]
+omit = [
+  "tests/**",
+]
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+
+python_version = "3.9" # should be identical to the minimum supported version
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+pretty = true
+
+strict = true
+disallow_any_generics = false
+
+[project.scripts]
+# workaround while UV doesn't support scripts directly in the pyproject.toml
+# see: https://github.com/astral-sh/uv/issues/5903
+cov-report = "scripts.scripts:cov_report"
+cov = "scripts.scripts:cov"
+# don't name it `mypy` otherwise `uv` will override the actual binary
+mypy-check = "scripts.scripts:mypy"
+test = "scripts.scripts:test"
+test-cov = "scripts.scripts:test_cov"
