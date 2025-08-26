@@ -10,6 +10,7 @@ dependencies = [
     "openfeature-provider-flagd",
     "openfeature-provider-flipt",
     "openfeature-provider-ofrep",
+    "openfeature-provider-unleash",
 ]
 
 [dependency-groups]
@@ -31,6 +32,7 @@ openfeature-provider-env-var = { workspace = true }
 openfeature-provider-flagd = { workspace = true }
 openfeature-provider-flipt = { workspace = true }
 openfeature-provider-ofrep = { workspace = true }
+openfeature-provider-unleash = { workspace = true }
 
 [tool.uv.workspace]
 members = [
