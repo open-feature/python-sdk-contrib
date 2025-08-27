@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import Reason
+from openfeature.provider import ProviderStatus
 from openfeature.exception import (
     FlagNotFoundError,
     GeneralError,
@@ -24,6 +25,7 @@ def test_unleash_provider_instantiation():
         url="http://localhost:4242", app_name="test-app", api_token="test-token"
     )
     assert provider is not None
+    assert provider.get_status() == ProviderStatus.NOT_READY
     provider.shutdown()
 
 
@@ -35,6 +37,33 @@ def test_unleash_provider_get_metadata():
     metadata = provider.get_metadata()
     assert metadata.name == "Unleash Provider"
     provider.shutdown()
+
+
+def test_unleash_provider_initialization():
+    """Test that UnleashProvider can be initialized properly."""
+    mock_client = Mock()
+    mock_client.initialize_client.return_value = None
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        # Should start as NOT_READY
+        assert provider.get_status() == ProviderStatus.NOT_READY
+
+        # Initialize the provider
+        provider.initialize()
+
+        # Should be READY after initialization
+        assert provider.get_status() == ProviderStatus.READY
+        assert provider.client is not None
+
+        provider.shutdown()
 
 
 def test_unleash_provider_all_methods_implemented():
@@ -87,6 +116,7 @@ def test_unleash_provider_resolve_boolean_details_error():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         with pytest.raises(GeneralError) as exc_info:
             provider.resolve_boolean_details("test_flag", True)
@@ -128,6 +158,7 @@ def test_unleash_provider_resolve_variant_flags(
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         method = getattr(provider, method_name)
         flag = method("test_flag", default_value)
@@ -153,6 +184,7 @@ async def test_unleash_provider_resolve_boolean_details_async():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         flag = await provider.resolve_boolean_details_async("test_flag", False)
         assert flag.value is True
@@ -200,6 +232,7 @@ async def test_unleash_provider_resolve_variant_flags_async(
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         method = getattr(provider, method_name)
         flag = await method("test_flag", default_value)
@@ -224,6 +257,7 @@ def test_unleash_provider_with_evaluation_context():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         context = EvaluationContext(
             targeting_key="user123",
@@ -285,6 +319,7 @@ def test_unleash_provider_value_conversion_errors(
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         method = getattr(provider, method_name)
 
@@ -344,6 +379,7 @@ def test_unleash_provider_general_errors(
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         method = getattr(provider, method_name)
 
@@ -377,6 +413,7 @@ def test_unleash_provider_edge_cases():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         # Test with empty string flag key
         result = provider.resolve_string_details("", "default")
@@ -430,10 +467,73 @@ def test_unleash_provider_network_errors(mock_side_effect, expected_error_messag
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         with pytest.raises(GeneralError) as exc_info:
             provider.resolve_boolean_details("test_flag", True)
         assert expected_error_message in str(exc_info.value)
+
+        provider.shutdown()
+
+
+def test_unleash_provider_context_changed():
+    """Test that UnleashProvider handles context changes correctly."""
+    provider = UnleashProvider(
+        url="http://localhost:4242", app_name="test-app", api_token="test-token"
+    )
+
+    # Initially no context
+    assert provider._last_context is None
+
+    # Set initial context
+    context1 = EvaluationContext(targeting_key="user1", attributes={"role": "admin"})
+    provider.on_context_changed(None, context1)
+    assert provider._last_context == context1
+
+    # Change context
+    context2 = EvaluationContext(targeting_key="user2", attributes={"role": "user"})
+    provider.on_context_changed(context1, context2)
+    assert provider._last_context == context2
+
+    # Clear context
+    provider.on_context_changed(context2, None)
+    assert provider._last_context is None
+
+    provider.shutdown()
+
+
+def test_unleash_provider_flag_metadata():
+    """Test that UnleashProvider includes flag metadata in resolution details."""
+    mock_client = Mock()
+    mock_client.is_enabled.return_value = True
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "test-value"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+        provider.initialize()
+
+        # Test boolean flag metadata
+        result = provider.resolve_boolean_details("test_flag", False)
+        assert result.flag_metadata["source"] == "unleash"
+        assert result.flag_metadata["enabled"] is True
+        assert result.flag_metadata["app_name"] == "test-app"
+
+        # Test variant flag metadata
+        result = provider.resolve_string_details("test_flag", "default")
+        assert result.flag_metadata["source"] == "unleash"
+        assert result.flag_metadata["enabled"] is True
+        assert result.flag_metadata["variant_name"] == "test-variant"
+        assert result.flag_metadata["app_name"] == "test-app"
 
         provider.shutdown()
 
@@ -451,6 +551,7 @@ def test_unleash_provider_context_without_targeting_key():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         context = EvaluationContext(attributes={"user_id": "123", "role": "admin"})
         result = provider.resolve_boolean_details(
@@ -474,6 +575,7 @@ def test_unleash_provider_context_with_targeting_key():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         context = EvaluationContext(
             targeting_key="user123", attributes={"role": "admin", "region": "us-east"}
@@ -504,6 +606,7 @@ def test_unleash_provider_variant_flag_scenarios():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         mock_client.get_variant.return_value = {
             "enabled": False,
@@ -560,6 +663,7 @@ def test_unleash_provider_type_validation():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
 
         result = provider.resolve_boolean_details("test_flag", False)
         assert result.value == "not-a-boolean"
