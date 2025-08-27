@@ -2,7 +2,7 @@ import json
 from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from UnleashClient import UnleashClient
-from UnleashClient.events import BaseEvent, UnleashFetchedEvent, UnleashReadyEvent
+from UnleashClient.events import BaseEvent, UnleashReadyEvent
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent
 from openfeature.exception import (
@@ -17,6 +17,7 @@ from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
 import requests
 
+from .events import EventManager
 from .tracking import Tracker
 
 __all__ = ["UnleashProvider"]
@@ -49,6 +50,7 @@ class UnleashProvider(AbstractProvider):
             ProviderEvent.PROVIDER_STALE: [],
         }
         self._tracking_manager = Tracker(self)
+        self._event_manager = EventManager(self)
 
     def initialize(
         self, evaluation_context: Optional[EvaluationContext] = None
@@ -67,10 +69,10 @@ class UnleashProvider(AbstractProvider):
             )
             self.client.initialize_client()
             self._status = ProviderStatus.READY
-            self._emit_event(ProviderEvent.PROVIDER_READY)
+            self._event_manager.emit_event(ProviderEvent.PROVIDER_READY)
         except Exception as e:
             self._status = ProviderStatus.ERROR
-            self._emit_event(
+            self._event_manager.emit_event(
                 ProviderEvent.PROVIDER_ERROR,
                 error_message=str(e),
                 error_code=ErrorCode.GENERAL,
@@ -98,7 +100,7 @@ class UnleashProvider(AbstractProvider):
                 self._status = ProviderStatus.NOT_READY
             except Exception as e:
                 self._status = ProviderStatus.ERROR
-                self._emit_event(
+                self._event_manager.emit_event(
                     ProviderEvent.PROVIDER_ERROR,
                     error_message=str(e),
                     error_code=ErrorCode.GENERAL,
@@ -125,8 +127,7 @@ class UnleashProvider(AbstractProvider):
             event_type: The type of event to handle
             handler: The handler function to call
         """
-        if event_type in self._event_handlers:
-            self._event_handlers[event_type].append(handler)
+        self._event_manager.add_handler(event_type, handler)
 
     def remove_handler(self, event_type: ProviderEvent, handler: Callable) -> None:
         """Remove an event handler for a specific event type.
@@ -135,27 +136,7 @@ class UnleashProvider(AbstractProvider):
             event_type: The type of event to handle
             handler: The handler function to remove
         """
-        if (
-            event_type in self._event_handlers
-            and handler in self._event_handlers[event_type]
-        ):
-            self._event_handlers[event_type].remove(handler)
-
-    def _emit_event(self, event_type: ProviderEvent, **kwargs: Any) -> None:
-        """Emit an event to all registered handlers.
-
-        Args:
-            event_type: The type of event to emit
-            **kwargs: Additional event data
-        """
-        if event_type in self._event_handlers:
-            event_details = {"provider_name": self.get_metadata().name, **kwargs}
-            for handler in self._event_handlers[event_type]:
-                try:
-                    handler(event_details)
-                except Exception:
-                    # Ignore handler errors to prevent breaking other handlers
-                    pass
+        self._event_manager.remove_handler(event_type, handler)
 
     def _unleash_event_callback(self, event: BaseEvent) -> None:
         """Callback for UnleashClient events.
@@ -165,15 +146,7 @@ class UnleashProvider(AbstractProvider):
         """
         if isinstance(event, UnleashReadyEvent):
             self._status = ProviderStatus.READY
-            self._emit_event(ProviderEvent.PROVIDER_READY)
-        elif isinstance(event, UnleashFetchedEvent):
-            # Configuration changed when features are fetched
-            self._emit_event(
-                ProviderEvent.PROVIDER_CONFIGURATION_CHANGED,
-                flag_keys=(
-                    list(event.features.keys()) if hasattr(event, "features") else []
-                ),
-            )
+        self._event_manager.handle_unleash_event(event)
 
     def track(
         self,
