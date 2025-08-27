@@ -35,16 +35,47 @@ api.set_provider(provider)
 - `app_name`: The name of your application
 - `api_token`: The API token for authentication
 
+### Event handling
+
+The Unleash provider supports OpenFeature events for monitoring provider state changes:
+
+```python
+from openfeature.event import ProviderEvent
+
+def on_provider_ready(event_details):
+    print(f"Provider {event_details['provider_name']} is ready")
+
+def on_provider_error(event_details):
+    print(f"Provider error: {event_details['error_message']}")
+
+def on_configuration_changed(event_details):
+    print(f"Configuration changed, flags: {event_details.get('flag_keys', [])}")
+
+# Add event handlers
+provider.add_handler(ProviderEvent.PROVIDER_READY, on_provider_ready)
+provider.add_handler(ProviderEvent.PROVIDER_ERROR, on_provider_error)
+provider.add_handler(ProviderEvent.PROVIDER_CONFIGURATION_CHANGED, on_configuration_changed)
+
+# Remove event handlers
+provider.remove_handler(ProviderEvent.PROVIDER_READY, on_provider_ready)
+```
+
+**Supported events:**
+- `ProviderEvent.PROVIDER_READY`: Emitted when the provider is ready to evaluate flags
+- `ProviderEvent.PROVIDER_ERROR`: Emitted when the provider encounters an error
+- `ProviderEvent.PROVIDER_CONFIGURATION_CHANGED`: Emitted when flag configurations are updated
+- `ProviderEvent.PROVIDER_STALE`: Emitted when the provider's cached state is no longer valid
+
 ### Example usage
 
 ```python
 from openfeature import api
 from openfeature.contrib.provider.unleash import UnleashProvider
 
-# Set up the provider
+# Initialize the provider
 provider = UnleashProvider(
-    url="https://unleash.example.com",
-    app_name="my-app",
+    url="https://your-unleash-instance.com",
+    app_name="my-python-app",
     api_token="my-token"
 )
 provider.initialize()
@@ -53,47 +84,31 @@ api.set_provider(provider)
 # Get a client and evaluate flags
 client = api.get_client()
 
-# Resolve different types of flags (synchronous)
-boolean_flag = client.get_boolean_details("my-boolean-flag", default_value=False)
-string_flag = client.get_string_details("my-string-flag", default_value="default")
-integer_flag = client.get_integer_details("my-integer-flag", default_value=0)
-float_flag = client.get_float_details("my-float-flag", default_value=0.0)
-object_flag = client.get_object_details("my-object-flag", default_value={"key": "value"})
+# Boolean flag evaluation
+is_enabled = client.get_boolean_value("my-feature", False)
+print(f"Feature is enabled: {is_enabled}")
 
-# Resolve different types of flags (asynchronous)
-boolean_flag_async = await client.get_boolean_details_async("my-boolean-flag", default_value=False)
-string_flag_async = await client.get_string_details_async("my-string-flag", default_value="default")
-integer_flag_async = await client.get_integer_details_async("my-integer-flag", default_value=0)
-float_flag_async = await client.get_float_details_async("my-float-flag", default_value=0.0)
-object_flag_async = await client.get_object_details_async("my-object-flag", default_value={"key": "value"})
+# String flag evaluation with context
+context = {"userId": "user123", "sessionId": "session456"}
+variant = client.get_string_value("my-variant-flag", "default", context)
+print(f"Variant: {variant}")
 
-# Using evaluation context for targeting
-from openfeature.evaluation_context import EvaluationContext
-
-context = EvaluationContext(
-    targeting_key="user123",
-    attributes={"email": "user@example.com", "country": "US", "plan": "premium"}
-)
-
-# Resolve flags with context (synchronous)
-boolean_with_context = client.get_boolean_details("my-boolean-flag", default_value=False, evaluation_context=context)
-string_with_context = client.get_string_details("my-string-flag", default_value="default", evaluation_context=context)
-
-# Resolve flags with context (asynchronous)
-boolean_async_with_context = await client.get_boolean_details_async("my-boolean-flag", default_value=False, evaluation_context=context)
-string_async_with_context = await client.get_string_details_async("my-string-flag", default_value="default", evaluation_context=context)
-
-# Check flag values
-if boolean_flag.value:
-    print("Boolean feature is enabled!")
-
-print(f"String value: {string_flag.value}")
-print(f"Integer value: {integer_flag.value}")
-print(f"Float value: {float_flag.value}")
-print(f"Object value: {object_flag.value}")
-
-# Clean up when done
+# Shutdown when done
 provider.shutdown()
+```
+
+## Development
+
+### Running tests
+
+```bash
+pytest
+```
+
+### Type checking
+
+```bash
+mypy src/
 ```
 
 ## License
