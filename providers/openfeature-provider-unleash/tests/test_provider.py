@@ -1,6 +1,9 @@
 import pytest
+from unittest.mock import Mock, patch
 
 from openfeature.contrib.provider.unleash import UnleashProvider
+from openfeature.flag_evaluation import Reason
+from openfeature.exception import ErrorCode
 
 
 def test_unleash_provider_import():
@@ -10,23 +13,28 @@ def test_unleash_provider_import():
 
 def test_unleash_provider_instantiation():
     """Test that UnleashProvider can be instantiated."""
-    provider = UnleashProvider()
+    provider = UnleashProvider(
+        url="http://localhost:4242", app_name="test-app", api_token="test-token"
+    )
     assert provider is not None
+    provider.shutdown()
 
 
 def test_unleash_provider_get_metadata():
     """Test that UnleashProvider returns correct metadata."""
-    provider = UnleashProvider()
+    provider = UnleashProvider(
+        url="http://localhost:4242", app_name="test-app", api_token="test-token"
+    )
     metadata = provider.get_metadata()
     assert metadata.name == "Unleash Provider"
+    provider.shutdown()
 
 
 def test_unleash_provider_methods_not_implemented():
     """Test that UnleashProvider methods raise NotImplementedError."""
-    provider = UnleashProvider()
-
-    with pytest.raises(NotImplementedError):
-        provider.resolve_boolean_details("test_flag", True)
+    provider = UnleashProvider(
+        url="http://localhost:4242", app_name="test-app", api_token="test-token"
+    )
 
     with pytest.raises(NotImplementedError):
         provider.resolve_string_details("test_flag", "default")
@@ -43,6 +51,42 @@ def test_unleash_provider_methods_not_implemented():
 
 def test_unleash_provider_hooks():
     """Test that UnleashProvider returns empty hooks list."""
-    provider = UnleashProvider()
+    provider = UnleashProvider(
+        url="http://localhost:4242", app_name="test-app", api_token="test-token"
+    )
     hooks = provider.get_provider_hooks()
     assert hooks == []
+    provider.shutdown()
+
+
+def test_unleash_provider_resolve_boolean_details(unleash_provider_client):
+    """Test that UnleashProvider can resolve boolean flags."""
+    client = unleash_provider_client
+
+    flag = client.get_boolean_details(flag_key="test_flag", default_value=False)
+    assert flag is not None
+    assert flag.value is True
+    assert flag.reason == Reason.TARGETING_MATCH
+
+
+def test_unleash_provider_resolve_boolean_details_error():
+    """Test that UnleashProvider handles errors gracefully."""
+    mock_client = Mock()
+    mock_client.is_enabled.side_effect = Exception("Connection error")
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_boolean_details("test_flag", True)
+        assert flag.value is True
+        assert flag.reason == Reason.ERROR
+        assert flag.error_code == ErrorCode.GENERAL
+        assert flag.error_message == "Connection error"
+
+        provider.shutdown()
