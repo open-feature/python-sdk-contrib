@@ -14,12 +14,16 @@ def test_unleash_provider_instantiation():
     assert provider is not None
 
 
+def test_unleash_provider_get_metadata():
+    """Test that UnleashProvider returns correct metadata."""
+    provider = UnleashProvider()
+    metadata = provider.get_metadata()
+    assert metadata.name == "Unleash Provider"
+
+
 def test_unleash_provider_methods_not_implemented():
     """Test that UnleashProvider methods raise NotImplementedError."""
     provider = UnleashProvider()
-
-    with pytest.raises(NotImplementedError):
-        provider.get_metadata()
 
     with pytest.raises(NotImplementedError):
         provider.resolve_boolean_details("test_flag", True)
