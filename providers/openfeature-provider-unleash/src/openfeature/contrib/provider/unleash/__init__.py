@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from openfeature.evaluation_context import EvaluationContext
@@ -15,7 +16,13 @@ from openfeature.exception import (
 )
 import requests
 from UnleashClient import UnleashClient
-from UnleashClient.events import BaseEvent, UnleashReadyEvent, UnleashFetchedEvent
+from UnleashClient.events import (
+    BaseEvent,
+    UnleashReadyEvent,
+    UnleashFetchedEvent,
+    UnleashEvent,
+    UnleashEventType,
+)
 
 __all__ = ["UnleashProvider"]
 
@@ -171,6 +178,44 @@ class UnleashProvider(AbstractProvider):
                     list(event.features.keys()) if hasattr(event, "features") else []
                 ),
             )
+
+    def track(
+        self,
+        event_name: str,
+        evaluation_context: Optional[EvaluationContext] = None,
+        event_details: Optional[dict] = None,
+    ) -> None:
+        """Track user actions or application states using Unleash impression events.
+
+        Args:
+            event_name: The name of the tracking event
+            evaluation_context: Optional evaluation context
+            event_details: Optional tracking event details
+        """
+        if not self.client:
+            return
+
+        unleash_context = self._build_unleash_context(evaluation_context) or {}
+
+        if event_details:
+            unleash_context.update(
+                {
+                    "tracking_value": event_details.get("value"),
+                    "tracking_details": event_details,
+                }
+            )
+
+        tracking_event = UnleashEvent(
+            event_type=UnleashEventType.FEATURE_FLAG,
+            event_id=uuid.uuid4(),
+            context=unleash_context,
+            enabled=True,
+            feature_name=event_name,
+            variant="tracking_event",
+        )
+
+        if hasattr(self, "_unleash_event_callback"):
+            self._unleash_event_callback(tracking_event)
 
     def _build_unleash_context(
         self, evaluation_context: Optional[EvaluationContext] = None
