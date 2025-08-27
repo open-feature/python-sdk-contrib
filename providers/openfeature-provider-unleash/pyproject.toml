@@ -17,6 +17,7 @@ classifiers = [
 keywords = []
 dependencies = [
   "openfeature-sdk>=0.8.2",
+  "UnleashClient>=6.3.0",
 ]
 requires-python = ">=3.9"
 
