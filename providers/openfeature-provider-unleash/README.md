@@ -49,12 +49,21 @@ api.set_provider(provider)
 # Get a client and evaluate flags
 client = api.get_client()
 
-# Resolve a boolean flag
-flag_details = client.get_boolean_details("my-feature-flag", default_value=False)
-if flag_details.value:
-    print("Feature is enabled!")
-else:
-    print("Feature is disabled")
+# Resolve different types of flags
+boolean_flag = client.get_boolean_details("my-boolean-flag", default_value=False)
+string_flag = client.get_string_details("my-string-flag", default_value="default")
+integer_flag = client.get_integer_details("my-integer-flag", default_value=0)
+float_flag = client.get_float_details("my-float-flag", default_value=0.0)
+object_flag = client.get_object_details("my-object-flag", default_value={"key": "value"})
+
+# Check flag values
+if boolean_flag.value:
+    print("Boolean feature is enabled!")
+
+print(f"String value: {string_flag.value}")
+print(f"Integer value: {integer_flag.value}")
+print(f"Float value: {float_flag.value}")
+print(f"Object value: {object_flag.value}")
 
 # Clean up when done
 provider.shutdown()
