@@ -1,23 +1,16 @@
-import json
 from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from UnleashClient import UnleashClient
 from UnleashClient.events import BaseEvent, UnleashReadyEvent
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent
-from openfeature.exception import (
-    ErrorCode,
-    FlagNotFoundError,
-    GeneralError,
-    ParseError,
-    TypeMismatchError,
-)
-from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
+from openfeature.exception import ErrorCode, GeneralError
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
-import requests
 
 from .events import EventManager
+from .flag_evaluation import FlagEvaluator
 from .tracking import Tracker
 
 __all__ = ["UnleashProvider"]
@@ -51,6 +44,7 @@ class UnleashProvider(AbstractProvider):
         }
         self._tracking_manager = Tracker(self)
         self._event_manager = EventManager(self)
+        self._flag_evaluator = FlagEvaluator(self)
 
     def initialize(
         self, evaluation_context: Optional[EvaluationContext] = None
@@ -176,90 +170,6 @@ class UnleashProvider(AbstractProvider):
         context.update(evaluation_context.attributes)
         return context
 
-    def _resolve_variant_flag(
-        self,
-        flag_key: str,
-        default_value: Any,
-        value_converter: Callable[[Any], Any],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[Any]:
-        """Helper method to resolve variant-based flags.
-
-        Args:
-            flag_key: The flag key to resolve
-            default_value: The default value to return if flag is disabled
-            value_converter: Function to convert payload value to desired type
-            evaluation_context: Optional evaluation context
-
-        Returns:
-            FlagResolutionDetails with the resolved value
-        """
-        if not self.client:
-            raise GeneralError("Provider not initialized. Call initialize() first.")
-
-        try:
-            # Use get_variant to get the variant payload
-            context = self._build_unleash_context(evaluation_context)
-            variant = self.client.get_variant(flag_key, context=context)
-
-            # Check if the feature is enabled and has a payload
-            if variant.get("enabled", False) and "payload" in variant:
-                try:
-                    payload_value = variant["payload"].get("value", default_value)
-                    value = value_converter(payload_value)
-                    return FlagResolutionDetails(
-                        value=value,
-                        reason=(
-                            Reason.TARGETING_MATCH
-                            if value != default_value
-                            else Reason.DEFAULT
-                        ),
-                        variant=variant.get("name"),
-                        error_code=None,
-                        error_message=None,
-                        flag_metadata={
-                            "source": "unleash",
-                            "enabled": variant.get("enabled", False),
-                            "variant_name": variant.get("name") or "",
-                            "app_name": self.app_name,
-                        },
-                    )
-                except (ValueError, TypeError) as e:
-                    # If payload value can't be converted, raise TypeMismatchError
-                    raise TypeMismatchError(str(e))
-                except ParseError:
-                    # Re-raise ParseError directly
-                    raise
-            else:
-                return FlagResolutionDetails(
-                    value=default_value,
-                    reason=Reason.DEFAULT,
-                    variant=None,
-                    error_code=None,
-                    error_message=None,
-                    flag_metadata={
-                        "source": "unleash",
-                        "enabled": variant.get("enabled", False),
-                        "variant_name": variant.get("name") or "",
-                        "app_name": self.app_name,
-                    },
-                )
-        except (
-            FlagNotFoundError,
-            TypeMismatchError,
-            ParseError,
-            GeneralError,
-        ):
-            # Re-raise specific OpenFeature exceptions
-            raise
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {e}")
-            else:
-                raise GeneralError(f"HTTP error: {e}")
-        except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}")
-
     def resolve_boolean_details(
         self,
         flag_key: str,
@@ -267,47 +177,9 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
         """Resolve boolean flag details."""
-        if not self.client:
-            raise GeneralError("Provider not initialized. Call initialize() first.")
-
-        try:
-
-            def fallback_func() -> bool:
-                return default_value
-
-            context = self._build_unleash_context(evaluation_context)
-            value = self.client.is_enabled(
-                flag_key, context=context, fallback_function=fallback_func
-            )
-            return FlagResolutionDetails(
-                value=value,
-                reason=(
-                    Reason.TARGETING_MATCH if value != default_value else Reason.DEFAULT
-                ),
-                variant=None,
-                error_code=None,
-                error_message=None,
-                flag_metadata={
-                    "source": "unleash",
-                    "enabled": value,
-                    "app_name": self.app_name,
-                },
-            )
-        except (
-            FlagNotFoundError,
-            TypeMismatchError,
-            ParseError,
-            GeneralError,
-        ):
-            # Re-raise specific OpenFeature exceptions
-            raise
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {e}")
-            else:
-                raise GeneralError(f"HTTP error: {e}")
-        except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}")
+        return self._flag_evaluator.resolve_boolean_details(
+            flag_key, default_value, evaluation_context
+        )
 
     def resolve_string_details(
         self,
@@ -316,8 +188,8 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[str]:
         """Resolve string flag details."""
-        return self._resolve_variant_flag(
-            flag_key, default_value, lambda payload_value: payload_value
+        return self._flag_evaluator.resolve_string_details(
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_integer_details(
@@ -327,8 +199,8 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[int]:
         """Resolve integer flag details."""
-        return self._resolve_variant_flag(
-            flag_key, default_value, lambda payload_value: int(payload_value)
+        return self._flag_evaluator.resolve_integer_details(
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_float_details(
@@ -338,8 +210,8 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
         """Resolve float flag details."""
-        return self._resolve_variant_flag(
-            flag_key, default_value, lambda payload_value: float(payload_value)
+        return self._flag_evaluator.resolve_float_details(
+            flag_key, default_value, evaluation_context
         )
 
     def resolve_object_details(
@@ -351,138 +223,6 @@ class UnleashProvider(AbstractProvider):
         Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
     ]:
         """Resolve object flag details."""
-
-        def object_converter(payload_value: Any) -> Union[dict, list]:
-            if isinstance(payload_value, str):
-                try:
-                    value = json.loads(payload_value)
-                except json.JSONDecodeError as e:
-                    raise ParseError(str(e))
-            else:
-                value = payload_value
-
-            if isinstance(value, (dict, list)):
-                return value
-            else:
-                raise ValueError("Payload value is not a valid object")
-
-        return self._resolve_variant_flag(flag_key, default_value, object_converter)
-
-    async def resolve_boolean_details_async(
-        self,
-        flag_key: str,
-        default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[bool]:
-        """Resolve boolean flag details asynchronously."""
-        if not self.client:
-            raise GeneralError("Provider not initialized. Call initialize() first.")
-
-        try:
-
-            def fallback_func() -> bool:
-                return default_value
-
-            context = self._build_unleash_context(evaluation_context)
-            value = self.client.is_enabled(
-                flag_key, context=context, fallback_function=fallback_func
-            )
-            return FlagResolutionDetails(
-                value=value,
-                reason=(
-                    Reason.TARGETING_MATCH if value != default_value else Reason.DEFAULT
-                ),
-                variant=None,
-                error_code=None,
-                error_message=None,
-                flag_metadata={
-                    "source": "unleash",
-                    "enabled": value,
-                    "app_name": self.app_name,
-                },
-            )
-        except (
-            FlagNotFoundError,
-            TypeMismatchError,
-            ParseError,
-            GeneralError,
-        ):
-            # Re-raise specific OpenFeature exceptions
-            raise
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {e}")
-            else:
-                raise GeneralError(f"HTTP error: {e}")
-        except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}")
-
-    async def resolve_string_details_async(
-        self,
-        flag_key: str,
-        default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[str]:
-        """Resolve string flag details asynchronously."""
-        return self._resolve_variant_flag(
-            flag_key,
-            default_value,
-            lambda payload_value: payload_value,
-            evaluation_context,
-        )
-
-    async def resolve_integer_details_async(
-        self,
-        flag_key: str,
-        default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[int]:
-        """Resolve integer flag details asynchronously."""
-        return self._resolve_variant_flag(
-            flag_key,
-            default_value,
-            lambda payload_value: int(payload_value),
-            evaluation_context,
-        )
-
-    async def resolve_float_details_async(
-        self,
-        flag_key: str,
-        default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[float]:
-        """Resolve float flag details asynchronously."""
-        return self._resolve_variant_flag(
-            flag_key,
-            default_value,
-            lambda payload_value: float(payload_value),
-            evaluation_context,
-        )
-
-    async def resolve_object_details_async(
-        self,
-        flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
-        """Resolve object flag details asynchronously."""
-
-        def object_converter(payload_value: Any) -> Union[dict, list]:
-            if isinstance(payload_value, str):
-                try:
-                    value = json.loads(payload_value)
-                except json.JSONDecodeError as e:
-                    raise ParseError(str(e))
-            else:
-                value = payload_value
-
-            if isinstance(value, (dict, list)):
-                return value
-            else:
-                raise ValueError("Payload value is not a valid object")
-
-        return self._resolve_variant_flag(
-            flag_key, default_value, object_converter, evaluation_context
+        return self._flag_evaluator.resolve_object_details(
+            flag_key, default_value, evaluation_context
         )
