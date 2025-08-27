@@ -1,7 +1,7 @@
-from typing import List, Optional, Union
+from typing import List, Mapping, Optional, Sequence, Union
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.flag_evaluation import FlagResolutionDetails
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata
 
@@ -9,13 +9,13 @@ __all__ = ["UnleashProvider"]
 
 
 class UnleashProvider(AbstractProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the Unleash provider."""
         pass
 
     def get_metadata(self) -> Metadata:
         """Get provider metadata."""
-        raise NotImplementedError("UnleashProvider.get_metadata() not implemented")
+        return Metadata(name="Unleash Provider")
 
     def get_provider_hooks(self) -> List[Hook]:
         """Get provider hooks."""
@@ -68,7 +68,7 @@ class UnleashProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[dict, list],
+        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[Union[dict, list]]:
         """Resolve object flag details."""
