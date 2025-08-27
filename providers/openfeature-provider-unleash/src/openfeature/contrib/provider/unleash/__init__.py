@@ -5,7 +5,14 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata
-from openfeature.exception import ErrorCode
+from openfeature.exception import (
+    ErrorCode,
+    FlagNotFoundError,
+    GeneralError,
+    InvalidContextError,
+    ParseError,
+    TypeMismatchError,
+)
 from UnleashClient import UnleashClient
 
 __all__ = ["UnleashProvider"]
@@ -43,6 +50,19 @@ class UnleashProvider(AbstractProvider):
         if hasattr(self, "client"):
             self.client.destroy()
 
+    def _build_unleash_context(
+        self, evaluation_context: Optional[EvaluationContext] = None
+    ) -> Optional[dict[str, Any]]:
+        """Convert OpenFeature evaluation context to Unleash context."""
+        if not evaluation_context:
+            return None
+
+        context: dict[str, Any] = {}
+        if evaluation_context.targeting_key:
+            context["userId"] = evaluation_context.targeting_key
+        context.update(evaluation_context.attributes)
+        return context
+
     def _resolve_variant_flag(
         self,
         flag_key: str,
@@ -63,7 +83,8 @@ class UnleashProvider(AbstractProvider):
         """
         try:
             # Use get_variant to get the variant payload
-            variant = self.client.get_variant(flag_key)
+            context = self._build_unleash_context(evaluation_context)
+            variant = self.client.get_variant(flag_key, context=context)
 
             # Check if the feature is enabled and has a payload
             if variant.get("enabled", False) and "payload" in variant:
@@ -82,14 +103,14 @@ class UnleashProvider(AbstractProvider):
                         error_message=None,
                         flag_metadata={},
                     )
-                except (ValueError, TypeError):
-                    # If payload value can't be converted, return default
+                except (ValueError, TypeError) as e:
+                    # If payload value can't be converted, return error
                     return FlagResolutionDetails(
                         value=default_value,
-                        reason=Reason.DEFAULT,
+                        reason=Reason.ERROR,
                         variant=variant.get("name"),
-                        error_code=None,
-                        error_message=None,
+                        error_code=ErrorCode.TYPE_MISMATCH,
+                        error_message=str(e),
                         flag_metadata={},
                     )
             else:
@@ -119,12 +140,14 @@ class UnleashProvider(AbstractProvider):
     ) -> FlagResolutionDetails[bool]:
         """Resolve boolean flag details."""
         try:
-            # UnleashClient.is_enabled expects (feature_name, context=None, fallback_function=None)
-            # We use a fallback function to return our default value
+
             def fallback_func() -> bool:
                 return default_value
 
-            value = self.client.is_enabled(flag_key, fallback_function=fallback_func)
+            context = self._build_unleash_context(evaluation_context)
+            value = self.client.is_enabled(
+                flag_key, context=context, fallback_function=fallback_func
+            )
             return FlagResolutionDetails(
                 value=value,
                 reason=(
@@ -215,7 +238,10 @@ class UnleashProvider(AbstractProvider):
             def fallback_func() -> bool:
                 return default_value
 
-            value = self.client.is_enabled(flag_key, fallback_function=fallback_func)
+            context = self._build_unleash_context(evaluation_context)
+            value = self.client.is_enabled(
+                flag_key, context=context, fallback_function=fallback_func
+            )
             return FlagResolutionDetails(
                 value=value,
                 reason=(
@@ -244,7 +270,10 @@ class UnleashProvider(AbstractProvider):
     ) -> FlagResolutionDetails[str]:
         """Resolve string flag details asynchronously."""
         return self._resolve_variant_flag(
-            flag_key, default_value, lambda payload_value: payload_value
+            flag_key,
+            default_value,
+            lambda payload_value: payload_value,
+            evaluation_context,
         )
 
     async def resolve_integer_details_async(
@@ -255,7 +284,10 @@ class UnleashProvider(AbstractProvider):
     ) -> FlagResolutionDetails[int]:
         """Resolve integer flag details asynchronously."""
         return self._resolve_variant_flag(
-            flag_key, default_value, lambda payload_value: int(payload_value)
+            flag_key,
+            default_value,
+            lambda payload_value: int(payload_value),
+            evaluation_context,
         )
 
     async def resolve_float_details_async(
@@ -266,7 +298,10 @@ class UnleashProvider(AbstractProvider):
     ) -> FlagResolutionDetails[float]:
         """Resolve float flag details asynchronously."""
         return self._resolve_variant_flag(
-            flag_key, default_value, lambda payload_value: float(payload_value)
+            flag_key,
+            default_value,
+            lambda payload_value: float(payload_value),
+            evaluation_context,
         )
 
     async def resolve_object_details_async(
@@ -290,4 +325,6 @@ class UnleashProvider(AbstractProvider):
             else:
                 raise ValueError("Payload value is not a valid object")
 
-        return self._resolve_variant_flag(flag_key, default_value, object_converter)
+        return self._resolve_variant_flag(
+            flag_key, default_value, object_converter, evaluation_context
+        )
