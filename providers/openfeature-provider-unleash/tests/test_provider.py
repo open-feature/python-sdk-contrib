@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from openfeature.contrib.provider.unleash import UnleashProvider
+from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import Reason
 from openfeature.exception import ErrorCode
 
@@ -320,5 +321,141 @@ async def test_unleash_provider_resolve_object_details_async():
         assert flag.value == {"key": "value", "number": 42}
         assert flag.reason == Reason.TARGETING_MATCH
         assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+def test_unleash_provider_with_evaluation_context():
+    """Test that UnleashProvider uses evaluation context correctly."""
+    mock_client = Mock()
+    mock_client.is_enabled.return_value = True
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        context = EvaluationContext(
+            targeting_key="user123",
+            attributes={"email": "user@example.com", "country": "US"},
+        )
+
+        flag = provider.resolve_boolean_details("test_flag", False, context)
+        assert flag.value is True
+
+        # Verify that context was passed to UnleashClient
+        mock_client.is_enabled.assert_called_with(
+            "test_flag",
+            context={"userId": "user123", "email": "user@example.com", "country": "US"},
+            fallback_function=mock_client.is_enabled.call_args[1]["fallback_function"],
+        )
+
+        provider.shutdown()
+
+
+def test_unleash_provider_type_mismatch_error():
+    """Test that UnleashProvider handles type mismatch errors correctly."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "not-a-number"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_integer_details("test_flag", 0)
+        assert flag.value == 0
+        assert flag.reason == Reason.ERROR
+        assert flag.error_code == ErrorCode.TYPE_MISMATCH
+        assert "invalid literal for int()" in flag.error_message
+
+        provider.shutdown()
+
+
+def test_unleash_provider_parse_error():
+    """Test that UnleashProvider handles parse errors correctly."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "invalid-json{"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_object_details("test_flag", {"default": "value"})
+        assert flag.value == {"default": "value"}
+        assert flag.reason == Reason.ERROR
+        assert flag.error_code == ErrorCode.TYPE_MISMATCH
+        assert "Expecting value" in flag.error_message
+
+        provider.shutdown()
+
+
+def test_unleash_provider_invalid_context_error():
+    """Test that UnleashProvider handles invalid context errors correctly."""
+    mock_client = Mock()
+    mock_client.is_enabled.side_effect = Exception("Invalid context provided")
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        context = EvaluationContext(
+            targeting_key="user123", attributes={"invalid": "context"}
+        )
+
+        flag = provider.resolve_boolean_details("test_flag", True, context)
+        assert flag.value is True
+        assert flag.reason == Reason.ERROR
+        assert flag.error_code == ErrorCode.GENERAL
+        assert "Invalid context provided" in flag.error_message
+
+        provider.shutdown()
+
+
+def test_unleash_provider_flag_not_found_error():
+    """Test that UnleashProvider handles flag not found errors correctly."""
+    mock_client = Mock()
+    mock_client.get_variant.side_effect = Exception("Flag not found")
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_string_details("non_existent_flag", "default")
+        assert flag.value == "default"
+        assert flag.reason == Reason.ERROR
+        assert flag.error_code == ErrorCode.GENERAL
+        assert "Flag not found" in flag.error_message
 
         provider.shutdown()
