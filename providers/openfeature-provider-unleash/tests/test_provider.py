@@ -30,23 +30,19 @@ def test_unleash_provider_get_metadata():
     provider.shutdown()
 
 
-def test_unleash_provider_methods_not_implemented():
-    """Test that UnleashProvider methods raise NotImplementedError."""
+def test_unleash_provider_all_methods_implemented():
+    """Test that all UnleashProvider methods are implemented."""
     provider = UnleashProvider(
         url="http://localhost:4242", app_name="test-app", api_token="test-token"
     )
 
-    with pytest.raises(NotImplementedError):
-        provider.resolve_string_details("test_flag", "default")
+    # All methods should be callable (not raise NotImplementedError)
+    assert callable(provider.resolve_string_details)
+    assert callable(provider.resolve_integer_details)
+    assert callable(provider.resolve_float_details)
+    assert callable(provider.resolve_object_details)
 
-    with pytest.raises(NotImplementedError):
-        provider.resolve_integer_details("test_flag", 1)
-
-    with pytest.raises(NotImplementedError):
-        provider.resolve_float_details("test_flag", 1.0)
-
-    with pytest.raises(NotImplementedError):
-        provider.resolve_object_details("test_flag", {"key": "value"})
+    provider.shutdown()
 
 
 def test_unleash_provider_hooks():
@@ -88,5 +84,109 @@ def test_unleash_provider_resolve_boolean_details_error():
         assert flag.reason == Reason.ERROR
         assert flag.error_code == ErrorCode.GENERAL
         assert flag.error_message == "Connection error"
+
+        provider.shutdown()
+
+
+def test_unleash_provider_resolve_string_details():
+    """Test that UnleashProvider can resolve string flags."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "test-string"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_string_details("test_flag", "default")
+        assert flag.value == "test-string"
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+def test_unleash_provider_resolve_integer_details():
+    """Test that UnleashProvider can resolve integer flags."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "42"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_integer_details("test_flag", 0)
+        assert flag.value == 42
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+def test_unleash_provider_resolve_float_details():
+    """Test that UnleashProvider can resolve float flags."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "3.14"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_float_details("test_flag", 0.0)
+        assert flag.value == 3.14
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+def test_unleash_provider_resolve_object_details():
+    """Test that UnleashProvider can resolve object flags."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": '{"key": "value", "number": 42}'},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = provider.resolve_object_details("test_flag", {"default": "value"})
+        assert flag.value == {"key": "value", "number": 42}
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
 
         provider.shutdown()
