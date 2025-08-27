@@ -1289,6 +1289,7 @@ dev = [
     { name = "mypy", extra = ["faster-cache"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "types-requests" },
 ]
 
 [package.metadata]
@@ -1303,6 +1304,7 @@ dev = [
     { name = "mypy", extras = ["faster-cache"], specifier = ">=1.17.0,<2.0.0" },
     { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
+    { name = "types-requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]

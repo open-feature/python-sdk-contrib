@@ -6,13 +6,12 @@ from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Re
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata
 from openfeature.exception import (
-    ErrorCode,
     FlagNotFoundError,
     GeneralError,
-    InvalidContextError,
     ParseError,
     TypeMismatchError,
 )
+import requests
 from UnleashClient import UnleashClient
 
 __all__ = ["UnleashProvider"]
@@ -104,15 +103,11 @@ class UnleashProvider(AbstractProvider):
                         flag_metadata={},
                     )
                 except (ValueError, TypeError) as e:
-                    # If payload value can't be converted, return error
-                    return FlagResolutionDetails(
-                        value=default_value,
-                        reason=Reason.ERROR,
-                        variant=variant.get("name"),
-                        error_code=ErrorCode.TYPE_MISMATCH,
-                        error_message=str(e),
-                        flag_metadata={},
-                    )
+                    # If payload value can't be converted, raise TypeMismatchError
+                    raise TypeMismatchError(str(e))
+                except ParseError:
+                    # Re-raise ParseError directly
+                    raise
             else:
                 return FlagResolutionDetails(
                     value=default_value,
@@ -122,15 +117,21 @@ class UnleashProvider(AbstractProvider):
                     error_message=None,
                     flag_metadata={},
                 )
+        except (
+            FlagNotFoundError,
+            TypeMismatchError,
+            ParseError,
+            GeneralError,
+        ):
+            # Re-raise specific OpenFeature exceptions
+            raise
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                raise FlagNotFoundError(f"Flag not found: {e}")
+            else:
+                raise GeneralError(f"HTTP error: {e}")
         except Exception as e:
-            return FlagResolutionDetails(
-                value=default_value,
-                reason=Reason.ERROR,
-                variant=None,
-                error_code=ErrorCode.GENERAL,
-                error_message=str(e),
-                flag_metadata={},
-            )
+            raise GeneralError(f"Unexpected error: {e}")
 
     def resolve_boolean_details(
         self,
@@ -158,15 +159,21 @@ class UnleashProvider(AbstractProvider):
                 error_message=None,
                 flag_metadata={},
             )
+        except (
+            FlagNotFoundError,
+            TypeMismatchError,
+            ParseError,
+            GeneralError,
+        ):
+            # Re-raise specific OpenFeature exceptions
+            raise
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                raise FlagNotFoundError(f"Flag not found: {e}")
+            else:
+                raise GeneralError(f"HTTP error: {e}")
         except Exception as e:
-            return FlagResolutionDetails(
-                value=default_value,
-                reason=Reason.ERROR,
-                variant=None,
-                error_code=ErrorCode.GENERAL,
-                error_message=str(e),
-                flag_metadata={},
-            )
+            raise GeneralError(f"Unexpected error: {e}")
 
     def resolve_string_details(
         self,
@@ -212,13 +219,14 @@ class UnleashProvider(AbstractProvider):
         """Resolve object flag details."""
 
         def object_converter(payload_value: Any) -> Union[dict, list]:
-            # If payload is a string, try to parse it as JSON
             if isinstance(payload_value, str):
-                value = json.loads(payload_value)
+                try:
+                    value = json.loads(payload_value)
+                except json.JSONDecodeError as e:
+                    raise ParseError(str(e))
             else:
                 value = payload_value
 
-            # Ensure the value is a valid object (dict or list)
             if isinstance(value, (dict, list)):
                 return value
             else:
@@ -252,15 +260,21 @@ class UnleashProvider(AbstractProvider):
                 error_message=None,
                 flag_metadata={},
             )
+        except (
+            FlagNotFoundError,
+            TypeMismatchError,
+            ParseError,
+            GeneralError,
+        ):
+            # Re-raise specific OpenFeature exceptions
+            raise
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                raise FlagNotFoundError(f"Flag not found: {e}")
+            else:
+                raise GeneralError(f"HTTP error: {e}")
         except Exception as e:
-            return FlagResolutionDetails(
-                value=default_value,
-                reason=Reason.ERROR,
-                variant=None,
-                error_code=ErrorCode.GENERAL,
-                error_message=str(e),
-                flag_metadata={},
-            )
+            raise GeneralError(f"Unexpected error: {e}")
 
     async def resolve_string_details_async(
         self,
@@ -316,7 +330,10 @@ class UnleashProvider(AbstractProvider):
 
         def object_converter(payload_value: Any) -> Union[dict, list]:
             if isinstance(payload_value, str):
-                value = json.loads(payload_value)
+                try:
+                    value = json.loads(payload_value)
+                except json.JSONDecodeError as e:
+                    raise ParseError(str(e))
             else:
                 value = payload_value
 
