@@ -62,6 +62,11 @@ pretty = true
 strict = true
 disallow_any_generics = false
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+
 [project.scripts]
 # workaround while UV doesn't support scripts directly in the pyproject.toml
 # see: https://github.com/astral-sh/uv/issues/5903
