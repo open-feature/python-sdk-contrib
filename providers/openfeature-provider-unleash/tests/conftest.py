@@ -19,6 +19,7 @@ def unleash_provider_client():
         provider = UnleashProvider(
             url="http://localhost:4242", app_name="test-app", api_token="test-token"
         )
+        provider.initialize()
         api.set_provider(provider)
         yield api.get_client()
         provider.shutdown()

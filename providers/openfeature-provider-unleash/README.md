@@ -23,6 +23,9 @@ provider = UnleashProvider(
     api_token="your-api-token"
 )
 
+# Initialize the provider (required before use)
+provider.initialize()
+
 api.set_provider(provider)
 ```
 
@@ -44,6 +47,7 @@ provider = UnleashProvider(
     app_name="my-app",
     api_token="my-token"
 )
+provider.initialize()
 api.set_provider(provider)
 
 # Get a client and evaluate flags

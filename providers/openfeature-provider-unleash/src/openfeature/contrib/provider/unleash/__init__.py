@@ -4,7 +4,7 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.hook import Hook
-from openfeature.provider import AbstractProvider, Metadata
+from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
 from openfeature.exception import (
     FlagNotFoundError,
     GeneralError,
@@ -31,10 +31,36 @@ class UnleashProvider(AbstractProvider):
             app_name: The application name
             api_token: The API token for authentication
         """
-        self.client = UnleashClient(
-            url=url, app_name=app_name, custom_headers={"Authorization": api_token}
-        )
-        self.client.initialize_client()
+        self.url = url
+        self.app_name = app_name
+        self.api_token = api_token
+        self.client: Optional[UnleashClient] = None
+        self._status = ProviderStatus.NOT_READY
+        self._last_context: Optional[EvaluationContext] = None
+
+    def initialize(
+        self, evaluation_context: Optional[EvaluationContext] = None
+    ) -> None:
+        """Initialize the Unleash provider.
+
+        Args:
+            evaluation_context: Optional evaluation context (not used for initialization)
+        """
+        try:
+            self.client = UnleashClient(
+                url=self.url,
+                app_name=self.app_name,
+                custom_headers={"Authorization": self.api_token},
+            )
+            self.client.initialize_client()
+            self._status = ProviderStatus.READY
+        except Exception as e:
+            self._status = ProviderStatus.ERROR
+            raise GeneralError(f"Failed to initialize Unleash provider: {e}") from e
+
+    def get_status(self) -> ProviderStatus:
+        """Get the current status of the provider."""
+        return self._status
 
     def get_metadata(self) -> Metadata:
         """Get provider metadata."""
@@ -46,8 +72,27 @@ class UnleashProvider(AbstractProvider):
 
     def shutdown(self) -> None:
         """Shutdown the Unleash client."""
-        if hasattr(self, "client"):
-            self.client.destroy()
+        if self.client:
+            try:
+                self.client.destroy()
+                self.client = None
+                self._status = ProviderStatus.NOT_READY
+            except Exception as e:
+                self._status = ProviderStatus.ERROR
+                raise GeneralError(f"Failed to shutdown Unleash provider: {e}") from e
+
+    def on_context_changed(
+        self,
+        old_context: Optional[EvaluationContext],
+        new_context: Optional[EvaluationContext],
+    ) -> None:
+        """Handle evaluation context changes.
+
+        Args:
+            old_context: The previous evaluation context
+            new_context: The new evaluation context
+        """
+        self._last_context = new_context
 
     def _build_unleash_context(
         self, evaluation_context: Optional[EvaluationContext] = None
@@ -75,11 +120,14 @@ class UnleashProvider(AbstractProvider):
             flag_key: The flag key to resolve
             default_value: The default value to return if flag is disabled
             value_converter: Function to convert payload value to desired type
-            evaluation_context: Optional evaluation context (ignored for now)
+            evaluation_context: Optional evaluation context
 
         Returns:
             FlagResolutionDetails with the resolved value
         """
+        if not self.client:
+            raise GeneralError("Provider not initialized. Call initialize() first.")
+
         try:
             # Use get_variant to get the variant payload
             context = self._build_unleash_context(evaluation_context)
@@ -100,7 +148,12 @@ class UnleashProvider(AbstractProvider):
                         variant=variant.get("name"),
                         error_code=None,
                         error_message=None,
-                        flag_metadata={},
+                        flag_metadata={
+                            "source": "unleash",
+                            "enabled": variant.get("enabled", False),
+                            "variant_name": variant.get("name") or "",
+                            "app_name": self.app_name,
+                        },
                     )
                 except (ValueError, TypeError) as e:
                     # If payload value can't be converted, raise TypeMismatchError
@@ -115,7 +168,12 @@ class UnleashProvider(AbstractProvider):
                     variant=None,
                     error_code=None,
                     error_message=None,
-                    flag_metadata={},
+                    flag_metadata={
+                        "source": "unleash",
+                        "enabled": variant.get("enabled", False),
+                        "variant_name": variant.get("name") or "",
+                        "app_name": self.app_name,
+                    },
                 )
         except (
             FlagNotFoundError,
@@ -140,6 +198,9 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
         """Resolve boolean flag details."""
+        if not self.client:
+            raise GeneralError("Provider not initialized. Call initialize() first.")
+
         try:
 
             def fallback_func() -> bool:
@@ -157,7 +218,11 @@ class UnleashProvider(AbstractProvider):
                 variant=None,
                 error_code=None,
                 error_message=None,
-                flag_metadata={},
+                flag_metadata={
+                    "source": "unleash",
+                    "enabled": value,
+                    "app_name": self.app_name,
+                },
             )
         except (
             FlagNotFoundError,
@@ -241,6 +306,9 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
         """Resolve boolean flag details asynchronously."""
+        if not self.client:
+            raise GeneralError("Provider not initialized. Call initialize() first.")
+
         try:
 
             def fallback_func() -> bool:
@@ -258,7 +326,11 @@ class UnleashProvider(AbstractProvider):
                 variant=None,
                 error_code=None,
                 error_message=None,
-                flag_metadata={},
+                flag_metadata={
+                    "source": "unleash",
+                    "enabled": value,
+                    "app_name": self.app_name,
+                },
             )
         except (
             FlagNotFoundError,
