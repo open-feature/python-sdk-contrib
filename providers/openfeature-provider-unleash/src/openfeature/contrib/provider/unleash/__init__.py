@@ -1,4 +1,5 @@
-from typing import List, Mapping, Optional, Sequence, Union
+import json
+from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
@@ -42,6 +43,74 @@ class UnleashProvider(AbstractProvider):
         if hasattr(self, "client"):
             self.client.destroy()
 
+    def _resolve_variant_flag(
+        self,
+        flag_key: str,
+        default_value: Any,
+        value_converter: Callable[[Any], Any],
+        evaluation_context: Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[Any]:
+        """Helper method to resolve variant-based flags.
+
+        Args:
+            flag_key: The flag key to resolve
+            default_value: The default value to return if flag is disabled
+            value_converter: Function to convert payload value to desired type
+            evaluation_context: Optional evaluation context (ignored for now)
+
+        Returns:
+            FlagResolutionDetails with the resolved value
+        """
+        try:
+            # Use get_variant to get the variant payload
+            variant = self.client.get_variant(flag_key)
+
+            # Check if the feature is enabled and has a payload
+            if variant.get("enabled", False) and "payload" in variant:
+                try:
+                    payload_value = variant["payload"].get("value", default_value)
+                    value = value_converter(payload_value)
+                    return FlagResolutionDetails(
+                        value=value,
+                        reason=(
+                            Reason.TARGETING_MATCH
+                            if value != default_value
+                            else Reason.DEFAULT
+                        ),
+                        variant=variant.get("name"),
+                        error_code=None,
+                        error_message=None,
+                        flag_metadata={},
+                    )
+                except (ValueError, TypeError):
+                    # If payload value can't be converted, return default
+                    return FlagResolutionDetails(
+                        value=default_value,
+                        reason=Reason.DEFAULT,
+                        variant=variant.get("name"),
+                        error_code=None,
+                        error_message=None,
+                        flag_metadata={},
+                    )
+            else:
+                return FlagResolutionDetails(
+                    value=default_value,
+                    reason=Reason.DEFAULT,
+                    variant=None,
+                    error_code=None,
+                    error_message=None,
+                    flag_metadata={},
+                )
+        except Exception as e:
+            return FlagResolutionDetails(
+                value=default_value,
+                reason=Reason.ERROR,
+                variant=None,
+                error_code=ErrorCode.GENERAL,
+                error_message=str(e),
+                flag_metadata={},
+            )
+
     def resolve_boolean_details(
         self,
         flag_key: str,
@@ -83,8 +152,8 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[str]:
         """Resolve string flag details."""
-        raise NotImplementedError(
-            "UnleashProvider.resolve_string_details() not implemented"
+        return self._resolve_variant_flag(
+            flag_key, default_value, lambda payload_value: payload_value
         )
 
     def resolve_integer_details(
@@ -94,8 +163,8 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[int]:
         """Resolve integer flag details."""
-        raise NotImplementedError(
-            "UnleashProvider.resolve_integer_details() not implemented"
+        return self._resolve_variant_flag(
+            flag_key, default_value, lambda payload_value: int(payload_value)
         )
 
     def resolve_float_details(
@@ -105,8 +174,8 @@ class UnleashProvider(AbstractProvider):
         evaluation_context: Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
         """Resolve float flag details."""
-        raise NotImplementedError(
-            "UnleashProvider.resolve_float_details() not implemented"
+        return self._resolve_variant_flag(
+            flag_key, default_value, lambda payload_value: float(payload_value)
         )
 
     def resolve_object_details(
@@ -114,8 +183,22 @@ class UnleashProvider(AbstractProvider):
         flag_key: str,
         default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
         evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[Union[dict, list]]:
+    ) -> FlagResolutionDetails[
+        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+    ]:
         """Resolve object flag details."""
-        raise NotImplementedError(
-            "UnleashProvider.resolve_object_details() not implemented"
-        )
+
+        def object_converter(payload_value: Any) -> Union[dict, list]:
+            # If payload is a string, try to parse it as JSON
+            if isinstance(payload_value, str):
+                value = json.loads(payload_value)
+            else:
+                value = payload_value
+
+            # Ensure the value is a valid object (dict or list)
+            if isinstance(value, (dict, list)):
+                return value
+            else:
+                raise ValueError("Payload value is not a valid object")
+
+        return self._resolve_variant_flag(flag_key, default_value, object_converter)
