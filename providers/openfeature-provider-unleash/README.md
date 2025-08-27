@@ -49,12 +49,19 @@ api.set_provider(provider)
 # Get a client and evaluate flags
 client = api.get_client()
 
-# Resolve different types of flags
+# Resolve different types of flags (synchronous)
 boolean_flag = client.get_boolean_details("my-boolean-flag", default_value=False)
 string_flag = client.get_string_details("my-string-flag", default_value="default")
 integer_flag = client.get_integer_details("my-integer-flag", default_value=0)
 float_flag = client.get_float_details("my-float-flag", default_value=0.0)
 object_flag = client.get_object_details("my-object-flag", default_value={"key": "value"})
+
+# Resolve different types of flags (asynchronous)
+boolean_flag_async = await client.get_boolean_details_async("my-boolean-flag", default_value=False)
+string_flag_async = await client.get_string_details_async("my-string-flag", default_value="default")
+integer_flag_async = await client.get_integer_details_async("my-integer-flag", default_value=0)
+float_flag_async = await client.get_float_details_async("my-float-flag", default_value=0.0)
+object_flag_async = await client.get_object_details_async("my-object-flag", default_value={"key": "value"})
 
 # Check flag values
 if boolean_flag.value:
