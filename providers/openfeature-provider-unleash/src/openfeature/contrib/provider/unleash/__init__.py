@@ -1,28 +1,23 @@
 import json
-import uuid
 from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
 
+from UnleashClient import UnleashClient
+from UnleashClient.events import BaseEvent, UnleashFetchedEvent, UnleashReadyEvent
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
-from openfeature.hook import Hook
-from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
 from openfeature.event import ProviderEvent
 from openfeature.exception import (
+    ErrorCode,
     FlagNotFoundError,
     GeneralError,
     ParseError,
     TypeMismatchError,
-    ErrorCode,
 )
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
+from openfeature.hook import Hook
+from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
 import requests
-from UnleashClient import UnleashClient
-from UnleashClient.events import (
-    BaseEvent,
-    UnleashReadyEvent,
-    UnleashFetchedEvent,
-    UnleashEvent,
-    UnleashEventType,
-)
+
+from .tracking import Tracker
 
 __all__ = ["UnleashProvider"]
 
@@ -53,6 +48,7 @@ class UnleashProvider(AbstractProvider):
             ProviderEvent.PROVIDER_CONFIGURATION_CHANGED: [],
             ProviderEvent.PROVIDER_STALE: [],
         }
+        self._tracking_manager = Tracker(self)
 
     def initialize(
         self, evaluation_context: Optional[EvaluationContext] = None
@@ -192,30 +188,7 @@ class UnleashProvider(AbstractProvider):
             evaluation_context: Optional evaluation context
             event_details: Optional tracking event details
         """
-        if not self.client:
-            return
-
-        unleash_context = self._build_unleash_context(evaluation_context) or {}
-
-        if event_details:
-            unleash_context.update(
-                {
-                    "tracking_value": event_details.get("value"),
-                    "tracking_details": event_details,
-                }
-            )
-
-        tracking_event = UnleashEvent(
-            event_type=UnleashEventType.FEATURE_FLAG,
-            event_id=uuid.uuid4(),
-            context=unleash_context,
-            enabled=True,
-            feature_name=event_name,
-            variant="tracking_event",
-        )
-
-        if hasattr(self, "_unleash_event_callback"):
-            self._unleash_event_callback(tracking_event)
+        self._tracking_manager.track(event_name, evaluation_context, event_details)
 
     def _build_unleash_context(
         self, evaluation_context: Optional[EvaluationContext] = None
