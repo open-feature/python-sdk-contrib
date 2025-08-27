@@ -63,6 +63,22 @@ integer_flag_async = await client.get_integer_details_async("my-integer-flag", d
 float_flag_async = await client.get_float_details_async("my-float-flag", default_value=0.0)
 object_flag_async = await client.get_object_details_async("my-object-flag", default_value={"key": "value"})
 
+# Using evaluation context for targeting
+from openfeature.evaluation_context import EvaluationContext
+
+context = EvaluationContext(
+    targeting_key="user123",
+    attributes={"email": "user@example.com", "country": "US", "plan": "premium"}
+)
+
+# Resolve flags with context (synchronous)
+boolean_with_context = client.get_boolean_details("my-boolean-flag", default_value=False, evaluation_context=context)
+string_with_context = client.get_string_details("my-string-flag", default_value="default", evaluation_context=context)
+
+# Resolve flags with context (asynchronous)
+boolean_async_with_context = await client.get_boolean_details_async("my-boolean-flag", default_value=False, evaluation_context=context)
+string_async_with_context = await client.get_string_details_async("my-string-flag", default_value="default", evaluation_context=context)
+
 # Check flag values
 if boolean_flag.value:
     print("Boolean feature is enabled!")
