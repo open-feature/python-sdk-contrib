@@ -190,3 +190,135 @@ def test_unleash_provider_resolve_object_details():
         assert flag.variant == "test-variant"
 
         provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_unleash_provider_resolve_boolean_details_async():
+    """Test that UnleashProvider can resolve boolean flags asynchronously."""
+    mock_client = Mock()
+    mock_client.is_enabled.return_value = True
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = await provider.resolve_boolean_details_async("test_flag", False)
+        assert flag.value is True
+        assert flag.reason == Reason.TARGETING_MATCH
+
+        provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_unleash_provider_resolve_string_details_async():
+    """Test that UnleashProvider can resolve string flags asynchronously."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "test-string"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = await provider.resolve_string_details_async("test_flag", "default")
+        assert flag.value == "test-string"
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_unleash_provider_resolve_integer_details_async():
+    """Test that UnleashProvider can resolve integer flags asynchronously."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "42"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = await provider.resolve_integer_details_async("test_flag", 0)
+        assert flag.value == 42
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_unleash_provider_resolve_float_details_async():
+    """Test that UnleashProvider can resolve float flags asynchronously."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": "3.14"},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = await provider.resolve_float_details_async("test_flag", 0.0)
+        assert flag.value == 3.14
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_unleash_provider_resolve_object_details_async():
+    """Test that UnleashProvider can resolve object flags asynchronously."""
+    mock_client = Mock()
+    mock_client.get_variant.return_value = {
+        "enabled": True,
+        "name": "test-variant",
+        "payload": {"value": '{"key": "value", "number": 42}'},
+    }
+
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
+
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+
+        flag = await provider.resolve_object_details_async(
+            "test_flag", {"default": "value"}
+        )
+        assert flag.value == {"key": "value", "number": 42}
+        assert flag.reason == Reason.TARGETING_MATCH
+        assert flag.variant == "test-variant"
+
+        provider.shutdown()

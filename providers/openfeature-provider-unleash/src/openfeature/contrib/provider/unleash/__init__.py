@@ -202,3 +202,92 @@ class UnleashProvider(AbstractProvider):
                 raise ValueError("Payload value is not a valid object")
 
         return self._resolve_variant_flag(flag_key, default_value, object_converter)
+
+    async def resolve_boolean_details_async(
+        self,
+        flag_key: str,
+        default_value: bool,
+        evaluation_context: Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[bool]:
+        """Resolve boolean flag details asynchronously."""
+        try:
+
+            def fallback_func() -> bool:
+                return default_value
+
+            value = self.client.is_enabled(flag_key, fallback_function=fallback_func)
+            return FlagResolutionDetails(
+                value=value,
+                reason=(
+                    Reason.TARGETING_MATCH if value != default_value else Reason.DEFAULT
+                ),
+                variant=None,
+                error_code=None,
+                error_message=None,
+                flag_metadata={},
+            )
+        except Exception as e:
+            return FlagResolutionDetails(
+                value=default_value,
+                reason=Reason.ERROR,
+                variant=None,
+                error_code=ErrorCode.GENERAL,
+                error_message=str(e),
+                flag_metadata={},
+            )
+
+    async def resolve_string_details_async(
+        self,
+        flag_key: str,
+        default_value: str,
+        evaluation_context: Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[str]:
+        """Resolve string flag details asynchronously."""
+        return self._resolve_variant_flag(
+            flag_key, default_value, lambda payload_value: payload_value
+        )
+
+    async def resolve_integer_details_async(
+        self,
+        flag_key: str,
+        default_value: int,
+        evaluation_context: Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[int]:
+        """Resolve integer flag details asynchronously."""
+        return self._resolve_variant_flag(
+            flag_key, default_value, lambda payload_value: int(payload_value)
+        )
+
+    async def resolve_float_details_async(
+        self,
+        flag_key: str,
+        default_value: float,
+        evaluation_context: Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[float]:
+        """Resolve float flag details asynchronously."""
+        return self._resolve_variant_flag(
+            flag_key, default_value, lambda payload_value: float(payload_value)
+        )
+
+    async def resolve_object_details_async(
+        self,
+        flag_key: str,
+        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
+        evaluation_context: Optional[EvaluationContext] = None,
+    ) -> FlagResolutionDetails[
+        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+    ]:
+        """Resolve object flag details asynchronously."""
+
+        def object_converter(payload_value: Any) -> Union[dict, list]:
+            if isinstance(payload_value, str):
+                value = json.loads(payload_value)
+            else:
+                value = payload_value
+
+            if isinstance(value, (dict, list)):
+                return value
+            else:
+                raise ValueError("Payload value is not a valid object")
+
+        return self._resolve_variant_flag(flag_key, default_value, object_converter)
