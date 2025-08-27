@@ -5,14 +5,17 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
+from openfeature.event import ProviderEvent
 from openfeature.exception import (
     FlagNotFoundError,
     GeneralError,
     ParseError,
     TypeMismatchError,
+    ErrorCode,
 )
 import requests
 from UnleashClient import UnleashClient
+from UnleashClient.events import BaseEvent, UnleashReadyEvent, UnleashFetchedEvent
 
 __all__ = ["UnleashProvider"]
 
@@ -37,6 +40,12 @@ class UnleashProvider(AbstractProvider):
         self.client: Optional[UnleashClient] = None
         self._status = ProviderStatus.NOT_READY
         self._last_context: Optional[EvaluationContext] = None
+        self._event_handlers: dict[ProviderEvent, List[Callable]] = {
+            ProviderEvent.PROVIDER_READY: [],
+            ProviderEvent.PROVIDER_ERROR: [],
+            ProviderEvent.PROVIDER_CONFIGURATION_CHANGED: [],
+            ProviderEvent.PROVIDER_STALE: [],
+        }
 
     def initialize(
         self, evaluation_context: Optional[EvaluationContext] = None
@@ -51,11 +60,18 @@ class UnleashProvider(AbstractProvider):
                 url=self.url,
                 app_name=self.app_name,
                 custom_headers={"Authorization": self.api_token},
+                event_callback=self._unleash_event_callback,
             )
             self.client.initialize_client()
             self._status = ProviderStatus.READY
+            self._emit_event(ProviderEvent.PROVIDER_READY)
         except Exception as e:
             self._status = ProviderStatus.ERROR
+            self._emit_event(
+                ProviderEvent.PROVIDER_ERROR,
+                error_message=str(e),
+                error_code=ErrorCode.GENERAL,
+            )
             raise GeneralError(f"Failed to initialize Unleash provider: {e}") from e
 
     def get_status(self) -> ProviderStatus:
@@ -79,6 +95,11 @@ class UnleashProvider(AbstractProvider):
                 self._status = ProviderStatus.NOT_READY
             except Exception as e:
                 self._status = ProviderStatus.ERROR
+                self._emit_event(
+                    ProviderEvent.PROVIDER_ERROR,
+                    error_message=str(e),
+                    error_code=ErrorCode.GENERAL,
+                )
                 raise GeneralError(f"Failed to shutdown Unleash provider: {e}") from e
 
     def on_context_changed(
@@ -93,6 +114,63 @@ class UnleashProvider(AbstractProvider):
             new_context: The new evaluation context
         """
         self._last_context = new_context
+
+    def add_handler(self, event_type: ProviderEvent, handler: Callable) -> None:
+        """Add an event handler for a specific event type.
+
+        Args:
+            event_type: The type of event to handle
+            handler: The handler function to call
+        """
+        if event_type in self._event_handlers:
+            self._event_handlers[event_type].append(handler)
+
+    def remove_handler(self, event_type: ProviderEvent, handler: Callable) -> None:
+        """Remove an event handler for a specific event type.
+
+        Args:
+            event_type: The type of event to handle
+            handler: The handler function to remove
+        """
+        if (
+            event_type in self._event_handlers
+            and handler in self._event_handlers[event_type]
+        ):
+            self._event_handlers[event_type].remove(handler)
+
+    def _emit_event(self, event_type: ProviderEvent, **kwargs: Any) -> None:
+        """Emit an event to all registered handlers.
+
+        Args:
+            event_type: The type of event to emit
+            **kwargs: Additional event data
+        """
+        if event_type in self._event_handlers:
+            event_details = {"provider_name": self.get_metadata().name, **kwargs}
+            for handler in self._event_handlers[event_type]:
+                try:
+                    handler(event_details)
+                except Exception:
+                    # Ignore handler errors to prevent breaking other handlers
+                    pass
+
+    def _unleash_event_callback(self, event: BaseEvent) -> None:
+        """Callback for UnleashClient events.
+
+        Args:
+            event: The Unleash event
+        """
+        if isinstance(event, UnleashReadyEvent):
+            self._status = ProviderStatus.READY
+            self._emit_event(ProviderEvent.PROVIDER_READY)
+        elif isinstance(event, UnleashFetchedEvent):
+            # Configuration changed when features are fetched
+            self._emit_event(
+                ProviderEvent.PROVIDER_CONFIGURATION_CHANGED,
+                flag_keys=(
+                    list(event.features.keys()) if hasattr(event, "features") else []
+                ),
+            )
 
     def _build_unleash_context(
         self, evaluation_context: Optional[EvaluationContext] = None
