@@ -82,9 +82,18 @@ class EventManager:
             self.emit_event(ProviderEvent.PROVIDER_READY)
         elif isinstance(event, UnleashFetchedEvent):
             # Configuration changed when features are fetched
+            flag_keys = []
+            if hasattr(event, "features"):
+                if isinstance(event.features, dict):
+                    flag_keys = list(event.features.keys())
+                elif isinstance(event.features, list):
+                    flag_keys = [
+                        feature.get("name", "")
+                        for feature in event.features
+                        if isinstance(feature, dict)
+                    ]
+
             self.emit_event(
                 ProviderEvent.PROVIDER_CONFIGURATION_CHANGED,
-                flag_keys=(
-                    list(event.features.keys()) if hasattr(event, "features") else []
-                ),
+                flag_keys=flag_keys,
             )
