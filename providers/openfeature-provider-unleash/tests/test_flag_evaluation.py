@@ -2,6 +2,9 @@
 
 from unittest.mock import Mock, patch
 
+import pytest
+import requests
+
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
@@ -11,8 +14,6 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import Reason
-import pytest
-import requests
 
 
 def test_resolve_boolean_details():
@@ -128,7 +129,6 @@ def test_with_evaluation_context():
         flag = provider.resolve_boolean_details("test_flag", False, context)
         assert flag.value is True
 
-        # Verify that context was passed to UnleashClient
         mock_client.is_enabled.assert_called_with(
             "test_flag",
             context={"userId": "user123", "email": "user@example.com", "country": "US"},
