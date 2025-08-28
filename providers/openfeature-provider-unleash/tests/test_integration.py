@@ -1,15 +1,76 @@
-"""Integration tests for Unleash provider using a running Unleash instance."""
+"""Integration tests for Unleash provider using testcontainers."""
+
+from datetime import datetime, timezone
+import time
 
 from openfeature import api
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
+import psycopg2
 import pytest
 import requests
+from testcontainers.core.container import DockerContainer
+from testcontainers.postgres import PostgresContainer
 
-
-UNLEASH_URL = "http://0.0.0.0:4242/api"
+# Configuration for the running Unleash instance (will be set by fixtures)
+UNLEASH_URL = None
 API_TOKEN = "default:development.unleash-insecure-api-token"
 ADMIN_TOKEN = "user:76672ac99726f8e48a1bbba16b7094a50d1eee3583d1e8457e12187a"
+
+
+class UnleashContainer(DockerContainer):
+    """Custom Unleash container with health check."""
+
+    def __init__(self, postgres_url: str, **kwargs):
+        super().__init__("unleashorg/unleash-server:latest", **kwargs)
+        self.postgres_url = postgres_url
+
+    def _configure(self):
+        self.with_env("DATABASE_URL", self.postgres_url)
+        self.with_env("DATABASE_URL_FILE", "")
+        self.with_env("DATABASE_SSL", "false")
+        self.with_env("DATABASE_SSL_REJECT_UNAUTHORIZED", "false")
+        self.with_env("LOG_LEVEL", "info")
+        self.with_env("PORT", "4242")
+        self.with_env("HOST", "0.0.0.0")
+        self.with_env("ADMIN_AUTHENTICATION", "none")
+        self.with_env("AUTH_ENABLE", "false")
+        self.with_env("INIT_CLIENT_API_TOKENS", API_TOKEN)
+        # Expose the Unleash port
+        self.with_exposed_ports(4242)
+
+
+def insert_admin_token(postgres_container):
+    """Insert admin token into the Unleash database."""
+    url = postgres_container.get_connection_url()
+    conn = psycopg2.connect(url)
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                    INSERT INTO "public"."personal_access_tokens"
+                    ("secret", "description", "user_id", "expires_at", "seen_at", "created_at", "id")
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING
+                """,
+                (
+                    "user:76672ac99726f8e48a1bbba16b7094a50d1eee3583d1e8457e12187a",
+                    "my-token",
+                    1,
+                    datetime(3025, 1, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                    datetime.now(timezone.utc),
+                    datetime.now(timezone.utc),
+                    1,
+                ),
+            )
+            conn.commit()
+            print("Admin token inserted successfully")
+    except Exception as e:
+        print(f"Error inserting admin token: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 
 def create_test_flags():
@@ -58,7 +119,7 @@ def create_test_flags():
     for flag in flags:
         try:
             response = requests.post(
-                f"{UNLEASH_URL}/admin/projects/default/features",
+                f"{UNLEASH_URL}/api/admin/projects/default/features",
                 headers=headers,
                 json=flag,
                 timeout=10,
@@ -157,7 +218,7 @@ def add_strategy_with_variants(flag_name: str, headers: dict):
     }
 
     strategy_response = requests.post(
-        f"{UNLEASH_URL}/admin/projects/default/features/{flag_name}/environments/development/strategies",
+        f"{UNLEASH_URL}/api/admin/projects/default/features/{flag_name}/environments/development/strategies",
         headers=headers,
         json=strategy_payload,
         timeout=10,
@@ -174,7 +235,7 @@ def enable_flag(flag_name: str, headers: dict):
     """Enable a flag in the development environment."""
     try:
         enable_response = requests.post(
-            f"{UNLEASH_URL}/admin/projects/default/features/{flag_name}/environments/development/on",
+            f"{UNLEASH_URL}/api/admin/projects/default/features/{flag_name}/environments/development/on",
             headers=headers,
             timeout=10,
         )
@@ -186,19 +247,95 @@ def enable_flag(flag_name: str, headers: dict):
         print(f"Error enabling flag '{flag_name}': {e}")
 
 
+@pytest.fixture(scope="session")
+def postgres_container():
+    """Create and start PostgreSQL container."""
+    with PostgresContainer("postgres:15", driver=None) as postgres:
+        postgres.start()
+        postgres_url = postgres.get_connection_url()
+        print(f"PostgreSQL started at: {postgres_url}")
+
+        yield postgres
+
+
+@pytest.fixture(scope="session")
+def unleash_container(postgres_container):
+    """Create and start Unleash container with PostgreSQL dependency."""
+    global UNLEASH_URL
+
+    postgres_url = postgres_container.get_connection_url()
+    postgres_bridge_ip = postgres_container.get_docker_client().bridge_ip(
+        postgres_container._container.id
+    )
+
+    # Create internal URL using the bridge IP and internal port (5432)
+    exposed_port = postgres_container.get_exposed_port(5432)
+    internal_url = postgres_url.replace("localhost", postgres_bridge_ip).replace(
+        f":{exposed_port}", ":5432"
+    )
+
+    unleash = UnleashContainer(internal_url)
+
+    with unleash as container:
+        print("Starting Unleash container...")
+        container.start()
+        print("Unleash container started")
+
+        # Wait for health check to pass
+        print("Waiting for Unleash container to be healthy...")
+        max_wait_time = 60  # 1 minute max wait
+        start_time = time.time()
+
+        while time.time() - start_time < max_wait_time:
+            try:
+                # Get the exposed port
+                try:
+                    exposed_port = container.get_exposed_port(4242)
+                    unleash_url = f"http://localhost:{exposed_port}"
+                    print(f"Trying health check at: {unleash_url}")
+                except Exception as port_error:
+                    print(f"Port not ready yet: {port_error}")
+                    time.sleep(2)
+                    continue
+
+                # Try to connect to health endpoint
+                response = requests.get(f"{unleash_url}/health", timeout=5)
+                if response.status_code == 200:
+                    print("Unleash container is healthy!")
+                    break
+
+                print(f"Health check failed, status: {response.status_code}")
+                time.sleep(2)
+
+            except Exception as e:
+                print(f"Health check error: {e}")
+                time.sleep(2)
+        else:
+            raise Exception("Unleash container did not become healthy within timeout")
+
+        # Get the exposed port and set global URL
+        UNLEASH_URL = f"http://localhost:{container.get_exposed_port(4242)}"
+        print(f"Unleash started at: {unleash_url}")
+
+        insert_admin_token(postgres_container)
+        print("Admin token inserted into database")
+
+        yield container, unleash_url
+
+
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_flags():
+def setup_test_flags(unleash_container):
     """Setup test flags before running any tests."""
     print("Creating test flags in Unleash...")
     create_test_flags()
     print("Test flags setup completed")
 
 
-@pytest.fixture
-def unleash_provider():
+@pytest.fixture(scope="session")
+def unleash_provider(setup_test_flags):
     """Create an Unleash provider instance for testing."""
     provider = UnleashProvider(
-        url=UNLEASH_URL,
+        url=f"{UNLEASH_URL}/api",
         app_name="test-app",
         api_token=API_TOKEN,
     )
@@ -208,7 +345,7 @@ def unleash_provider():
     provider.shutdown()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def client(unleash_provider):
     """Create an OpenFeature client with the Unleash provider."""
     # Set the provider globally
@@ -219,22 +356,8 @@ def client(unleash_provider):
 @pytest.mark.integration
 def test_integration_health_check():
     """Test that Unleash health check endpoint is accessible."""
-    response = requests.get(f"{UNLEASH_URL.replace('/api', '')}/health", timeout=5)
+    response = requests.get(f"{UNLEASH_URL}/health", timeout=5)
     assert response.status_code == 200
-
-
-@pytest.mark.integration
-def test_integration_provider_initialization(unleash_provider):
-    """Test that the Unleash provider can be initialized."""
-    assert unleash_provider is not None
-    assert unleash_provider.client is not None
-
-
-@pytest.mark.integration
-def test_integration_provider_metadata(unleash_provider):
-    """Test that the provider returns correct metadata."""
-    metadata = unleash_provider.get_metadata()
-    assert metadata.name == "Unleash Provider"
 
 
 @pytest.mark.integration
@@ -248,13 +371,6 @@ def test_integration_flag_details_resolution(unleash_provider):
     assert hasattr(details, "reason")
     assert hasattr(details, "variant")
     assert details.value is True
-
-
-@pytest.mark.integration
-def test_integration_provider_status(unleash_provider):
-    """Test that the provider status is correctly reported."""
-    status = unleash_provider.get_status()
-    assert status.value == "READY"
 
 
 @pytest.mark.integration

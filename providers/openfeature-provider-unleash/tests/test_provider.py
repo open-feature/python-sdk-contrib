@@ -59,27 +59,35 @@ def test_unleash_provider_initialization():
 
 def test_unleash_provider_all_methods_implemented():
     """Test that all required methods are implemented."""
-    provider = UnleashProvider(
-        url="http://localhost:4242", app_name="test-app", api_token="test-token"
-    )
-    provider.initialize()
+    mock_client = Mock()
+    mock_client.initialize_client.return_value = None
 
-    # Test that all required methods exist
-    assert hasattr(provider, "get_metadata")
-    assert hasattr(provider, "resolve_boolean_details")
-    assert hasattr(provider, "resolve_string_details")
-    assert hasattr(provider, "resolve_integer_details")
-    assert hasattr(provider, "resolve_float_details")
-    assert hasattr(provider, "resolve_object_details")
-    assert hasattr(provider, "initialize")
-    assert hasattr(provider, "get_status")
-    assert hasattr(provider, "shutdown")
-    assert hasattr(provider, "on_context_changed")
-    assert hasattr(provider, "add_handler")
-    assert hasattr(provider, "remove_handler")
-    assert hasattr(provider, "track")
+    with patch(
+        "openfeature.contrib.provider.unleash.UnleashClient"
+    ) as mock_unleash_client:
+        mock_unleash_client.return_value = mock_client
 
-    provider.shutdown()
+        provider = UnleashProvider(
+            url="http://localhost:4242", app_name="test-app", api_token="test-token"
+        )
+        provider.initialize()
+
+        # Test that all required methods exist
+        assert hasattr(provider, "get_metadata")
+        assert hasattr(provider, "resolve_boolean_details")
+        assert hasattr(provider, "resolve_string_details")
+        assert hasattr(provider, "resolve_integer_details")
+        assert hasattr(provider, "resolve_float_details")
+        assert hasattr(provider, "resolve_object_details")
+        assert hasattr(provider, "initialize")
+        assert hasattr(provider, "get_status")
+        assert hasattr(provider, "shutdown")
+        assert hasattr(provider, "on_context_changed")
+        assert hasattr(provider, "add_handler")
+        assert hasattr(provider, "remove_handler")
+        assert hasattr(provider, "track")
+
+        provider.shutdown()
 
 
 def test_unleash_provider_hooks():
