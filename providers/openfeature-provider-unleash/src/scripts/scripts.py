@@ -26,3 +26,8 @@ def cov() -> None:
 def mypy() -> None:
     """Run mypy."""
     subprocess.run("mypy", shell=True, check=True)
+
+
+def lint() -> None:
+    """Run ruff linting."""
+    subprocess.run("ruff check", shell=True, check=True)
