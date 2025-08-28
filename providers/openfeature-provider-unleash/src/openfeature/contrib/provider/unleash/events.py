@@ -1,8 +1,10 @@
 """Events functionality for Unleash provider."""
 
-from typing import Any, Callable, List, Protocol
+from contextlib import suppress
+from typing import Any, Callable, Protocol
 
 from UnleashClient.events import BaseEvent, UnleashFetchedEvent, UnleashReadyEvent
+
 from openfeature.event import ProviderEvent
 from openfeature.provider import Metadata
 
@@ -11,7 +13,7 @@ class UnleashProvider(Protocol):
     """Protocol defining the interface expected from UnleashProvider for events."""
 
     @property
-    def _event_handlers(self) -> dict[ProviderEvent, List[Callable]]:
+    def _event_handlers(self) -> dict[ProviderEvent, list[Callable]]:
         """Event handlers dictionary."""
         ...
 
@@ -67,11 +69,8 @@ class EventManager:
                 **kwargs,
             }
             for handler in self._provider._event_handlers[event_type]:
-                try:
+                with suppress(Exception):
                     handler(event_details)
-                except Exception:
-                    # Ignore handler errors to prevent breaking other handlers
-                    pass
 
     def handle_unleash_event(self, event: BaseEvent) -> None:
         """Handle UnleashClient events and translate them to OpenFeature events.

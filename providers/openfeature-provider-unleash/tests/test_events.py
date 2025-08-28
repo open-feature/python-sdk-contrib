@@ -1,18 +1,19 @@
 """Tests for events functionality."""
 
-from unittest.mock import Mock, patch
 import uuid
+from unittest.mock import Mock, patch
 
+import pytest
 from UnleashClient.events import (
     UnleashEventType,
     UnleashFetchedEvent,
     UnleashReadyEvent,
 )
+
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.event import ProviderEvent
 from openfeature.exception import GeneralError
 from openfeature.provider import ProviderStatus
-import pytest
 
 
 def test_events():
@@ -70,8 +71,6 @@ def test_events():
         # Test handler removal
         provider.remove_handler(ProviderEvent.PROVIDER_READY, on_ready)
         provider.shutdown()  # Should not trigger ready event again
-
-        provider.shutdown()
 
 
 def test_unleash_event_callback():

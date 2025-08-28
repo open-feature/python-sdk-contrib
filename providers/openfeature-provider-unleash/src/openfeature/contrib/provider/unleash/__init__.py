@@ -1,7 +1,9 @@
-from typing import Any, Callable, List, Mapping, Optional, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Any, Callable, Optional, Union
 
 from UnleashClient import UnleashClient
 from UnleashClient.events import BaseEvent, UnleashReadyEvent
+
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent
 from openfeature.exception import ErrorCode, GeneralError
@@ -39,7 +41,7 @@ class UnleashProvider(AbstractProvider):
         self.client: Optional[UnleashClient] = None
         self._status = ProviderStatus.NOT_READY
         self._last_context: Optional[EvaluationContext] = None
-        self._event_handlers: dict[ProviderEvent, List[Callable]] = {
+        self._event_handlers: dict[ProviderEvent, list[Callable]] = {
             ProviderEvent.PROVIDER_READY: [],
             ProviderEvent.PROVIDER_ERROR: [],
             ProviderEvent.PROVIDER_CONFIGURATION_CHANGED: [],
@@ -85,7 +87,7 @@ class UnleashProvider(AbstractProvider):
         """Get provider metadata."""
         return Metadata(name="Unleash Provider")
 
-    def get_provider_hooks(self) -> List[Hook]:
+    def get_provider_hooks(self) -> list[Hook]:
         """Get provider hooks."""
         return []
 
