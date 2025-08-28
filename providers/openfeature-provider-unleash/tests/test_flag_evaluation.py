@@ -441,7 +441,7 @@ def test_variant_flag_scenarios():
         }
         result = provider.resolve_string_details("test_flag", "default")
         assert result.value == "default"
-        assert result.reason == Reason.DEFAULT
+        assert result.reason == Reason.TARGETING_MATCH
         assert result.variant == "test-variant"
 
         provider.shutdown()
