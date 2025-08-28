@@ -3,6 +3,7 @@
 from typing import Any, Optional, Protocol
 import uuid
 
+from UnleashClient import UnleashClient
 from UnleashClient.events import UnleashEvent, UnleashEventType
 from openfeature.evaluation_context import EvaluationContext
 
@@ -11,7 +12,7 @@ class UnleashProvider(Protocol):
     """Protocol defining the interface needed by Tracker."""
 
     @property
-    def client(self) -> Optional[Any]: ...
+    def client(self) -> Optional[UnleashClient]: ...
 
     def _build_unleash_context(
         self, evaluation_context: Optional[EvaluationContext] = None

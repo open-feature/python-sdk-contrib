@@ -1,6 +1,6 @@
 # Unleash Provider for OpenFeature
 
-This provider is designed to use [Unleash](https://unleash.io/).
+This provider is designed to use [Unleash](https://www.getunleash.io/).
 
 ## Installation
 
@@ -18,9 +18,9 @@ from openfeature.contrib.provider.unleash import UnleashProvider
 
 # Initialize the provider with your Unleash configuration
 provider = UnleashProvider(
-    url="https://your-unleash-instance.com",
+    url="https://my-unleash-instance.com",
     app_name="my-python-app",
-    api_token="your-api-token"
+    api_token="my-api-token"
 )
 
 # Initialize the provider (required before use)
@@ -127,7 +127,7 @@ is_enabled = client.get_boolean_value("my-feature", False)
 print(f"Feature is enabled: {is_enabled}")
 
 # String flag evaluation with context
-context = {"userId": "user123", "sessionId": "session456"}
+context = EvaluationContext(targeting_key="user123", attributes={"sessionId": "session456"})
 variant = client.get_string_value("my-variant-flag", "default", context)
 print(f"Variant: {variant}")
 
@@ -149,13 +149,13 @@ provider.shutdown()
 ### Running tests
 
 ```bash
-pytest
+uv run test --frozen
 ```
 
 ### Type checking
 
 ```bash
-mypy src/
+uv run mypy-check
 ```
 
 ## License
