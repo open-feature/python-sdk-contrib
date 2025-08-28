@@ -2,6 +2,7 @@
 
 from typing import Any, Callable, Optional, Protocol
 
+from UnleashClient import UnleashClient
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
     FlagNotFoundError,
@@ -17,7 +18,7 @@ class UnleashProvider(Protocol):
     """Protocol defining the interface needed by FlagEvaluator."""
 
     @property
-    def client(self) -> Optional[Any]: ...
+    def client(self) -> Optional[UnleashClient]: ...
 
     @property
     def app_name(self) -> str: ...
@@ -196,11 +197,7 @@ class FlagEvaluator:
                     value = value_converter(payload_value)
                     return FlagResolutionDetails(
                         value=value,
-                        reason=(
-                            Reason.TARGETING_MATCH
-                            if value != default_value
-                            else Reason.DEFAULT
-                        ),
+                        reason=Reason.TARGETING_MATCH,
                         variant=variant.get("name"),
                         error_code=None,
                         error_message=None,

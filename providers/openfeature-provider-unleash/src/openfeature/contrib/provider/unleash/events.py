@@ -4,6 +4,7 @@ from typing import Any, Callable, List, Protocol
 
 from UnleashClient.events import BaseEvent, UnleashFetchedEvent, UnleashReadyEvent
 from openfeature.event import ProviderEvent
+from openfeature.provider import Metadata
 
 
 class UnleashProvider(Protocol):
@@ -14,7 +15,7 @@ class UnleashProvider(Protocol):
         """Event handlers dictionary."""
         ...
 
-    def get_metadata(self) -> Any:
+    def get_metadata(self) -> Metadata:
         """Get provider metadata."""
         ...
 
