@@ -1,10 +1,11 @@
 """Tracking functionality for Unleash provider."""
 
-from typing import Any, Optional, Protocol
 import uuid
+from typing import Any, Optional, Protocol
 
 from UnleashClient import UnleashClient
 from UnleashClient.events import UnleashEvent, UnleashEventType
+
 from openfeature.evaluation_context import EvaluationContext
 
 

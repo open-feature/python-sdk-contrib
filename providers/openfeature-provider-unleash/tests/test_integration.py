@@ -1,16 +1,17 @@
 """Integration tests for Unleash provider using testcontainers."""
 
-from datetime import datetime, timezone
 import time
+from datetime import datetime, timezone
 
-from openfeature import api
-from openfeature.contrib.provider.unleash import UnleashProvider
-from openfeature.evaluation_context import EvaluationContext
 import psycopg2
 import pytest
 import requests
 from testcontainers.core.container import DockerContainer
 from testcontainers.postgres import PostgresContainer
+
+from openfeature import api
+from openfeature.contrib.provider.unleash import UnleashProvider
+from openfeature.evaluation_context import EvaluationContext
 
 # Configuration for the running Unleash instance (will be set by fixtures)
 UNLEASH_URL = None
@@ -288,7 +289,6 @@ def unleash_container(postgres_container):
 
         while time.time() - start_time < max_wait_time:
             try:
-                # Get the exposed port
                 try:
                     exposed_port = container.get_exposed_port(4242)
                     unleash_url = f"http://localhost:{exposed_port}"
@@ -298,7 +298,6 @@ def unleash_container(postgres_container):
                     time.sleep(2)
                     continue
 
-                # Try to connect to health endpoint
                 response = requests.get(f"{unleash_url}/health", timeout=5)
                 if response.status_code == 200:
                     print("Unleash container is healthy!")
@@ -341,14 +340,12 @@ def unleash_provider(setup_test_flags):
     )
     provider.initialize()
     yield provider
-    # Clean up the provider to avoid multiple UnleashClient instances
     provider.shutdown()
 
 
 @pytest.fixture(scope="session")
 def client(unleash_provider):
     """Create an OpenFeature client with the Unleash provider."""
-    # Set the provider globally
     api.set_provider(unleash_provider)
     return api.get_client()
 

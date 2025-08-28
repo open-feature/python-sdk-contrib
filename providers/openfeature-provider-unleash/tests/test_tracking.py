@@ -22,13 +22,11 @@ def test_track_basic():
         )
         provider.initialize()
 
-        # Set the event callback
         provider._unleash_event_callback = mock_event_callback
 
         # Track a basic event
         provider.track("user_action")
 
-        # Verify the tracking event was created and passed to callback
         assert mock_event_callback.call_count == 1
         tracking_event = mock_event_callback.call_args[0][0]
         assert tracking_event.feature_name == "user_action"

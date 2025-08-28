@@ -1,8 +1,11 @@
 """Flag evaluation functionality for Unleash provider."""
 
+import json
 from typing import Any, Callable, Optional, Protocol
 
+import requests
 from UnleashClient import UnleashClient
+
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
     FlagNotFoundError,
@@ -11,7 +14,6 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
-import requests
 
 
 class UnleashProvider(Protocol):
@@ -76,13 +78,12 @@ class FlagEvaluator:
             )
         except requests.exceptions.HTTPError as e:
             if e.response and e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {flag_key}")
-            raise GeneralError(f"HTTP error: {e}")
+                raise FlagNotFoundError(f"Flag not found: {flag_key}") from e
+            raise GeneralError(f"HTTP error: {e}") from e
         except (FlagNotFoundError, TypeMismatchError, ParseError, GeneralError):
-            # Re-raise specific OpenFeature exceptions
             raise
         except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}")
+            raise GeneralError(f"Unexpected error: {e}") from e
 
     def resolve_string_details(
         self,
@@ -186,11 +187,9 @@ class FlagEvaluator:
             raise GeneralError("Provider not initialized. Call initialize() first.")
 
         try:
-            # Use get_variant to get the variant payload
             context = self._provider._build_unleash_context(evaluation_context)
             variant = self._provider.client.get_variant(flag_key, context=context)
 
-            # Check if the feature is enabled and has a payload
             if variant.get("enabled", False) and "payload" in variant:
                 try:
                     payload_value = variant["payload"].get("value", default_value)
@@ -209,10 +208,8 @@ class FlagEvaluator:
                         },
                     )
                 except (ValueError, TypeError) as e:
-                    # If payload value can't be converted, raise TypeMismatchError
-                    raise TypeMismatchError(str(e))
+                    raise TypeMismatchError(str(e)) from e
                 except ParseError:
-                    # Re-raise ParseError directly
                     raise
             else:
                 return FlagResolutionDetails(
@@ -229,13 +226,12 @@ class FlagEvaluator:
                 )
         except requests.exceptions.HTTPError as e:
             if e.response and e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {flag_key}")
-            raise GeneralError(f"HTTP error: {e}")
+                raise FlagNotFoundError(f"Flag not found: {flag_key}") from e
+            raise GeneralError(f"HTTP error: {e}") from e
         except (FlagNotFoundError, TypeMismatchError, ParseError, GeneralError):
-            # Re-raise specific OpenFeature exceptions
             raise
         except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}")
+            raise GeneralError(f"Unexpected error: {e}") from e
 
     def _parse_json(self, value: Any) -> Any:
         """Parse JSON value for object flags.
@@ -249,11 +245,9 @@ class FlagEvaluator:
         Raises:
             ParseError: If JSON parsing fails
         """
-        import json
-
         if isinstance(value, str):
             try:
                 return json.loads(value)
             except json.JSONDecodeError as e:
-                raise ParseError(f"Invalid JSON: {e}")
+                raise ParseError(f"Invalid JSON: {e}") from e
         return value
