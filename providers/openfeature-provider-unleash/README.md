@@ -8,6 +8,12 @@ This provider is designed to use [Unleash](https://www.getunleash.io/).
 pip install openfeature-provider-unleash
 ```
 
+### Requirements
+
+- Python 3.9+
+- `openfeature-sdk>=0.8.2`
+- `UnleashClient>=6.3.0`
+
 ## Configuration and Usage
 
 Instantiate a new UnleashProvider instance and configure the OpenFeature SDK to use it:
@@ -20,7 +26,8 @@ from openfeature.contrib.provider.unleash import UnleashProvider
 provider = UnleashProvider(
     url="https://my-unleash-instance.com",
     app_name="my-python-app",
-    api_token="my-api-token"
+    api_token="my-api-token",
+    environment="development",  # optional, defaults to "development"
 )
 
 # Initialize the provider (required before use)
@@ -34,6 +41,14 @@ api.set_provider(provider)
 - `url`: The URL of your Unleash server
 - `app_name`: The name of your application
 - `api_token`: The API token for authentication
+- `environment`: The Unleash environment to connect to (default: `development`)
+
+### Evaluation context mapping
+
+When evaluating flags, the OpenFeature `EvaluationContext` is mapped to the Unleash context as follows:
+
+- `EvaluationContext.targeting_key` → Unleash `userId`
+- `EvaluationContext.attributes` → merged into the Unleash context as-is
 
 ### Event handling
 
@@ -66,7 +81,8 @@ provider.remove_handler(ProviderEvent.PROVIDER_READY, on_provider_ready)
 - `ProviderEvent.PROVIDER_READY`: Emitted when the provider is ready to evaluate flags
 - `ProviderEvent.PROVIDER_ERROR`: Emitted when the provider encounters an error
 - `ProviderEvent.PROVIDER_CONFIGURATION_CHANGED`: Emitted when flag configurations are updated
-- `ProviderEvent.PROVIDER_STALE`: Emitted when the provider's cached state is no longer valid
+
+Note: `ProviderEvent.PROVIDER_STALE` handlers can be registered but are not currently emitted by this provider.
 
 ### Tracking support
 
@@ -102,6 +118,16 @@ provider.track("conversion", context, event_details)
 - **Evaluation Context**: Include user targeting information
 - **Event Details**: Add numeric values and custom fields for analytics
 - **Unleash Integration**: Uses UnleashClient's impression event infrastructure
+
+### Supported flag types
+
+This provider supports resolving the following types via the OpenFeature client:
+
+- Boolean (`get_boolean_value`/`details`): uses `UnleashClient.is_enabled`
+- String (`get_string_value`/`details`): from variant payload
+- Integer (`get_integer_value`/`details`): from variant payload
+- Float (`get_float_value`/`details`): from variant payload
+- Object (`get_object_value`/`details`): from variant payload, JSON-parsed if needed
 
 ### Example usage
 
@@ -152,10 +178,30 @@ provider.shutdown()
 uv run test --frozen
 ```
 
+Integration tests require Docker to be installed and running. To run only integration tests:
+
+```bash
+uv run test -m integration --frozen
+```
+
+To skip integration tests:
+
+```bash
+uv run test -m "not integration" --frozen
+```
+
 ### Type checking
 
 ```bash
 uv run mypy-check
+```
+
+### Linting
+
+Run Ruff checks:
+
+```bash
+uv run ruff check
 ```
 
 ## License
