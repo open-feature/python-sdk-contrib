@@ -3,12 +3,10 @@
 import json
 from typing import Any, Callable, Optional, Protocol
 
-import requests
 from UnleashClient import UnleashClient
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
-    FlagNotFoundError,
     GeneralError,
     ParseError,
     TypeMismatchError,
@@ -76,11 +74,7 @@ class FlagEvaluator:
                     "app_name": self._provider.app_name,
                 },
             )
-        except requests.exceptions.HTTPError as e:
-            if e.response and e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {flag_key}") from e
-            raise GeneralError(f"HTTP error: {e}") from e
-        except (FlagNotFoundError, TypeMismatchError, ParseError, GeneralError):
+        except (TypeMismatchError, ParseError, GeneralError):
             raise
         except Exception as e:
             raise GeneralError(f"Unexpected error: {e}") from e
@@ -224,11 +218,7 @@ class FlagEvaluator:
                         "app_name": self._provider.app_name,
                     },
                 )
-        except requests.exceptions.HTTPError as e:
-            if e.response and e.response.status_code == 404:
-                raise FlagNotFoundError(f"Flag not found: {flag_key}") from e
-            raise GeneralError(f"HTTP error: {e}") from e
-        except (FlagNotFoundError, TypeMismatchError, ParseError, GeneralError):
+        except (TypeMismatchError, ParseError, GeneralError):
             raise
         except Exception as e:
             raise GeneralError(f"Unexpected error: {e}") from e

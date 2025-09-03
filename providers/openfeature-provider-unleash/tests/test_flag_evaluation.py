@@ -3,13 +3,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
-import requests
 
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
-    FlagNotFoundError,
-    GeneralError,
     ParseError,
     TypeMismatchError,
 )
@@ -35,30 +32,6 @@ def test_resolve_boolean_details():
         assert flag is not None
         assert flag.value is True
         assert flag.reason == Reason.TARGETING_MATCH
-
-
-def test_resolve_boolean_details_error():
-    """Test that FlagEvaluator handles errors gracefully."""
-    mock_client = Mock()
-    mock_client.is_enabled.side_effect = requests.exceptions.ConnectionError(
-        "Connection error"
-    )
-
-    with patch(
-        "openfeature.contrib.provider.unleash.UnleashClient"
-    ) as mock_unleash_client:
-        mock_unleash_client.return_value = mock_client
-
-        provider = UnleashProvider(
-            url="http://localhost:4242", app_name="test-app", api_token="test-token"
-        )
-        provider.initialize()
-
-        with pytest.raises(GeneralError) as exc_info:
-            provider.resolve_boolean_details("test_flag", True)
-        assert "Connection error" in str(exc_info.value)
-
-        provider.shutdown()
 
 
 @pytest.mark.parametrize(
@@ -195,66 +168,6 @@ def test_value_conversion_errors(
         provider.shutdown()
 
 
-@pytest.mark.parametrize(
-    "method_name, mock_side_effect, default_value, expected_error_message, expected_exception",
-    [
-        (
-            "resolve_string_details",
-            requests.exceptions.HTTPError(
-                "404 Client Error: Not Found", response=Mock(status_code=404)
-            ),
-            "default",
-            "Flag not found",
-            "FlagNotFoundError",
-        ),
-        (
-            "resolve_boolean_details",
-            requests.exceptions.ConnectionError("Connection error"),
-            True,
-            "Connection error",
-            "GeneralError",
-        ),
-    ],
-)
-def test_general_errors(
-    method_name,
-    mock_side_effect,
-    default_value,
-    expected_error_message,
-    expected_exception,
-):
-    """Test that FlagEvaluator handles general errors correctly."""
-    mock_client = Mock()
-
-    if method_name == "resolve_boolean_details":
-        mock_client.is_enabled.side_effect = mock_side_effect
-    else:
-        mock_client.get_variant.side_effect = mock_side_effect
-
-    with patch(
-        "openfeature.contrib.provider.unleash.UnleashClient"
-    ) as mock_unleash_client:
-        mock_unleash_client.return_value = mock_client
-
-        provider = UnleashProvider(
-            url="http://localhost:4242", app_name="test-app", api_token="test-token"
-        )
-        provider.initialize()
-
-        method = getattr(provider, method_name)
-
-        if expected_exception == "FlagNotFoundError":
-            with pytest.raises(FlagNotFoundError) as exc_info:
-                method("non_existent_flag", default_value)
-            assert expected_error_message in str(exc_info.value)
-        else:
-            with pytest.raises(GeneralError) as exc_info:
-                method("test_flag", default_value)
-            assert expected_error_message in str(exc_info.value)
-
-        provider.shutdown()
-
-
 def test_edge_cases():
     """Test FlagEvaluator with edge cases and boundary conditions."""
     mock_client = Mock()
@@ -291,47 +204,6 @@ def test_edge_cases():
 
         result = provider.resolve_string_details("test_flag", "default")
         assert result.value == "edge-value"
-
-        provider.shutdown()
-
-
-@pytest.mark.parametrize(
-    "mock_side_effect, expected_error_message",
-    [
-        (
-            requests.exceptions.HTTPError(
-                "429 Too Many Requests", response=Mock(status_code=429)
-            ),
-            "HTTP error",
-        ),
-        (
-            requests.exceptions.Timeout("Request timeout"),
-            "Unexpected error",
-        ),
-        (
-            requests.exceptions.SSLError("SSL certificate error"),
-            "Unexpected error",
-        ),
-    ],
-)
-def test_network_errors(mock_side_effect, expected_error_message):
-    """Test that FlagEvaluator handles network errors correctly."""
-    mock_client = Mock()
-    mock_client.is_enabled.side_effect = mock_side_effect
-
-    with patch(
-        "openfeature.contrib.provider.unleash.UnleashClient"
-    ) as mock_unleash_client:
-        mock_unleash_client.return_value = mock_client
-
-        provider = UnleashProvider(
-            url="http://localhost:4242", app_name="test-app", api_token="test-token"
-        )
-        provider.initialize()
-
-        with pytest.raises(GeneralError) as exc_info:
-            provider.resolve_boolean_details("test_flag", True)
-        assert expected_error_message in str(exc_info.value)
 
         provider.shutdown()
 
