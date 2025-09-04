@@ -5,6 +5,32 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.provider import ProviderStatus
 
 
+# Mock feature response for testing cache functionality
+MOCK_FEATURE_RESPONSE = {
+    "version": 1,
+    "features": [
+        {
+            "name": "testFlag",
+            "description": "This is a test!",
+            "enabled": True,
+            "strategies": [{"name": "default", "parameters": {}}],
+            "createdAt": "2018-10-04T01:27:28.477Z",
+            "impressionData": True,
+        },
+        {
+            "name": "testFlag2",
+            "description": "Test flag 2",
+            "enabled": False,
+            "strategies": [
+                {"name": "gradualRolloutRandom", "parameters": {"percentage": "50"}}
+            ],
+            "createdAt": "2018-10-04T11:03:56.062Z",
+            "impressionData": False,
+        },
+    ],
+}
+
+
 def test_unleash_provider_import():
     """Test that UnleashProvider can be imported."""
     assert UnleashProvider is not None
@@ -160,3 +186,49 @@ def test_unleash_provider_flag_metadata():
         assert result.flag_metadata["app_name"] == "test-app"
 
         provider.shutdown()
+
+
+def test_unleash_provider_with_custom_cache():
+    """Test that UnleashProvider properly uses a custom cache with mocked features."""
+    from UnleashClient.cache import FileCache
+
+    # Create a custom cache with mocked features
+    custom_cache = FileCache("test-app")
+    custom_cache.bootstrap_from_dict(MOCK_FEATURE_RESPONSE)
+
+    # Create provider with custom cache
+    provider = UnleashProvider(
+        url="http://localhost:4242",
+        app_name="test-app",
+        api_token="test-token",
+        cache=custom_cache,
+        fetch_toggles=False,
+    )
+
+    # Verify cache was stored
+    assert provider.cache is custom_cache
+
+    # Initialize the provider with fetch_toggles=False to prevent server connection
+    provider.initialize()
+
+    # Verify the provider is ready
+    assert provider.get_status() == ProviderStatus.READY
+    assert provider.client is not None
+
+    # Test flag evaluation using the cached features
+    # testFlag should be enabled (True in mock data)
+    result = provider.resolve_boolean_details("testFlag", False)
+    assert result.value is True
+    assert result.reason.value == "TARGETING_MATCH"
+
+    # testFlag2 should be disabled (False in mock data)
+    result = provider.resolve_boolean_details("testFlag2", True)
+    assert result.value is False
+    assert result.reason.value == "DEFAULT"
+
+    # Test string resolution with default value for non-existent flag
+    result = provider.resolve_string_details("nonExistentFlag", "default_value")
+    assert result.value == "default_value"
+    assert result.reason.value == "DEFAULT"
+
+    provider.shutdown()
