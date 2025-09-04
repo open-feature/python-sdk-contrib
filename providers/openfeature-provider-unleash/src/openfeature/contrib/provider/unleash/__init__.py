@@ -2,6 +2,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Callable, Optional, Union
 
 from UnleashClient import UnleashClient
+from UnleashClient.cache import BaseCache
 from UnleashClient.events import BaseEvent, UnleashReadyEvent
 
 from openfeature.evaluation_context import EvaluationContext
@@ -25,6 +26,8 @@ class UnleashProvider(AbstractProvider):
         app_name: str,
         api_token: str,
         environment: str = "development",
+        fetch_toggles: bool = True,
+        cache: Optional[BaseCache] = None,
     ) -> None:
         """Initialize the Unleash provider.
 
@@ -33,11 +36,14 @@ class UnleashProvider(AbstractProvider):
             app_name: The application name
             api_token: The API token for authentication
             environment: The environment to connect to (default: "development")
+            fetch_toggles: Whether to fetch toggles from server on initialization (default: True)
+            cache: Optional cache implementation to use (default: UnleashClient's default)
         """
         self.url = url
         self.app_name = app_name
         self.api_token = api_token
         self.environment = environment
+        self.cache = cache
         self.client: Optional[UnleashClient] = None
         self._status = ProviderStatus.NOT_READY
         self._last_context: Optional[EvaluationContext] = None
@@ -50,6 +56,7 @@ class UnleashProvider(AbstractProvider):
         self._tracking_manager = Tracker(self)
         self._event_manager = EventManager(self)
         self._flag_evaluator = FlagEvaluator(self)
+        self.fetch_toggles = fetch_toggles
 
     def initialize(
         self, evaluation_context: Optional[EvaluationContext] = None
@@ -66,8 +73,9 @@ class UnleashProvider(AbstractProvider):
                 environment=self.environment,
                 custom_headers={"Authorization": self.api_token},
                 event_callback=self._unleash_event_callback,
+                cache=self.cache,
             )
-            self.client.initialize_client()
+            self.client.initialize_client(fetch_toggles=self.fetch_toggles)
             self._status = ProviderStatus.READY
             self._event_manager.emit_event(ProviderEvent.PROVIDER_READY)
         except Exception as e:
