@@ -44,6 +44,15 @@
         "README.md"
       ]
     },
+    "providers/openfeature-provider-unleash": {
+      "package-name": "openfeature-provider-unleash",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
+    },
     "hooks/openfeature-hooks-opentelemetry": {
       "package-name": "openfeature-hooks-opentelemetry",
       "bump-minor-pre-major": true,
