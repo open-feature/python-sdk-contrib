@@ -43,6 +43,8 @@ jobs:
               - 'providers/openfeature-provider-flipt/**'
             providers/openfeature-provider-ofrep:
               - 'providers/openfeature-provider-ofrep/**'
+            providers/openfeature-provider-unleash:
+              - 'providers/openfeature-provider-unleash/**'
 
   build:
     needs: changes
