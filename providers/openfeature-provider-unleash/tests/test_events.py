@@ -50,8 +50,12 @@ def test_events():
             ProviderEvent.PROVIDER_CONFIGURATION_CHANGED, on_config_changed
         )
 
-        # Initialize should emit PROVIDER_READY
         provider.initialize()
+
+        # Simulate the READY event from UnleashClient
+        event_callback = mock_unleash_client.call_args[1]["event_callback"]
+        event_callback(UnleashReadyEvent(UnleashEventType.READY, uuid.uuid4()))
+
         assert len(ready_events) == 1
         assert ready_events[0]["provider_name"] == "Unleash Provider"
 
@@ -112,6 +116,7 @@ def test_unleash_event_callback():
 
         # Create a mock UnleashFetchedEvent with features
         mock_event = Mock(spec=UnleashFetchedEvent)
+        mock_event.event_type = UnleashEventType.FETCHED
         mock_event.features = {"flag1": {}, "flag2": {}}
 
         event_callback(mock_event)

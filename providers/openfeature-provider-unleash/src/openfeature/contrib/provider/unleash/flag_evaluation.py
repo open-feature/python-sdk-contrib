@@ -18,7 +18,7 @@ class UnleashProvider(Protocol):
     """Protocol defining the interface needed by FlagEvaluator."""
 
     @property
-    def client(self) -> Optional[UnleashClient]: ...
+    def client(self) -> UnleashClient: ...
 
     @property
     def app_name(self) -> str: ...
@@ -55,9 +55,6 @@ class FlagEvaluator:
         Returns:
             FlagResolutionDetails with the resolved boolean value
         """
-        if not self._provider.client:
-            raise GeneralError("Provider not initialized. Call initialize() first.")
-
         try:
             context = self._provider._build_unleash_context(evaluation_context)
             is_enabled = self._provider.client.is_enabled(flag_key, context=context)
@@ -177,9 +174,6 @@ class FlagEvaluator:
         Returns:
             FlagResolutionDetails with the resolved value
         """
-        if not self._provider.client:
-            raise GeneralError("Provider not initialized. Call initialize() first.")
-
         try:
             context = self._provider._build_unleash_context(evaluation_context)
             variant = self._provider.client.get_variant(flag_key, context=context)
