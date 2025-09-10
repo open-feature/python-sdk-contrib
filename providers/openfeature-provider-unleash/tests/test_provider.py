@@ -1,4 +1,7 @@
+import uuid
 from unittest.mock import Mock, patch
+
+from UnleashClient.events import UnleashEventType, UnleashReadyEvent
 
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
@@ -73,10 +76,13 @@ def test_unleash_provider_initialization():
         # Should start as NOT_READY
         assert provider.get_status() == ProviderStatus.NOT_READY
 
-        # Initialize the provider
         provider.initialize()
 
-        # Should be READY after initialization
+        # Simulate the READY event from UnleashClient
+        event_callback = mock_unleash_client.call_args[1]["event_callback"]
+        event_callback(UnleashReadyEvent(UnleashEventType.READY, uuid.uuid4()))
+
+        # Should be READY after receiving the READY event
         assert provider.get_status() == ProviderStatus.READY
         assert provider.client is not None
 
