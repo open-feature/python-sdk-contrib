@@ -3,7 +3,7 @@ from typing import Any, Callable, Optional, Union
 
 from UnleashClient import UnleashClient
 from UnleashClient.cache import BaseCache
-from UnleashClient.events import BaseEvent, UnleashReadyEvent
+from UnleashClient.events import BaseEvent, UnleashEventType
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent
@@ -44,8 +44,16 @@ class UnleashProvider(AbstractProvider):
         self.api_token = api_token
         self.environment = environment
         self.cache = cache
-        self.client: Optional[UnleashClient] = None
         self._status = ProviderStatus.NOT_READY
+
+        self.client: UnleashClient = UnleashClient(
+            url=self.url,
+            app_name=self.app_name,
+            environment=self.environment,
+            custom_headers={"Authorization": self.api_token},
+            event_callback=self._unleash_event_callback,
+            cache=self.cache,
+        )
         self._last_context: Optional[EvaluationContext] = None
         self._event_handlers: dict[ProviderEvent, list[Callable]] = {
             ProviderEvent.PROVIDER_READY: [],
@@ -67,17 +75,7 @@ class UnleashProvider(AbstractProvider):
             evaluation_context: Optional evaluation context (not used for initialization)
         """
         try:
-            self.client = UnleashClient(
-                url=self.url,
-                app_name=self.app_name,
-                environment=self.environment,
-                custom_headers={"Authorization": self.api_token},
-                event_callback=self._unleash_event_callback,
-                cache=self.cache,
-            )
             self.client.initialize_client(fetch_toggles=self.fetch_toggles)
-            self._status = ProviderStatus.READY
-            self._event_manager.emit_event(ProviderEvent.PROVIDER_READY)
         except Exception as e:
             self._status = ProviderStatus.ERROR
             self._event_manager.emit_event(
@@ -101,19 +99,18 @@ class UnleashProvider(AbstractProvider):
 
     def shutdown(self) -> None:
         """Shutdown the Unleash client."""
-        if self.client:
-            try:
+        try:
+            if self.client.is_initialized:
                 self.client.destroy()
-                self.client = None
-                self._status = ProviderStatus.NOT_READY
-            except Exception as e:
-                self._status = ProviderStatus.ERROR
-                self._event_manager.emit_event(
-                    ProviderEvent.PROVIDER_ERROR,
-                    error_message=str(e),
-                    error_code=ErrorCode.GENERAL,
-                )
-                raise GeneralError(f"Failed to shutdown Unleash provider: {e}") from e
+            self._status = ProviderStatus.NOT_READY
+        except Exception as e:
+            self._status = ProviderStatus.ERROR
+            self._event_manager.emit_event(
+                ProviderEvent.PROVIDER_ERROR,
+                error_message=str(e),
+                error_code=ErrorCode.GENERAL,
+            )
+            raise GeneralError(f"Failed to shutdown Unleash provider: {e}") from e
 
     def on_context_changed(
         self,
@@ -152,7 +149,7 @@ class UnleashProvider(AbstractProvider):
         Args:
             event: The Unleash event
         """
-        if isinstance(event, UnleashReadyEvent):
+        if event.event_type == UnleashEventType.READY:
             self._status = ProviderStatus.READY
         self._event_manager.handle_unleash_event(event)
 
