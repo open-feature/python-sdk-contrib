@@ -3,7 +3,7 @@
 from contextlib import suppress
 from typing import Any, Callable, Protocol
 
-from UnleashClient.events import BaseEvent, UnleashFetchedEvent, UnleashReadyEvent
+from UnleashClient.events import BaseEvent, UnleashEventType
 
 from openfeature.event import ProviderEvent
 from openfeature.provider import Metadata
@@ -78,10 +78,9 @@ class EventManager:
         Args:
             event: The Unleash event
         """
-        if isinstance(event, UnleashReadyEvent):
+        if event.event_type == UnleashEventType.READY:
             self.emit_event(ProviderEvent.PROVIDER_READY)
-        elif isinstance(event, UnleashFetchedEvent):
-            # Configuration changed when features are fetched
+        elif event.event_type == UnleashEventType.FETCHED:
             flag_keys = []
             if hasattr(event, "features"):
                 if isinstance(event.features, dict):
