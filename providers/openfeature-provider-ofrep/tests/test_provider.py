@@ -166,6 +166,28 @@ def test_provider_typecheck_flag_value(ofrep_provider, requests_mock):
         ofrep_provider.resolve_boolean_details("flag_key", False)
 
 
+def test_provider_missing_metadata_field(ofrep_provider, requests_mock):
+    """Test that provider handles missing metadata field gracefully"""
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        json={
+            "key": "flag_key",
+            "reason": "TARGETING_MATCH",
+            "variant": "true",
+            "value": True,
+        },
+    )
+
+    resolution = ofrep_provider.resolve_boolean_details("flag_key", False)
+
+    assert resolution == FlagResolutionDetails(
+        value=True,
+        reason=Reason.TARGETING_MATCH,
+        variant="true",
+        flag_metadata={},
+    )
+
+
 @pytest.mark.parametrize(
     "base_url",
     [
