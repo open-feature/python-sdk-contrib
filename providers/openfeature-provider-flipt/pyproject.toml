@@ -27,7 +27,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 [dependency-groups]
 dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
-  "mypy[faster-cache]>=1.17.0,<2.0.0",
+  "mypy>=1.18.0,<2.0.0",
   "pytest>=8.4.0,<9.0.0",
   "requests-mock>=1.12.0,<2.0.0",
   "types-requests>=2.32.0,<3.0.0",
@@ -50,7 +50,9 @@ files = "src"
 python_version = "3.9" # should be identical to the minimum supported version
 namespace_packages = true
 explicit_package_bases = true
-local_partial_types = true
+local_partial_types = true # will become the new default from version 2
+allow_redefinition_new = true # will become the new default from version 2
+fixed_format_cache = true # new caching mechanism
 pretty = true
 
 strict = true
