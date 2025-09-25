@@ -168,7 +168,7 @@ class OFREPProvider(AbstractProvider):
             value=data["value"],
             reason=Reason[data["reason"]],
             variant=data["variant"],
-            flag_metadata=data["metadata"],
+            flag_metadata=data.get("metadata", {}),
         )
 
     def _handle_error(self, exception: requests.RequestException) -> NoReturn:
