@@ -6,7 +6,7 @@ from pathlib import Path
 import grpc
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 from testcontainers.core.container import DockerContainer
-from testcontainers.core.waiting_utils import wait_container_is_ready, wait_for_logs
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from openfeature.contrib.provider.flagd.config import ResolverType
 
@@ -32,6 +32,7 @@ class FlagdContainer(DockerContainer):
         self.flagDir.mkdir(parents=True, exist_ok=True)
         self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK, LAUNCHPAD)
         self.with_volume_mapping(os.path.abspath(self.flagDir.name), "/flags", "rw")
+        self.waiting_for(LogMessageWaitStrategy("listening").with_startup_timeout(5))
 
     def get_port(self, resolver_type: ResolverType):
         if resolver_type == ResolverType.RPC:
@@ -47,15 +48,8 @@ class FlagdContainer(DockerContainer):
         self._checker(self.get_container_host_ip(), self.get_exposed_port(HEALTH_CHECK))
         return self
 
-    @wait_container_is_ready(ConnectionError)
     def _checker(self, host: str, port: int) -> None:
-        # First we wait for Flagd to say it's listening
-        wait_for_logs(
-            self,
-            "listening",
-            5,
-        )
-
+        # Give an extra second before continuing
         time.sleep(1)
         # Second we use the GRPC health check endpoint
         with grpc.insecure_channel(host + ":" + str(port)) as channel:

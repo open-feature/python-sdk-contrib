@@ -35,22 +35,30 @@ jobs:
           filters: |
             hooks/openfeature-hooks-opentelemetry:
               - 'hooks/openfeature-hooks-opentelemetry/**'
+              - 'uv.lock'
             providers/openfeature-provider-env-var:
               - 'providers/openfeature-provider-env-var/**'
+              - 'uv.lock'
             providers/openfeature-provider-flagd:
               - 'providers/openfeature-provider-flagd/**'
+              - 'uv.lock'
             providers/openfeature-provider-flipt:
               - 'providers/openfeature-provider-flipt/**'
+              - 'uv.lock'
             providers/openfeature-provider-ofrep:
               - 'providers/openfeature-provider-ofrep/**'
+              - 'uv.lock'
 
   build:
     needs: changes
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         package: ${{ fromJSON(needs.changes.outputs.packages) }}
+        exclude: # enable when `grpcio` has Python 3.14 wheels
+          - python-version: "3.14"
+            package: "providers/openfeature-provider-flagd"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
