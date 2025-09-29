@@ -1,12 +1,12 @@
 import uuid
 from unittest.mock import Mock, patch
 
+from UnleashClient.cache import FileCache
 from UnleashClient.events import UnleashEventType, UnleashReadyEvent
 
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.provider import ProviderStatus
-
 
 # Mock feature response for testing cache functionality
 MOCK_FEATURE_RESPONSE = {
@@ -196,8 +196,6 @@ def test_unleash_provider_flag_metadata():
 
 def test_unleash_provider_with_custom_cache():
     """Test that UnleashProvider properly uses a custom cache with mocked features."""
-    from UnleashClient.cache import FileCache
-
     # Create a custom cache with mocked features
     custom_cache = FileCache("test-app")
     custom_cache.bootstrap_from_dict(MOCK_FEATURE_RESPONSE)
