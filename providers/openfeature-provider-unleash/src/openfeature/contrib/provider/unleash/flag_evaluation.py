@@ -54,8 +54,13 @@ class FlagEvaluator:
         Returns:
             FlagResolutionDetails with the resolved boolean value
         """
+
         context = self._provider._build_unleash_context(evaluation_context)
-        is_enabled = self._provider.client.is_enabled(flag_key, context=context)
+        is_enabled = self._provider.client.is_enabled(
+            flag_key,
+            context=context,
+            fallback_function=self._fallback_function(default_value),
+        )
 
         return FlagResolutionDetails(
             value=is_enabled,
@@ -224,3 +229,11 @@ class FlagEvaluator:
             except json.JSONDecodeError as e:
                 raise ParseError(f"Invalid JSON: {e}") from e
         return value
+
+    def _fallback_function(self, default_value: bool) -> Callable:
+        """Default fallback function for Unleash provider."""
+
+        def fallback_function(feature_name: str, context: dict) -> bool:
+            return default_value
+
+        return fallback_function

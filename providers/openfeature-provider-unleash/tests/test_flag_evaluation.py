@@ -1,8 +1,9 @@
 """Tests for flag evaluation functionality."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
+from UnleashClient.cache import FileCache
 
 from openfeature.contrib.provider.unleash import UnleashProvider
 from openfeature.evaluation_context import EvaluationContext
@@ -32,6 +33,29 @@ def test_resolve_boolean_details():
         assert flag is not None
         assert flag.value is True
         assert flag.reason == Reason.TARGETING_MATCH
+
+
+def test_resolve_boolean_details_with_true_default():
+    """Ensure default_value is used when engine returns None (fallback)."""
+    # Create a real client via the provider, but prevent network fetches
+    custom_cache = FileCache("test-app")
+    custom_cache.bootstrap_from_dict({})
+    provider = UnleashProvider(
+        url="http://invalid-host.local",  # won't be used since we disable fetch
+        app_name="test-app",
+        api_token="test-token",
+        fetch_toggles=False,
+        cache=custom_cache,
+    )
+
+    provider.initialize()
+
+    try:
+        result = provider.resolve_boolean_details("test_flag", True)
+        assert result.value is True  # uses the default value via fallback
+        assert result.reason == Reason.TARGETING_MATCH
+    finally:
+        provider.shutdown()
 
 
 @pytest.mark.parametrize(
@@ -105,6 +129,7 @@ def test_with_evaluation_context():
         mock_client.is_enabled.assert_called_with(
             "test_flag",
             context={"userId": "user123", "email": "user@example.com", "country": "US"},
+            fallback_function=ANY,
         )
 
         provider.shutdown()
