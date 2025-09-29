@@ -46,9 +46,6 @@ class Tracker:
             evaluation_context: Optional evaluation context
             event_details: Optional tracking event details
         """
-        if not self._provider.client:
-            return
-
         unleash_context = (
             self._provider._build_unleash_context(evaluation_context) or {}
         )
