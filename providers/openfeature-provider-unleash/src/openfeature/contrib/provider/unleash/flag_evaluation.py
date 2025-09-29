@@ -7,7 +7,6 @@ from UnleashClient import UnleashClient
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
-    GeneralError,
     ParseError,
     TypeMismatchError,
 )
@@ -55,26 +54,21 @@ class FlagEvaluator:
         Returns:
             FlagResolutionDetails with the resolved boolean value
         """
-        try:
-            context = self._provider._build_unleash_context(evaluation_context)
-            is_enabled = self._provider.client.is_enabled(flag_key, context=context)
+        context = self._provider._build_unleash_context(evaluation_context)
+        is_enabled = self._provider.client.is_enabled(flag_key, context=context)
 
-            return FlagResolutionDetails(
-                value=is_enabled,
-                reason=Reason.TARGETING_MATCH if is_enabled else Reason.DEFAULT,
-                variant=None,
-                error_code=None,
-                error_message=None,
-                flag_metadata={
-                    "source": "unleash",
-                    "enabled": is_enabled,
-                    "app_name": self._provider.app_name,
-                },
-            )
-        except (TypeMismatchError, ParseError, GeneralError):
-            raise
-        except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}") from e
+        return FlagResolutionDetails(
+            value=is_enabled,
+            reason=Reason.TARGETING_MATCH if is_enabled else Reason.DEFAULT,
+            variant=None,
+            error_code=None,
+            error_message=None,
+            flag_metadata={
+                "source": "unleash",
+                "enabled": is_enabled,
+                "app_name": self._provider.app_name,
+            },
+        )
 
     def resolve_string_details(
         self,
@@ -174,48 +168,43 @@ class FlagEvaluator:
         Returns:
             FlagResolutionDetails with the resolved value
         """
-        try:
-            context = self._provider._build_unleash_context(evaluation_context)
-            variant = self._provider.client.get_variant(flag_key, context=context)
+        context = self._provider._build_unleash_context(evaluation_context)
+        variant = self._provider.client.get_variant(flag_key, context=context)
 
-            if variant.get("enabled", False) and "payload" in variant:
-                try:
-                    payload_value = variant["payload"].get("value", default_value)
-                    value = value_converter(payload_value)
-                    return FlagResolutionDetails(
-                        value=value,
-                        reason=Reason.TARGETING_MATCH,
-                        variant=variant.get("name"),
-                        error_code=None,
-                        error_message=None,
-                        flag_metadata={
-                            "source": "unleash",
-                            "enabled": variant.get("enabled", False),
-                            "variant_name": variant.get("name") or "",
-                            "app_name": self._provider.app_name,
-                        },
-                    )
-                except (ValueError, TypeError) as e:
-                    raise TypeMismatchError(str(e)) from e
-                except ParseError:
-                    raise
-            else:
+        if variant.get("enabled", False) and "payload" in variant:
+            try:
+                payload_value = variant["payload"].get("value", default_value)
+                value = value_converter(payload_value)
                 return FlagResolutionDetails(
-                    value=default_value,
-                    reason=Reason.DEFAULT,
-                    variant=None,
+                    value=value,
+                    reason=Reason.TARGETING_MATCH,
+                    variant=variant.get("name"),
                     error_code=None,
                     error_message=None,
                     flag_metadata={
                         "source": "unleash",
                         "enabled": variant.get("enabled", False),
+                        "variant_name": variant.get("name") or "",
                         "app_name": self._provider.app_name,
                     },
                 )
-        except (TypeMismatchError, ParseError, GeneralError):
-            raise
-        except Exception as e:
-            raise GeneralError(f"Unexpected error: {e}") from e
+            except ValueError as e:
+                raise TypeMismatchError(str(e)) from e
+            except ParseError:
+                raise
+        else:
+            return FlagResolutionDetails(
+                value=default_value,
+                reason=Reason.DEFAULT,
+                variant=None,
+                error_code=None,
+                error_message=None,
+                flag_metadata={
+                    "source": "unleash",
+                    "enabled": variant.get("enabled", False),
+                    "app_name": self._provider.app_name,
+                },
+            )
 
     def _parse_json(self, value: Any) -> Any:
         """Parse JSON value for object flags.

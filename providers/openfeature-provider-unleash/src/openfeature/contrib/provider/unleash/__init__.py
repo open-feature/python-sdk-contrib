@@ -99,18 +99,9 @@ class UnleashProvider(AbstractProvider):
 
     def shutdown(self) -> None:
         """Shutdown the Unleash client."""
-        try:
-            if self.client.is_initialized:
-                self.client.destroy()
-            self._status = ProviderStatus.NOT_READY
-        except Exception as e:
-            self._status = ProviderStatus.ERROR
-            self._event_manager.emit_event(
-                ProviderEvent.PROVIDER_ERROR,
-                error_message=str(e),
-                error_code=ErrorCode.GENERAL,
-            )
-            raise GeneralError(f"Failed to shutdown Unleash provider: {e}") from e
+        if self.client.is_initialized:
+            self.client.destroy()
+        self._status = ProviderStatus.NOT_READY
 
     def on_context_changed(
         self,
