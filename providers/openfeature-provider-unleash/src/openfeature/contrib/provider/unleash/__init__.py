@@ -24,7 +24,6 @@ class UnleashProvider(AbstractProvider):
         url: str,
         app_name: str,
         api_token: str,
-        environment: str = "development",
         fetch_toggles: bool = True,
         cache: Optional[BaseCache] = None,
     ) -> None:
@@ -34,21 +33,18 @@ class UnleashProvider(AbstractProvider):
             url: The Unleash API URL
             app_name: The application name
             api_token: The API token for authentication
-            environment: The environment to connect to (default: "development")
             fetch_toggles: Whether to fetch toggles from server on initialization (default: True)
             cache: Optional cache implementation to use (default: UnleashClient's default)
         """
         self.url = url
         self.app_name = app_name
         self.api_token = api_token
-        self.environment = environment
         self.cache = cache
         self._status = ProviderStatus.NOT_READY
 
         self.client: UnleashClient = UnleashClient(
             url=self.url,
             app_name=self.app_name,
-            environment=self.environment,
             custom_headers={"Authorization": self.api_token},
             event_callback=self._unleash_event_callback,
             cache=self.cache,
