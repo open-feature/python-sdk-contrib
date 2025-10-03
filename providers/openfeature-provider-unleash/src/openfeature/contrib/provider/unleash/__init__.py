@@ -14,7 +14,6 @@ from openfeature.provider import AbstractProvider, Metadata, ProviderStatus
 
 from .events import EventManager
 from .flag_evaluation import FlagEvaluator
-from .tracking import Tracker
 
 __all__ = ["UnleashProvider"]
 
@@ -61,7 +60,6 @@ class UnleashProvider(AbstractProvider):
             ProviderEvent.PROVIDER_CONFIGURATION_CHANGED: [],
             ProviderEvent.PROVIDER_STALE: [],
         }
-        self._tracking_manager = Tracker(self)
         self._event_manager = EventManager(self)
         self._flag_evaluator = FlagEvaluator(self)
         self.fetch_toggles = fetch_toggles
@@ -147,17 +145,14 @@ class UnleashProvider(AbstractProvider):
     def track(
         self,
         event_name: str,
-        evaluation_context: Optional[EvaluationContext] = None,
         event_details: Optional[dict] = None,
     ) -> None:
-        """Track user actions or application states using Unleash impression events.
+        """No-op tracking method.
 
-        Args:
-            event_name: The name of the tracking event
-            evaluation_context: Optional evaluation context
-            event_details: Optional tracking event details
+        Tracking is not implemented for this provider. Per the OpenFeature spec,
+        when the provider doesn't support tracking, client.track calls should no-op.
         """
-        self._tracking_manager.track(event_name, evaluation_context, event_details)
+        return None
 
     def _build_unleash_context(
         self, evaluation_context: Optional[EvaluationContext] = None
