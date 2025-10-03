@@ -48,6 +48,9 @@ jobs:
             providers/openfeature-provider-ofrep:
               - 'providers/openfeature-provider-ofrep/**'
               - 'uv.lock'
+            providers/openfeature-provider-unleash:
+              - 'providers/openfeature-provider-unleash/**'
+              - 'uv.lock'
 
   build:
     needs: changes
