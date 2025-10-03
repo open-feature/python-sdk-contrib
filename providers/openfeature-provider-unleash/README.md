@@ -27,7 +27,6 @@ provider = UnleashProvider(
     url="https://my-unleash-instance.com",
     app_name="my-python-app",
     api_token="my-api-token",
-    environment="development",  # optional, defaults to "development"
 )
 
 # Initialize the provider (required before use)
@@ -41,7 +40,6 @@ api.set_provider(provider)
 - `url`: The URL of your Unleash server
 - `app_name`: The name of your application
 - `api_token`: The API token for authentication
-- `environment`: The Unleash environment to connect to (default: `development`)
 
 ### Evaluation context mapping
 
