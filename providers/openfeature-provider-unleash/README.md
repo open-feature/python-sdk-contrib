@@ -84,41 +84,6 @@ provider.remove_handler(ProviderEvent.PROVIDER_READY, on_provider_ready)
 
 Note: `ProviderEvent.PROVIDER_STALE` handlers can be registered but are not currently emitted by this provider.
 
-### Tracking support
-
-The Unleash provider supports OpenFeature tracking for A/B testing and analytics:
-
-```python
-from openfeature.evaluation_context import EvaluationContext
-
-# Basic tracking
-provider.track("page_view")
-
-# Tracking with context
-context = EvaluationContext(
-    targeting_key="user123",
-    attributes={"email": "user@example.com", "country": "US"}
-)
-provider.track("button_click", context)
-
-# Tracking with event details
-event_details = {
-    "value": 99.99,
-    "currency": "USD",
-    "category": "purchase"
-}
-provider.track("purchase_completed", event_details=event_details)
-
-# Tracking with both context and details
-provider.track("conversion", context, event_details)
-```
-
-**Tracking features:**
-- **Event Names**: Track user actions or application states
-- **Evaluation Context**: Include user targeting information
-- **Event Details**: Add numeric values and custom fields for analytics
-- **Unleash Integration**: Uses UnleashClient's impression event infrastructure
-
 ### Supported flag types
 
 This provider supports resolving the following types via the OpenFeature client:
@@ -156,15 +121,6 @@ print(f"Feature is enabled: {is_enabled}")
 context = EvaluationContext(targeting_key="user123", attributes={"sessionId": "session456"})
 variant = client.get_string_value("my-variant-flag", "default", context)
 print(f"Variant: {variant}")
-
-# Track user actions for A/B testing
-user_context = EvaluationContext(
-    targeting_key="user123",
-    attributes={"email": "user@example.com", "plan": "premium"}
-)
-
-provider.track("feature_experiment_view", user_context)
-provider.track("conversion", user_context, {"value": 150.0, "currency": "USD"})
 
 # Shutdown when done
 provider.shutdown()
