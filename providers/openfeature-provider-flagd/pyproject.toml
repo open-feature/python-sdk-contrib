@@ -47,7 +47,7 @@ dev = [
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
 dependencies = [
-    "protobuf==5.26.1",
+    "protobuf==5.28.3",
     "hatch-protobuf",
     "mypy-protobuf~=3.0",
 ]
