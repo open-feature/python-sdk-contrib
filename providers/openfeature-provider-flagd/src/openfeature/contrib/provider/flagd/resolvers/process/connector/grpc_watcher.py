@@ -229,13 +229,10 @@ class GrpcWatcher(FlagStateConnector):
             else:
                 raise e
 
-    def listen(self) -> None:
-        call_args: GrpcMultiCallableArgs = (
-            {"timeout": self.streamline_deadline_seconds}
-            if self.streamline_deadline_seconds > 0
-            else {}
-        )
-        call_args["wait_for_ready"] = True
+    def listen(self) -> None:  # noqa: C901
+        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
+        if self.streamline_deadline_seconds > 0:
+            call_args["timeout"] = self.streamline_deadline_seconds
         request_args = self._create_request_args()
 
         while self.active:

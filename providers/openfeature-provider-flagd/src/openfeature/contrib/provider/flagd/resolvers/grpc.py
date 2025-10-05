@@ -222,12 +222,9 @@ class GrpcResolver:
 
     def listen(self) -> None:
         logger.debug("gRPC starting listener thread")
-        call_args: GrpcMultiCallableArgs = (
-            {"timeout": self.streamline_deadline_seconds}
-            if self.streamline_deadline_seconds > 0
-            else {}
-        )
-        call_args["wait_for_ready"] = True
+        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
+        if self.streamline_deadline_seconds > 0:
+            call_args["timeout"] = self.streamline_deadline_seconds
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream
