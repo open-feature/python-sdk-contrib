@@ -29,6 +29,7 @@ from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
 
 from ..config import CacheType, Config
 from ..flag_type import FlagType
+from .types import GrpcMultiCallableArgs
 
 if typing.TYPE_CHECKING:
     from google.protobuf.message import Message
@@ -121,15 +122,16 @@ class GrpcResolver:
             ),
         ]
         if config.tls:
-            channel_args = {
-                "options": options,
-                "credentials": grpc.ssl_channel_credentials(),
-            }
+            credentials = grpc.ssl_channel_credentials()
             if config.cert_path:
                 with open(config.cert_path, "rb") as f:
-                    channel_args["credentials"] = grpc.ssl_channel_credentials(f.read())
+                    credentials = grpc.ssl_channel_credentials(f.read())
 
-            channel = grpc.secure_channel(target, **channel_args)
+            channel = grpc.secure_channel(
+                target,
+                credentials=credentials,
+                options=options,
+            )
 
         else:
             channel = grpc.insecure_channel(
@@ -220,20 +222,19 @@ class GrpcResolver:
 
     def listen(self) -> None:
         logger.debug("gRPC starting listener thread")
-        call_args = (
+        call_args: GrpcMultiCallableArgs = (
             {"timeout": self.streamline_deadline_seconds}
             if self.streamline_deadline_seconds > 0
             else {}
         )
+        call_args["wait_for_ready"] = True
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream
         while self.active:
             try:
                 logger.debug("Setting up gRPC sync flags connection")
-                for message in self.stub.EventStream(
-                    request, wait_for_ready=True, **call_args
-                ):
+                for message in self.stub.EventStream(request, **call_args):
                     if message.type == "provider_ready":
                         self.emit_provider_ready(
                             ProviderEventDetails(
@@ -309,20 +310,72 @@ class GrpcResolver:
     ]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
+    @typing.overload
+    def _resolve(
+        self,
+        flag_key: str,
+        flag_type: FlagType,
+        default_value: bool,
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> FlagResolutionDetails[bool]: ...
+
+    @typing.overload
+    def _resolve(
+        self,
+        flag_key: str,
+        flag_type: FlagType,
+        default_value: int,
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> FlagResolutionDetails[int]: ...
+
+    @typing.overload
+    def _resolve(
+        self,
+        flag_key: str,
+        flag_type: FlagType,
+        default_value: float,
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> FlagResolutionDetails[float]: ...
+
+    @typing.overload
+    def _resolve(
+        self,
+        flag_key: str,
+        flag_type: FlagType,
+        default_value: str,
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> FlagResolutionDetails[str]: ...
+
+    @typing.overload
+    def _resolve(
+        self,
+        flag_key: str,
+        flag_type: FlagType,
+        default_value: typing.Union[
+            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
+        ],
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> FlagResolutionDetails[
+        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+    ]: ...
+
     def _resolve(  # noqa: PLR0915 C901
         self,
         flag_key: str,
         flag_type: FlagType,
-        default_value: T,
+        default_value: FlagValueType,
         evaluation_context: typing.Optional[EvaluationContext],
-    ) -> FlagResolutionDetails[T]:
+    ) -> FlagResolutionDetails[FlagValueType]:
         if self.cache is not None and flag_key in self.cache:
-            cached_flag: FlagResolutionDetails[T] = self.cache[flag_key]
+            cached_flag: FlagResolutionDetails[FlagValueType] = self.cache[flag_key]
             cached_flag.reason = Reason.CACHED
             return cached_flag
 
         context = self._convert_context(evaluation_context)
-        call_args = {"timeout": self.deadline, "wait_for_ready": True}
+        call_args: GrpcMultiCallableArgs = {
+            "timeout": self.deadline,
+            "wait_for_ready": True,
+        }
         try:
             request: Message
             if flag_type == FlagType.BOOLEAN:

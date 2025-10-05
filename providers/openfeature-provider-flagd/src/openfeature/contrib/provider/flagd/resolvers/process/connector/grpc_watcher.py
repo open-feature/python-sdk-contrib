@@ -17,6 +17,7 @@ from openfeature.schemas.protobuf.flagd.sync.v1 import (
 )
 
 from ....config import Config
+from ...types import GrpcMultiCallableArgs
 from ..connector import FlagStateConnector
 from ..flags import FlagStore
 
@@ -105,22 +106,23 @@ class GrpcWatcher(FlagStateConnector):
             options.append(("grpc.default_authority", config.default_authority))
 
         if config.channel_credentials is not None:
-            channel_args = {
-                "options": options,
-                "credentials": config.channel_credentials,
-            }
-            channel = grpc.secure_channel(target, **channel_args)
+            channel = grpc.secure_channel(
+                target,
+                credentials=config.channel_credentials,
+                options=options,
+            )
 
         elif config.tls:
-            channel_args = {
-                "options": options,
-                "credentials": grpc.ssl_channel_credentials(),
-            }
+            credentials = grpc.ssl_channel_credentials()
             if config.cert_path:
                 with open(config.cert_path, "rb") as f:
-                    channel_args["credentials"] = grpc.ssl_channel_credentials(f.read())
+                    credentials = grpc.ssl_channel_credentials(f.read())
 
-            channel = grpc.secure_channel(target, **channel_args)
+            channel = grpc.secure_channel(
+                target,
+                credentials=credentials,
+                options=options,
+            )
 
         else:
             channel = grpc.insecure_channel(
@@ -228,11 +230,12 @@ class GrpcWatcher(FlagStateConnector):
                 raise e
 
     def listen(self) -> None:
-        call_args = (
+        call_args: GrpcMultiCallableArgs = (
             {"timeout": self.streamline_deadline_seconds}
             if self.streamline_deadline_seconds > 0
             else {}
         )
+        call_args["wait_for_ready"] = True
         request_args = self._create_request_args()
 
         while self.active:
@@ -242,9 +245,7 @@ class GrpcWatcher(FlagStateConnector):
                 request = sync_pb2.SyncFlagsRequest(**request_args)
 
                 logger.debug("Setting up gRPC sync flags connection")
-                for flag_rsp in self.stub.SyncFlags(
-                    request, wait_for_ready=True, **call_args
-                ):
+                for flag_rsp in self.stub.SyncFlags(request, **call_args):
                     flag_str = flag_rsp.flag_configuration
                     logger.debug(
                         f"Received flag configuration - {abs(hash(flag_str)) % (10**8)}"
