@@ -65,7 +65,7 @@ jobs:
           submodules: recursive
 
       - name: Install uv and set the python version ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f # v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -102,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f # v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           python-version: "3.13"
           enable-cache: false # caching is done automatically in `pre-commit/action`
