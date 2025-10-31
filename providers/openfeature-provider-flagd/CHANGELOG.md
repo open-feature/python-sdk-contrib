@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.7](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.6...openfeature-provider-flagd/v0.2.7) (2025-10-31)
+
+
+### ✨ New Features
+
+* adjust to flagd metadata toggle ([#287](https://github.com/open-feature/python-sdk-contrib/issues/287)) ([6ac014d](https://github.com/open-feature/python-sdk-contrib/commit/6ac014d1af7a90b09203ae38dfd60bba275bc9a9))
+* migrate to uv ([#293](https://github.com/open-feature/python-sdk-contrib/issues/293)) ([9590554](https://github.com/open-feature/python-sdk-contrib/commit/9590554be4c8a7f77b0c0f20d6b48076c9870f52))
+* Update python-sdk ([#289](https://github.com/open-feature/python-sdk-contrib/issues/289)) ([f2028f5](https://github.com/open-feature/python-sdk-contrib/commit/f2028f5f81824310a842507a3127a3bb9bc8a984))
+
 ## [0.2.6](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.5...openfeature-provider-flagd/v0.2.6) (2025-07-22)
 
 
