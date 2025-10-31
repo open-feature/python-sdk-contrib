@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.2.0...openfeature-hooks-opentelemetry/v0.2.1) (2025-10-31)
+
+
+### ✨ New Features
+
+* migrate to uv ([#293](https://github.com/open-feature/python-sdk-contrib/issues/293)) ([9590554](https://github.com/open-feature/python-sdk-contrib/commit/9590554be4c8a7f77b0c0f20d6b48076c9870f52))
+
 ## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.3...openfeature-hooks-opentelemetry/v0.2.0) (2025-02-21)
 
 
