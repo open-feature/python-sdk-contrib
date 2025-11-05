@@ -113,7 +113,7 @@ The default options can be defined in the FlagdProvider constructor.
 
 #### Current Implementation
 
-As of this SDK version, the `selector` parameter is passed via gRPC metadata headers (`flagd-selector`) when using in-process mode. This aligns with flagd v0.11.0+ selector normalization standards.
+As of this SDK version, the `selector` parameter is passed via **both** gRPC metadata headers (`flagd-selector`) and the request body when using in-process mode. This dual approach ensures maximum compatibility with all flagd versions.
 
 **Configuration Example:**
 ```python
@@ -123,19 +123,20 @@ from openfeature.contrib.provider.flagd.config import ResolverType
 
 api.set_provider(FlagdProvider(
     resolver_type=ResolverType.IN_PROCESS,
-    selector="my-flag-source",  # Passed via flagd-selector header
+    selector="my-flag-source",  # Passed via both header and request body
 ))
 ```
 
-The selector is automatically passed via the `flagd-selector` gRPC metadata header, ensuring compatibility with flagd services that implement selector normalization.
+The selector is automatically passed via:
+- **gRPC metadata header** (`flagd-selector`) - For flagd v0.11.0+ selector normalization
+- **Request body** - For backward compatibility with older flagd versions
 
 #### Backward Compatibility
 
-flagd services maintain backward compatibility with both selector passing approaches:
-- **gRPC metadata header** (`flagd-selector`) - Current implementation (recommended)
-- **Request body selector** - Legacy approach (still supported by flagd for backward compatibility)
-
-This ensures the Python SDK works correctly with both older and newer versions of flagd services.
+This dual transmission approach ensures the Python SDK works seamlessly with all flagd service versions:
+- **Older flagd versions** read the selector from the request body
+- **Newer flagd versions (v0.11.0+)** prefer the selector from the gRPC metadata header
+- Both approaches are supported simultaneously for maximum compatibility
 
 **Related Resources:**
 - Upstream issue: [open-feature/flagd#1814](https://github.com/open-feature/flagd/issues/1814)

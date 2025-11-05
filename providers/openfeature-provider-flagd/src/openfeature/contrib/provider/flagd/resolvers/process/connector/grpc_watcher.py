@@ -205,8 +205,10 @@ class GrpcWatcher(FlagStateConnector):
 
     def _create_request_args(self) -> dict:
         request_args = {}
-        # Note: selector is now passed via gRPC metadata header instead of request body
-        # This maintains compatibility with flagd v0.11.0+ selector normalization
+        # Pass selector in both request body (legacy) and metadata header (new) for backward compatibility
+        # This ensures compatibility with both older and newer flagd versions
+        if self.selector is not None:
+            request_args["selector"] = self.selector
         if self.provider_id is not None:
             request_args["provider_id"] = self.provider_id
 
@@ -216,7 +218,8 @@ class GrpcWatcher(FlagStateConnector):
         """Create gRPC metadata headers for the request.
         
         Returns gRPC metadata as a list of tuples containing header key-value pairs.
-        The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification.
+        The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
+        while also being included in the request body for backward compatibility with older flagd versions.
         """
         if self.selector is None:
             return None

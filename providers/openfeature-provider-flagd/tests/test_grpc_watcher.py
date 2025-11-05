@@ -134,8 +134,8 @@ class TestGrpcWatcher(unittest.TestCase):
         )
         self.assertEqual(self.context, {})
 
-    def test_selector_passed_via_metadata_header(self):
-        """Test that selector is passed via gRPC metadata header, not request body"""
+    def test_selector_passed_via_both_metadata_and_body(self):
+        """Test that selector is passed via both gRPC metadata header and request body for backward compatibility"""
         self.grpc_watcher.selector = "test-selector"
         mock_stream = iter(
             [
@@ -152,11 +152,11 @@ class TestGrpcWatcher(unittest.TestCase):
         # Get the call arguments
         call_args = self.mock_stub.SyncFlags.call_args
         
-        # Verify the request doesn't contain selector in body
+        # Verify the request contains selector in body (backward compatibility)
         request = call_args[0][0]  # First positional argument is the request
-        self.assertFalse(hasattr(request, 'selector') and request.selector)
+        self.assertEqual(request.selector, 'test-selector')
         
-        # Verify metadata contains flagd-selector header
+        # Verify metadata also contains flagd-selector header (new approach)
         kwargs = call_args[1]
         self.assertIn('metadata', kwargs)
         metadata = kwargs['metadata']
