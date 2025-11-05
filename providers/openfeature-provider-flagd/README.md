@@ -111,12 +111,9 @@ The default options can be defined in the FlagdProvider constructor.
 > [!IMPORTANT]
 > This section only applies to **in-process** and **file** resolver modes. RPC mode is not affected by selector handling changes.
 
-#### Migration Guidance
+#### Current Implementation
 
-As of flagd v0.11.0 and related services, selector normalization has been updated to prefer gRPC metadata headers over request body fields for the `selector` parameter. This change affects how the in-process provider communicates with flagd's sync service.
-
-**Current Behavior (Preferred):**
-The Python SDK currently passes the `selector` via the gRPC request body when using in-process mode. While this approach continues to work for backward compatibility, the flagd ecosystem is transitioning to header-based selector passing.
+As of this SDK version, the `selector` parameter is passed via gRPC metadata headers (`flagd-selector`) when using in-process mode. This aligns with flagd v0.11.0+ selector normalization standards.
 
 **Configuration Example:**
 ```python
@@ -126,22 +123,19 @@ from openfeature.contrib.provider.flagd.config import ResolverType
 
 api.set_provider(FlagdProvider(
     resolver_type=ResolverType.IN_PROCESS,
-    selector="my-flag-source",  # Currently passed in request body
+    selector="my-flag-source",  # Passed via flagd-selector header
 ))
 ```
 
+The selector is automatically passed via the `flagd-selector` gRPC metadata header, ensuring compatibility with flagd services that implement selector normalization.
+
 #### Backward Compatibility
 
-The current implementation maintains backward compatibility by continuing to pass selectors in the request body. flagd services support both approaches:
-- **Request body selector** (current implementation) - Supported for backward compatibility
-- **Header-based selector** (future preferred) - Will be supported in a future SDK update
+flagd services maintain backward compatibility with both selector passing approaches:
+- **gRPC metadata header** (`flagd-selector`) - Current implementation (recommended)
+- **Request body selector** - Legacy approach (still supported by flagd for backward compatibility)
 
-#### Future Breaking Change
-
-In a future major version of this SDK, the selector handling will be updated to use gRPC metadata headers (`flagd-selector`) instead of the request body field. This aligns with the flagd ecosystem's standardized approach to selector normalization.
-
-**Action Required:**
-No immediate action is required. The current implementation will continue to work with both current and future versions of flagd services. Monitor release notes for announcements about the transition to header-based selectors.
+This ensures the Python SDK works correctly with both older and newer versions of flagd services.
 
 **Related Resources:**
 - Upstream issue: [open-feature/flagd#1814](https://github.com/open-feature/flagd/issues/1814)

@@ -133,3 +133,31 @@ class TestGrpcWatcher(unittest.TestCase):
             self.provider_details.message, "gRPC sync connection established"
         )
         self.assertEqual(self.context, {})
+
+    def test_selector_passed_via_metadata_header(self):
+        """Test that selector is passed via gRPC metadata header, not request body"""
+        self.grpc_watcher.selector = "test-selector"
+        mock_stream = iter(
+            [
+                SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}'),
+            ]
+        )
+        self.mock_stub.SyncFlags = Mock(return_value=mock_stream)
+
+        self.run_listen_and_shutdown_after()
+
+        # Verify SyncFlags was called
+        self.mock_stub.SyncFlags.assert_called_once()
+        
+        # Get the call arguments
+        call_args = self.mock_stub.SyncFlags.call_args
+        
+        # Verify the request doesn't contain selector in body
+        request = call_args[0][0]  # First positional argument is the request
+        self.assertFalse(hasattr(request, 'selector') and request.selector)
+        
+        # Verify metadata contains flagd-selector header
+        kwargs = call_args[1]
+        self.assertIn('metadata', kwargs)
+        metadata = kwargs['metadata']
+        self.assertEqual(metadata, [('flagd-selector', 'test-selector')])

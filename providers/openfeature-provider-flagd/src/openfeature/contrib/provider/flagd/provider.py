@@ -76,8 +76,7 @@ class FlagdProvider(AbstractProvider):
         :param timeout: the maximum time to wait before a request times out
         :param retry_backoff_ms: the number of milliseconds to backoff
         :param selector: filter flag configurations by source (in-process mode only)
-                         Note: Currently passed via request body. Future versions will use
-                         gRPC metadata headers. See README for migration guidance.
+                         Passed via flagd-selector gRPC metadata header.
         :param offline_flag_source_path: the path to the flag source file
         :param stream_deadline_ms: the maximum time to wait before a request times out
         :param keep_alive_time: the number of milliseconds to keep alive
