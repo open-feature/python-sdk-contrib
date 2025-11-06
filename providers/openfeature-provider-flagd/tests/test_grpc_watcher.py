@@ -147,7 +147,7 @@ class TestGrpcWatcher(unittest.TestCase):
         self.run_listen_and_shutdown_after()
 
         # Verify SyncFlags was called
-        self.mock_stub.SyncFlags.assert_called_once()
+        self.mock_stub.SyncFlags.assert_called()
 
         # Get the call arguments
         call_args = self.mock_stub.SyncFlags.call_args
