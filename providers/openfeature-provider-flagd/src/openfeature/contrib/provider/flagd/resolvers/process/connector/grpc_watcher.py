@@ -214,7 +214,7 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
-    def _create_metadata(self) -> typing.Optional[typing.List[typing.Tuple[str, str]]]:
+    def _create_metadata(self) -> typing.Optional[typing.Tuple[typing.Tuple[str, str]]]:
         """Create gRPC metadata headers for the request.
 
         Returns gRPC metadata as a list of tuples containing header key-value pairs.
@@ -224,7 +224,7 @@ class GrpcWatcher(FlagStateConnector):
         if self.selector is None:
             return None
 
-        return [("flagd-selector", self.selector)]
+        return (("flagd-selector", self.selector),)
 
     def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
         if self.config.sync_metadata_disabled:
