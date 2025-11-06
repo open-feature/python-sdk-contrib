@@ -243,7 +243,7 @@ class GrpcWatcher(FlagStateConnector):
             else:
                 raise e
 
-    def listen(self) -> None:  # noqa: C901
+    def listen(self) -> None:
         call_args = self.generate_grpc_call_args()
 
         request_args = self._create_request_args()
@@ -293,7 +293,7 @@ class GrpcWatcher(FlagStateConnector):
                     f"Could not parse flag data using flagd syntax: {flag_str=}"
                 )
 
-    def generate_grpc_call_args(self):
+    def generate_grpc_call_args(self) -> GrpcMultiCallableArgs:
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
         if self.streamline_deadline_seconds > 0:
             call_args["timeout"] = self.streamline_deadline_seconds
