@@ -109,7 +109,7 @@ The default options can be defined in the FlagdProvider constructor.
 ### Selector Handling (In-Process Mode Only)
 
 > [!IMPORTANT]
-> This section only applies to **in-process** and **file** resolver modes. RPC mode is not affected by selector handling changes.
+> This section only applies to **in-process** resolver mode. RPC mode is not affected by selector handling changes.
 
 #### Current Implementation
 
