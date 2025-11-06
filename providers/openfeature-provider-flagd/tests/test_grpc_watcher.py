@@ -160,4 +160,4 @@ class TestGrpcWatcher(unittest.TestCase):
         kwargs = call_args.kwargs
         self.assertIn("metadata", kwargs)
         metadata = kwargs["metadata"]
-        self.assertEqual(metadata, [("flagd-selector", "test-selector")])
+        self.assertEqual(metadata, (("flagd-selector", "test-selector"),))
