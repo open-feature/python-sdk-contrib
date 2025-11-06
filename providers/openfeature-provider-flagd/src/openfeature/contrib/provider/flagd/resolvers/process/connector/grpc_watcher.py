@@ -214,7 +214,7 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
-    def _create_metadata(self) -> typing.Optional[typing.Tuple[typing.Tuple[str, str]]]:
+    def _create_metadata(self) -> typing.Optional[tuple[tuple[str, str]]]:
         """Create gRPC metadata headers for the request.
 
         Returns gRPC metadata as a list of tuples containing header key-value pairs.
@@ -244,14 +244,7 @@ class GrpcWatcher(FlagStateConnector):
                 raise e
 
     def listen(self) -> None:  # noqa: C901
-        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
-        if self.streamline_deadline_seconds > 0:
-            call_args["timeout"] = self.streamline_deadline_seconds
-
-        # Add selector via gRPC metadata header (flagd v0.11.0+ preferred approach)
-        metadata = self._create_metadata()
-        if metadata is not None:
-            call_args["metadata"] = metadata
+        call_args = self.generate_grpc_call_args()
 
         request_args = self._create_request_args()
 
@@ -299,3 +292,13 @@ class GrpcWatcher(FlagStateConnector):
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {flag_str=}"
                 )
+
+    def generate_grpc_call_args(self):
+        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
+        if self.streamline_deadline_seconds > 0:
+            call_args["timeout"] = self.streamline_deadline_seconds
+        # Add selector via gRPC metadata header (flagd v0.11.0+ preferred approach)
+        metadata = self._create_metadata()
+        if metadata is not None:
+            call_args["metadata"] = metadata
+        return call_args
