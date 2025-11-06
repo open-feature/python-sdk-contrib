@@ -216,14 +216,14 @@ class GrpcWatcher(FlagStateConnector):
 
     def _create_metadata(self) -> typing.Optional[typing.List[typing.Tuple[str, str]]]:
         """Create gRPC metadata headers for the request.
-        
+
         Returns gRPC metadata as a list of tuples containing header key-value pairs.
         The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
         while also being included in the request body for backward compatibility with older flagd versions.
         """
         if self.selector is None:
             return None
-        
+
         return [("flagd-selector", self.selector)]
 
     def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
@@ -247,12 +247,12 @@ class GrpcWatcher(FlagStateConnector):
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
         if self.streamline_deadline_seconds > 0:
             call_args["timeout"] = self.streamline_deadline_seconds
-        
+
         # Add selector via gRPC metadata header (flagd v0.11.0+ preferred approach)
         metadata = self._create_metadata()
         if metadata is not None:
             call_args["metadata"] = metadata
-        
+
         request_args = self._create_request_args()
 
         while self.active:

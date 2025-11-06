@@ -148,16 +148,16 @@ class TestGrpcWatcher(unittest.TestCase):
 
         # Verify SyncFlags was called
         self.mock_stub.SyncFlags.assert_called_once()
-        
+
         # Get the call arguments
         call_args = self.mock_stub.SyncFlags.call_args
-        
+
         # Verify the request contains selector in body (backward compatibility)
         request = call_args.args[0]  # First positional argument is the request
-        self.assertEqual(request.selector, 'test-selector')
-        
+        self.assertEqual(request.selector, "test-selector")
+
         # Verify metadata also contains flagd-selector header (new approach)
         kwargs = call_args.kwargs
-        self.assertIn('metadata', kwargs)
-        metadata = kwargs['metadata']
-        self.assertEqual(metadata, [('flagd-selector', 'test-selector')])
+        self.assertIn("metadata", kwargs)
+        metadata = kwargs["metadata"]
+        self.assertEqual(metadata, [("flagd-selector", "test-selector")])
