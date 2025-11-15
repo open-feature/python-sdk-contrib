@@ -68,7 +68,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ matrix.package }}
-        run: uv sync --frozen
+        run: uv sync --frozen -v
 
       - name: Building first to generate files
         working-directory: ${{ matrix.package }}
