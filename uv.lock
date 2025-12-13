@@ -1165,7 +1165,7 @@ requires-dist = [
     { name = "mmh3", specifier = ">=4.1.0" },
     { name = "openfeature-sdk", specifier = ">=0.8.2" },
     { name = "panzi-json-logic", specifier = ">=1.0.1" },
-    { name = "protobuf", specifier = ">=5.26.1" },
+    { name = "protobuf", specifier = ">=5.29.5" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "semver", specifier = ">=3,<4" },
 ]

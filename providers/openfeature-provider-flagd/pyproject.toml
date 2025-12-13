@@ -19,7 +19,7 @@ keywords = []
 dependencies = [
   "openfeature-sdk>=0.8.2",
   "grpcio>=1.68.1",
-  "protobuf>=5.26.1",
+  "protobuf>=5.29.5",
   "mmh3>=4.1.0",
   "panzi-json-logic>=1.0.1",
   "semver>=3,<4",
@@ -52,7 +52,7 @@ dev = [
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
 dependencies = [
-    "protobuf==5.26.1",
+    "protobuf==5.29.5",
     "hatch-protobuf",
     "mypy-protobuf~=3.0",
 ]
