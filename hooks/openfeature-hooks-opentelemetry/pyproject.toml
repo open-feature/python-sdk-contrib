@@ -16,8 +16,9 @@ classifiers = [
 ]
 keywords = []
 dependencies = [
-    "openfeature-sdk>=0.6.0",
+    "openfeature-sdk>=0.8.4",
     "opentelemetry-api",
+    "opentelemetry-semantic-conventions>=0.50b0",
 ]
 requires-python = ">=3.9"
 
