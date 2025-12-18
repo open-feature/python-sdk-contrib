@@ -2,6 +2,6 @@
   "hooks/openfeature-hooks-opentelemetry": "0.3.0",
   "providers/openfeature-provider-flagd": "0.2.6",
   "providers/openfeature-provider-ofrep": "0.2.0",
-  "providers/openfeature-provider-flipt": "0.1.3",
+  "providers/openfeature-provider-flipt": "0.2.0",
   "providers/openfeature-provider-env-var": "0.1.0"
 }
