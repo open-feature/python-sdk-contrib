@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.2.0...openfeature-hooks-opentelemetry/v0.3.0) (2025-12-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* update opentelemetry hook to latest version of semantic conventions ([#326](https://github.com/open-feature/python-sdk-contrib/issues/326))
+
+### ✨ New Features
+
+* migrate to uv ([#293](https://github.com/open-feature/python-sdk-contrib/issues/293)) ([9590554](https://github.com/open-feature/python-sdk-contrib/commit/9590554be4c8a7f77b0c0f20d6b48076c9870f52))
+* update opentelemetry hook to latest version of semantic conventions ([#326](https://github.com/open-feature/python-sdk-contrib/issues/326)) ([a2ec682](https://github.com/open-feature/python-sdk-contrib/commit/a2ec682a709a4721f8362cfa6a9e6037937761ee))
+
 ## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.1.3...openfeature-hooks-opentelemetry/v0.2.0) (2025-02-21)
 
 
