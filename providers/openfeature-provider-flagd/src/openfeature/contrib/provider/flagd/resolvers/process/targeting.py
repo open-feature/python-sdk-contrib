@@ -3,36 +3,29 @@ from __future__ import annotations
 import time
 import typing
 
-from json_logic import builtins, jsonLogic
-from json_logic.types import JsonValue
-
+from flagd_evaluator import evaluate_targeting
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ParseError
-
-from .custom_ops import (
-    ends_with,
-    fractional,
-    sem_ver,
-    starts_with,
-)
-
-OPERATORS = {
-    **builtins.BUILTINS,
-    "fractional": fractional,
-    "starts_with": starts_with,
-    "ends_with": ends_with,
-    "sem_ver": sem_ver,
-}
 
 
 def targeting(
     key: str,
     targeting: dict,
     evaluation_context: typing.Optional[EvaluationContext] = None,
-) -> JsonValue:
+) -> typing.Any:
+    """
+    Evaluate targeting rules using the native flagd-evaluator.
+
+    This uses the Rust-based evaluator which includes all custom operators:
+    - fractional: A/B testing with consistent hashing
+    - sem_ver: Semantic version comparison
+    - starts_with: String prefix matching
+    - ends_with: String suffix matching
+    """
     if not isinstance(targeting, dict):
         raise ParseError(f"Invalid 'targeting' value in flag: {targeting}")
 
+    # Build evaluation context matching flagd spec
     json_logic_context: dict[str, typing.Any] = (
         dict(evaluation_context.attributes) if evaluation_context else {}
     )
@@ -40,4 +33,11 @@ def targeting(
     json_logic_context["targetingKey"] = (
         evaluation_context.targeting_key if evaluation_context else None
     )
-    return jsonLogic(targeting, json_logic_context, OPERATORS)
+
+    # Use native evaluator
+    result = evaluate_targeting(targeting, json_logic_context)
+
+    if not result["success"]:
+        raise ParseError(f"Targeting evaluation failed: {result.get('error')}")
+
+    return result["result"]
