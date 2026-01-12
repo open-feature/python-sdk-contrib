@@ -9,9 +9,9 @@ version = "0.2.6"
 description = "OpenFeature provider for the flagd flag evaluation engine"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
@@ -19,16 +19,12 @@ keywords = []
 dependencies = [
   "openfeature-sdk>=0.8.2",
   "grpcio>=1.68.1",
-  "protobuf>=5.26.1",
-  "mmh3>=4.1.0",
+  "protobuf>=6.30.0,<7.0.0",
+  "mmh3>=5.0.0,<6.0.0",
   "panzi-json-logic>=1.0.1",
   "semver>=3,<4",
   "pyyaml>=6.0.1",
-  "cachebox; python_version >= '3.10'",
-  # version `5.0.1` wheels for Python 3.9 on macOS were the last one for now,
-  # but it looks like the next version `>5.0.4` will have one again.
-  # for simplicity, restircting it for all platforms for now.
-  "cachebox<=5.0.1; python_version < '3.10'",
+  "cachebox>=5.1.0,<6.0.0",
 ]
 requires-python = ">=3.9"
 
@@ -52,7 +48,7 @@ dev = [
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
 dependencies = [
-    "protobuf==5.26.1",
+    "protobuf~=6.0",
     "hatch-protobuf",
     "mypy-protobuf~=3.0",
 ]

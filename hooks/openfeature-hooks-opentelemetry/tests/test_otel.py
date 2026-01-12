@@ -6,8 +6,10 @@ from opentelemetry.trace import Span
 
 from openfeature.contrib.hook.opentelemetry import TracingHook
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.flag_evaluation import FlagEvaluationDetails, FlagType
+from openfeature.exception import ErrorCode
+from openfeature.flag_evaluation import FlagEvaluationDetails, FlagType, Reason
 from openfeature.hook import HookContext
+from openfeature.provider.metadata import Metadata
 
 
 @pytest.fixture
@@ -15,20 +17,21 @@ def mock_get_current_span(monkeypatch):
     monkeypatch.setattr(trace, "get_current_span", Mock())
 
 
-def test_before(mock_get_current_span):
+def test_after(mock_get_current_span):
     # Given
     hook = TracingHook()
     hook_context = HookContext(
         flag_key="flag_key",
         flag_type=FlagType.BOOLEAN,
         default_value=False,
-        evaluation_context=EvaluationContext(),
+        evaluation_context=EvaluationContext("123"),
+        provider_metadata=Metadata(name="test-provider"),
     )
     details = FlagEvaluationDetails(
         flag_key="flag_key",
         value=True,
         variant="enabled",
-        reason=None,
+        reason=Reason.TARGETING_MATCH,
         error_code=None,
         error_message=None,
     )
@@ -41,10 +44,52 @@ def test_before(mock_get_current_span):
 
     # Then
     mock_span.add_event.assert_called_once_with(
-        "feature_flag",
+        "feature_flag.evaluation",
         {
             "feature_flag.key": "flag_key",
-            "feature_flag.variant": "enabled",
+            "feature_flag.result.value": "true",
+            "feature_flag.result.variant": "enabled",
+            "feature_flag.result.reason": "targeting_match",
+            "feature_flag.context.id": "123",
+            "feature_flag.provider.name": "test-provider",
+        },
+    )
+
+
+def test_after_evaluation_error(mock_get_current_span):
+    # Given
+    hook = TracingHook()
+    hook_context = HookContext(
+        flag_key="flag_key",
+        flag_type=FlagType.BOOLEAN,
+        default_value=False,
+        evaluation_context=EvaluationContext(),
+        provider_metadata=None,
+    )
+    details = FlagEvaluationDetails(
+        flag_key="flag_key",
+        value=False,
+        variant=None,
+        reason=Reason.ERROR,
+        error_code=ErrorCode.FLAG_NOT_FOUND,
+        error_message="Flag not found: flag_key",
+    )
+
+    mock_span = Mock(spec=Span)
+    trace.get_current_span.return_value = mock_span
+
+    # When
+    hook.after(hook_context, details, hints={})
+
+    # Then
+    mock_span.add_event.assert_called_once_with(
+        "feature_flag.evaluation",
+        {
+            "feature_flag.key": "flag_key",
+            "feature_flag.result.value": "false",
+            "feature_flag.result.reason": "error",
+            "error.type": "flag_not_found",
+            "error.message": "Flag not found: flag_key",
         },
     )
 
