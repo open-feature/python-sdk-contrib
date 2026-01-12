@@ -34,7 +34,7 @@ from openfeature.provider import AbstractProvider
 from openfeature.provider.metadata import Metadata
 
 from .config import CacheType, Config, ResolverType
-from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver
+from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver, WasmInProcessResolver
 from .sync_metadata_hook import SyncMetadataHook
 
 T = typing.TypeVar("T")
@@ -136,7 +136,7 @@ class FlagdProvider(AbstractProvider):
             self.config.resolver == ResolverType.IN_PROCESS
             or self.config.resolver == ResolverType.FILE
         ):
-            return InProcessResolver(
+            return WasmInProcessResolver(
                 self.config,
                 self.emit_provider_ready_with_context,
                 self.emit_provider_error,

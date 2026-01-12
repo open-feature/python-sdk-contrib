@@ -20,9 +20,7 @@ dependencies = [
   "openfeature-sdk>=0.8.2",
   "grpcio>=1.68.1",
   "protobuf>=6.30.0,<7.0.0",
-  "mmh3>=5.0.0,<6.0.0",
-  "panzi-json-logic>=1.0.1",
-  "semver>=3,<4",
+  "flagd-evaluator",  # Native Python bindings for flag evaluation
   "pyyaml>=6.0.1",
   "cachebox>=5.1.0,<6.0.0",
 ]
@@ -107,6 +105,9 @@ module = [
     "openfeature.schemas.*"
 ]
 warn_unused_ignores = false
+
+[tool.uv.sources]
+flagd-evaluator = { path = "../../../flagd-evaluator/python", editable = true }
 
 [project.scripts]
 # workaround while UV doesn't support scripts directly in the pyproject.toml
