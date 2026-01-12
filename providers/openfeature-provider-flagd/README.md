@@ -93,6 +93,9 @@ The default options can be defined in the FlagdProvider constructor.
 | retry_backoff_ms         | FLAGD_RETRY_BACKOFF_MS         | int                        | 1000                          | rpc                 |
 | offline_flag_source_path | FLAGD_OFFLINE_FLAG_SOURCE_PATH | str                        | null                          | in-process          |
 
+> [!NOTE]
+> The `selector` configuration is only used in **in-process** mode for filtering flag configurations. See [Selector Handling](#selector-handling-in-process-mode-only) for migration guidance.
+
 <!-- not implemented
 | target_uri               | FLAGD_TARGET_URI               | alternative to host/port, supporting custom name resolution | string    | null                | rpc & in-process |
 | socket_path              | FLAGD_SOCKET_PATH              | alternative to host port, unix socket                       | String    | null                | rpc & in-process |
@@ -102,6 +105,42 @@ The default options can be defined in the FlagdProvider constructor.
 
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
+
+### Selector Handling (In-Process Mode Only)
+
+> [!IMPORTANT]
+> This section only applies to **in-process** resolver mode. RPC mode is not affected by selector handling changes.
+
+#### Current Implementation
+
+As of this SDK version, the `selector` parameter is passed via **both** gRPC metadata headers (`flagd-selector`) and the request body when using in-process mode. This dual approach ensures maximum compatibility with all flagd versions.
+
+**Configuration Example:**
+```python
+from openfeature import api
+from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.config import ResolverType
+
+api.set_provider(FlagdProvider(
+    resolver_type=ResolverType.IN_PROCESS,
+    selector="my-flag-source",  # Passed via both header and request body
+))
+```
+
+The selector is automatically passed via:
+- **gRPC metadata header** (`flagd-selector`) - For flagd v0.11.0+ selector normalization
+- **Request body** - For backward compatibility with older flagd versions
+
+#### Backward Compatibility
+
+This dual transmission approach ensures the Python SDK works seamlessly with all flagd service versions:
+- **Older flagd versions** read the selector from the request body
+- **Newer flagd versions (v0.11.0+)** prefer the selector from the gRPC metadata header
+- Both approaches are supported simultaneously for maximum compatibility
+
+**Related Resources:**
+- Upstream issue: [open-feature/flagd#1814](https://github.com/open-feature/flagd/issues/1814)
+- Selector normalization affects in-process evaluations that filter flag configurations by source
 
 <!--
 ### Unix socket support

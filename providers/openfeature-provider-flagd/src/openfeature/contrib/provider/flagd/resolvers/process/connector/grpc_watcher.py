@@ -205,12 +205,26 @@ class GrpcWatcher(FlagStateConnector):
 
     def _create_request_args(self) -> dict:
         request_args = {}
+        # Pass selector in both request body (legacy) and metadata header (new) for backward compatibility
+        # This ensures compatibility with both older and newer flagd versions
         if self.selector is not None:
             request_args["selector"] = self.selector
         if self.provider_id is not None:
             request_args["provider_id"] = self.provider_id
 
         return request_args
+
+    def _create_metadata(self) -> typing.Optional[tuple[tuple[str, str]]]:
+        """Create gRPC metadata headers for the request.
+
+        Returns gRPC metadata as a tuples of tuples containing header key-value pairs.
+        The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
+        while also being included in the request body for backward compatibility with older flagd versions.
+        """
+        if self.selector is None:
+            return None
+
+        return (("flagd-selector", self.selector),)
 
     def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
         if self.config.sync_metadata_disabled:
@@ -229,10 +243,9 @@ class GrpcWatcher(FlagStateConnector):
             else:
                 raise e
 
-    def listen(self) -> None:  # noqa: C901
-        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
-        if self.streamline_deadline_seconds > 0:
-            call_args["timeout"] = self.streamline_deadline_seconds
+    def listen(self) -> None:
+        call_args = self.generate_grpc_call_args()
+
         request_args = self._create_request_args()
 
         while self.active:
@@ -279,3 +292,13 @@ class GrpcWatcher(FlagStateConnector):
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {flag_str=}"
                 )
+
+    def generate_grpc_call_args(self) -> GrpcMultiCallableArgs:
+        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
+        if self.streamline_deadline_seconds > 0:
+            call_args["timeout"] = self.streamline_deadline_seconds
+        # Add selector via gRPC metadata header (flagd v0.11.0+ preferred approach)
+        metadata = self._create_metadata()
+        if metadata is not None:
+            call_args["metadata"] = metadata
+        return call_args
