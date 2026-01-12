@@ -217,7 +217,7 @@ class GrpcWatcher(FlagStateConnector):
     def _create_metadata(self) -> typing.Optional[tuple[tuple[str, str]]]:
         """Create gRPC metadata headers for the request.
 
-        Returns gRPC metadata as a list of tuples containing header key-value pairs.
+        Returns gRPC metadata as a tuples of tuples containing header key-value pairs.
         The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
         while also being included in the request body for backward compatibility with older flagd versions.
         """
