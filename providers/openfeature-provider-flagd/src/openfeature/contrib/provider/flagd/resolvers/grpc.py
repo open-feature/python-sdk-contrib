@@ -72,8 +72,6 @@ class GrpcResolver:
         self.thread: typing.Optional[threading.Thread] = None
         self.timer: typing.Optional[threading.Timer] = None
 
-        self.start_time = time.time()
-
     def _generate_channel(self, config: Config) -> grpc.Channel:
         target = f"{config.host}:{config.port}"
         # Create the channel with the service config
@@ -163,8 +161,8 @@ class GrpcResolver:
         )
         self.monitor_thread.start()
         ## block until ready or deadline reached
-        timeout = self.deadline + time.time()
-        while not self.connected and time.time() < timeout:
+        timeout = self.deadline + time.monotonic()
+        while not self.connected and time.monotonic() < timeout:
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
 
@@ -201,7 +199,6 @@ class GrpcResolver:
                     message="gRPC sync disconnected, reconnecting",
                 )
             )
-            self.start_time = time.time()
             # adding a timer, so we can emit the error event after time
             self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
 
