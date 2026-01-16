@@ -14,3 +14,5 @@ components:
   providers/openfeature-provider-ofrep:
     - federicobond
     - aepfli
+  providers/openfeature-provider-aws-ssm:
+    - petertriho
