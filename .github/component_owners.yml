@@ -1,0 +1,16 @@
+# Keep all in alphabetical order
+components:
+  hooks/openfeature-hooks-opentelemetry:
+    - federicobond
+  providers/openfeature-provider-env-var:
+    - chrfwow
+    - aepfli
+  providers/openfeature-provider-flagd:
+    - aepfli
+    - federicobond
+  providers/openfeature-provider-flipt:
+    - atmask
+    - markphelps
+  providers/openfeature-provider-ofrep:
+    - federicobond
+    - aepfli
