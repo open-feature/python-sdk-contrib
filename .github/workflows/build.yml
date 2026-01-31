@@ -36,6 +36,9 @@ jobs:
             hooks/openfeature-hooks-opentelemetry:
               - 'hooks/openfeature-hooks-opentelemetry/**'
               - 'uv.lock'
+            providers/openfeature-provider-aws-ssm:
+              - 'providers/openfeature-provider-aws-ssm/**'
+              - 'uv.lock'
             providers/openfeature-provider-env-var:
               - 'providers/openfeature-provider-env-var/**'
               - 'uv.lock'
