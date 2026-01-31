@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.7](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.6...openfeature-provider-flagd/v0.2.7) (2026-01-31)
+
+
+### 🐛 Bug Fixes
+
+* **build:** bump protobuf package version to a compatible version ([#327](https://github.com/open-feature/python-sdk-contrib/issues/327)) ([223a903](https://github.com/open-feature/python-sdk-contrib/commit/223a9037cea6c7ac6b1c9bb7a159987e592ce5a4))
+
+
+### ✨ New Features
+
+* adjust to flagd metadata toggle ([#287](https://github.com/open-feature/python-sdk-contrib/issues/287)) ([6ac014d](https://github.com/open-feature/python-sdk-contrib/commit/6ac014d1af7a90b09203ae38dfd60bba275bc9a9))
+* **flagd:** Implement dual-mode selector handling (header and body) for in-process mode in python-sdk-contrib ([#320](https://github.com/open-feature/python-sdk-contrib/issues/320)) ([9ad25a4](https://github.com/open-feature/python-sdk-contrib/commit/9ad25a4ddebb91e4383b108d478288a782ede796))
+* **flagd:** support Python 3.14 for flagd ([#307](https://github.com/open-feature/python-sdk-contrib/issues/307)) ([a60b237](https://github.com/open-feature/python-sdk-contrib/commit/a60b23756fce05220201a0d0660be2a06a6807f4))
+* migrate to uv ([#293](https://github.com/open-feature/python-sdk-contrib/issues/293)) ([9590554](https://github.com/open-feature/python-sdk-contrib/commit/9590554be4c8a7f77b0c0f20d6b48076c9870f52))
+* Update python-sdk ([#289](https://github.com/open-feature/python-sdk-contrib/issues/289)) ([f2028f5](https://github.com/open-feature/python-sdk-contrib/commit/f2028f5f81824310a842507a3127a3bb9bc8a984))
+* Use time.monotonic to avoid endless loop when using time machine ([#330](https://github.com/open-feature/python-sdk-contrib/issues/330)) ([a424cdc](https://github.com/open-feature/python-sdk-contrib/commit/a424cdc68cba4dd3da28a9b18ca10ffbaf1e2689))
+
 ## [0.2.6](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.5...openfeature-provider-flagd/v0.2.6) (2025-07-22)
 
 
