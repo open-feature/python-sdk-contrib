@@ -30,7 +30,7 @@ dev = [
   "mypy>=1.18.0,<2.0.0",
   "pytest>=8.4.0,<9.0.0",
   "requests-mock>=1.12.0,<2.0.0",
-  "types-requests>=2.32.0,<3.0.0",
+  "types-requests>=2.31.0,<3.0.0", # NOTE: types-requests>=2.32.0 has dependency conflicts with boto3/moto on Python 3.9
 ]
 
 [tool.uv.build-backend]

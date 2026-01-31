@@ -1227,7 +1227,8 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "requests-mock" },
-    { name = "types-requests" },
+    { name = "types-requests", version = "2.31.0.20240406", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "types-requests", version = "2.32.4.20260107", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
@@ -1242,7 +1243,7 @@ dev = [
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
     { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
     { name = "requests-mock", specifier = ">=1.12.0,<2.0.0" },
-    { name = "types-requests", specifier = ">=2.32.0,<3.0.0" },
+    { name = "types-requests", specifier = ">=2.31.0,<3.0.0" },
 ]
 
 [[package]]
@@ -1261,7 +1262,8 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "requests-mock" },
-    { name = "types-requests" },
+    { name = "types-requests", version = "2.31.0.20240406", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "types-requests", version = "2.32.4.20260107", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
@@ -1276,7 +1278,7 @@ dev = [
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
     { name = "pytest", specifier = ">=8.4.0,<9.0.0" },
     { name = "requests-mock", specifier = ">=1.12.0,<2.0.0" },
-    { name = "types-requests", specifier = ">=2.32.0,<3.0.0" },
+    { name = "types-requests", specifier = ">=2.31.0,<3.0.0" },
 ]
 
 [[package]]
@@ -1301,7 +1303,8 @@ dev = [
     { name = "testcontainers", version = "4.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9.2'" },
     { name = "testcontainers", version = "4.13.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.2' and python_full_version < '3.10'" },
     { name = "testcontainers", version = "4.14.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "types-requests" },
+    { name = "types-requests", version = "2.31.0.20240406", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "types-requests", version = "2.32.4.20260107", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
@@ -2146,10 +2149,29 @@ wheels = [
 
 [[package]]
 name = "types-requests"
+version = "2.31.0.20240406"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
+    "python_full_version < '3.9.2'",
+]
+dependencies = [
+    { name = "urllib3", marker = "python_full_version < '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b4/40/66afbb030f4a800c08a9312a0653a7aec06ce0bd633d83215eb0f83c0f46/types-requests-2.31.0.20240406.tar.gz", hash = "sha256:4428df33c5503945c74b3f42e82b181e86ec7b724620419a2966e2de604ce1a1", size = 17134, upload-time = "2024-04-06T02:13:39.267Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/ea/91b718b8c0b88e4f61cdd61357cc4a1f8767b32be691fb388299003a3ae3/types_requests-2.31.0.20240406-py3-none-any.whl", hash = "sha256:6216cdac377c6b9a040ac1c0404f7284bd13199c0e1bb235f4324627e8898cf5", size = 15347, upload-time = "2024-04-06T02:13:37.412Z" },
+]
+
+[[package]]
+name = "types-requests"
 version = "2.32.4.20260107"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.10'",
+]
 dependencies = [
-    { name = "urllib3" },
+    { name = "urllib3", marker = "python_full_version >= '3.10'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0f/f3/a0663907082280664d745929205a89d41dffb29e89a50f753af7d57d0a96/types_requests-2.32.4.20260107.tar.gz", hash = "sha256:018a11ac158f801bfa84857ddec1650750e393df8a004a8a9ae2a9bec6fcb24f", size = 23165, upload-time = "2026-01-07T03:20:54.091Z" }
 wheels = [
