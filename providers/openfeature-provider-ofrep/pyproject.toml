@@ -29,6 +29,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "mypy>=1.18.0,<2.0.0",
+  "poethepoet>=0.37.0",
   "pytest>=8.4.0,<9.0.0",
   "requests-mock>=1.12.0,<2.0.0",
   "types-requests>=2.32.0,<3.0.0",
@@ -64,12 +65,12 @@ pretty = true
 strict = true
 disallow_any_generics = false
 
-[project.scripts]
-# workaround while UV doesn't support scripts directly in the pyproject.toml
-# see: https://github.com/astral-sh/uv/issues/5903
-cov-report = "scripts.scripts:cov_report"
-cov = "scripts.scripts:cov"
-# don't name it `mypy` otherwise `uv` will override the actual binary
-mypy-check = "scripts.scripts:mypy"
-test = "scripts.scripts:test"
-test-cov = "scripts.scripts:test_cov"
+[tool.poe.tasks]
+test = "pytest tests"
+test-cov = "coverage run -m pytest tests"
+cov-report = "coverage xml"
+cov = [
+    "test-cov",
+    "cov-report"
+]
+mypy = "mypy"

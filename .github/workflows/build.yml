@@ -68,6 +68,7 @@ jobs:
         uses: astral-sh/setup-uv@85856786d1ce8acfbcc2f13a5f3fbd6b938f9f41 # v7
         with:
           python-version: ${{ matrix.python-version }}
+          activate-environment: true
 
       - name: Install dependencies
         working-directory: ${{ matrix.package }}
@@ -80,11 +81,11 @@ jobs:
       - name: Type checking
         if: matrix.python-version == '3.13'
         working-directory: ${{ matrix.package }}
-        run: uv run mypy-check --frozen
+        run: poe mypy
 
       - name: Test with pytest
         working-directory: ${{ matrix.package }}
-        run: uv run cov --frozen
+        run: poe cov
 
       - if: matrix.python-version == '3.13'
         name: Upload coverage to Codecov
