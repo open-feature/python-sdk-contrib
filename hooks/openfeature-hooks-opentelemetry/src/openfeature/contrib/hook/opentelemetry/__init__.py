@@ -3,7 +3,7 @@ import json
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import FlagEvaluationDetails, Reason
 from openfeature.hook import Hook, HookContext, HookHints
-from opentelemetry import trace
+from opentelemetry import metrics, trace
 from opentelemetry.semconv.attributes.error_attributes import ERROR_TYPE
 
 OTEL_EVENT_NAME = "feature_flag.evaluation"
@@ -21,7 +21,7 @@ class EventAttributes:
 
 
 class TracingHook(Hook):
-    def after(
+    def finally_after(
         self,
         hook_context: HookContext,
         details: FlagEvaluationDetails,
@@ -60,5 +60,9 @@ class TracingHook(Hook):
     def error(
         self, hook_context: HookContext, exception: Exception, hints: HookHints
     ) -> None:
+        attributes = {
+            EventAttributes.KEY: hook_context.flag_key,
+            EventAttributes.RESULT_VALUE: json.dumps(hook_context.default_value),
+        }
         current_span = trace.get_current_span()
-        current_span.record_exception(exception)
+        current_span.record_exception(exception, attributes)
