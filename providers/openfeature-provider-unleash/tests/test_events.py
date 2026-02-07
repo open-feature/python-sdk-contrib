@@ -1,5 +1,4 @@
-"""Tests for events functionality."""
-
+# ruff: noqa: S106
 import uuid
 from unittest.mock import Mock, patch
 
@@ -16,7 +15,7 @@ from openfeature.exception import GeneralError
 from openfeature.provider import ProviderStatus
 
 
-def test_events():
+def test_events():  # noqa: PLR0915
     """Test that UnleashProvider supports event handling."""
     mock_client = Mock()
     mock_client.initialize_client.return_value = None

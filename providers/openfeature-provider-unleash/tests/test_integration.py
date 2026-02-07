@@ -1,5 +1,6 @@
 """Integration tests for Unleash provider using testcontainers."""
 
+import logging
 import time
 from datetime import datetime, timezone
 
@@ -15,8 +16,10 @@ from openfeature.evaluation_context import EvaluationContext
 
 # Configuration for the running Unleash instance (will be set by fixtures)
 UNLEASH_URL = None
-API_TOKEN = "default:development.unleash-insecure-api-token"
-ADMIN_TOKEN = "user:76672ac99726f8e48a1bbba16b7094a50d1eee3583d1e8457e12187a"
+API_TOKEN = "default:development.unleash-insecure-api-token"  # noqa: S105
+ADMIN_TOKEN = "user:76672ac99726f8e48a1bbba16b7094a50d1eee3583d1e8457e12187a"  # noqa: S105
+
+logger = logging.getLogger("openfeature.contrib.tests")
 
 
 class UnleashContainer(DockerContainer):
@@ -33,7 +36,7 @@ class UnleashContainer(DockerContainer):
         self.with_env("DATABASE_SSL_REJECT_UNAUTHORIZED", "false")
         self.with_env("LOG_LEVEL", "info")
         self.with_env("PORT", "4242")
-        self.with_env("HOST", "0.0.0.0")
+        self.with_env("HOST", "0.0.0.0")  # noqa: S104
         self.with_env("ADMIN_AUTHENTICATION", "none")
         self.with_env("AUTH_ENABLE", "false")
         self.with_env("INIT_CLIENT_API_TOKENS", API_TOKEN)
@@ -66,9 +69,9 @@ def insert_admin_token(postgres_container):
                 ),
             )
             conn.commit()
-            print("Admin token inserted successfully")
+            logger.info("Admin token inserted successfully")
     except Exception as e:
-        print(f"Error inserting admin token: {e}")
+        logger.error(f"Error inserting admin token: {e}")
         conn.rollback()
     finally:
         conn.close()
@@ -126,13 +129,15 @@ def create_test_flags():
                 timeout=10,
             )
             if response.status_code in [200, 201, 409]:
-                print(f"Flag '{flag['name']}' created")
+                logger.info(f"Flag '{flag['name']}' created")
                 add_strategy_with_variants(flag["name"], headers)
                 enable_flag(flag["name"], headers)
             else:
-                print(f"Failed to create flag '{flag['name']}': {response.status_code}")
-        except Exception as e:
-            print(f"Error creating flag '{flag['name']}': {e}")
+                logger.error(
+                    f"Failed to create flag '{flag['name']}': {response.status_code}"
+                )
+        except Exception as e:  # noqa: PERF203
+            logger.error(f"Error creating flag '{flag['name']}': {e}")
 
 
 def add_strategy_with_variants(flag_name: str, headers: dict):
@@ -225,9 +230,9 @@ def add_strategy_with_variants(flag_name: str, headers: dict):
         timeout=10,
     )
     if strategy_response.status_code in [200, 201]:
-        print(f"Strategy with variants added to '{flag_name}'")
+        logger.info(f"Strategy with variants added to '{flag_name}'")
     else:
-        print(
+        logger.error(
             f"Failed to add strategy to '{flag_name}': {strategy_response.status_code}"
         )
 
@@ -241,11 +246,13 @@ def enable_flag(flag_name: str, headers: dict):
             timeout=10,
         )
         if enable_response.status_code in [200, 201]:
-            print(f"Flag '{flag_name}' enabled in development environment")
+            logger.info(f"Flag '{flag_name}' enabled in development environment")
         else:
-            print(f"Failed to enable flag '{flag_name}': {enable_response.status_code}")
+            logger.error(
+                f"Failed to enable flag '{flag_name}': {enable_response.status_code}"
+            )
     except Exception as e:
-        print(f"Error enabling flag '{flag_name}': {e}")
+        logger.error(f"Error enabling flag '{flag_name}': {e}")
 
 
 @pytest.fixture(scope="session")
@@ -254,13 +261,13 @@ def postgres_container():
     with PostgresContainer("postgres:15", driver=None) as postgres:
         postgres.start()
         postgres_url = postgres.get_connection_url()
-        print(f"PostgreSQL started at: {postgres_url}")
+        logger.info(f"PostgreSQL started at: {postgres_url}")
 
         yield postgres
 
 
 @pytest.fixture(scope="session")
-def unleash_container(postgres_container):
+def unleash_container(postgres_container):  # noqa: PLR0915
     """Create and start Unleash container with PostgreSQL dependency."""
     global UNLEASH_URL
 
@@ -278,12 +285,12 @@ def unleash_container(postgres_container):
     unleash = UnleashContainer(internal_url)
 
     with unleash as container:
-        print("Starting Unleash container...")
+        logger.info("Starting Unleash container...")
         container.start()
-        print("Unleash container started")
+        logger.info("Unleash container started")
 
         # Wait for health check to pass
-        print("Waiting for Unleash container to be healthy...")
+        logger.info("Waiting for Unleash container to be healthy...")
         max_wait_time = 60  # 1 minute max wait
         start_time = time.time()
 
@@ -292,32 +299,32 @@ def unleash_container(postgres_container):
                 try:
                     exposed_port = container.get_exposed_port(4242)
                     unleash_url = f"http://localhost:{exposed_port}"
-                    print(f"Trying health check at: {unleash_url}")
+                    logger.info(f"Trying health check at: {unleash_url}")
                 except Exception as port_error:
-                    print(f"Port not ready yet: {port_error}")
+                    logger.error(f"Port not ready yet: {port_error}")
                     time.sleep(2)
                     continue
 
                 response = requests.get(f"{unleash_url}/health", timeout=5)
                 if response.status_code == 200:
-                    print("Unleash container is healthy!")
+                    logger.info("Unleash container is healthy!")
                     break
 
-                print(f"Health check failed, status: {response.status_code}")
+                logger.error(f"Health check failed, status: {response.status_code}")
                 time.sleep(2)
 
             except Exception as e:
-                print(f"Health check error: {e}")
+                logger.error(f"Health check error: {e}")
                 time.sleep(2)
         else:
             raise Exception("Unleash container did not become healthy within timeout")
 
         # Get the exposed port and set global URL
         UNLEASH_URL = f"http://localhost:{container.get_exposed_port(4242)}"
-        print(f"Unleash started at: {unleash_url}")
+        logger.info(f"Unleash started at: {unleash_url}")
 
         insert_admin_token(postgres_container)
-        print("Admin token inserted into database")
+        logger.info("Admin token inserted into database")
 
         yield container, unleash_url
 
@@ -325,9 +332,9 @@ def unleash_container(postgres_container):
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_flags(unleash_container):
     """Setup test flags before running any tests."""
-    print("Creating test flags in Unleash...")
+    logger.info("Creating test flags in Unleash...")
     create_test_flags()
-    print("Test flags setup completed")
+    logger.info("Test flags setup completed")
 
 
 @pytest.fixture(scope="session")

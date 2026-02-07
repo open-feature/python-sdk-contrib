@@ -1,5 +1,4 @@
-"""Tests for flag evaluation functionality."""
-
+# ruff: noqa: S106
 from unittest.mock import ANY, Mock, patch
 
 import pytest
