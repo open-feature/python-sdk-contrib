@@ -1,3 +1,4 @@
+# ruff: noqa: S106
 import uuid
 from unittest.mock import Mock, patch
 
