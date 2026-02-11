@@ -138,7 +138,7 @@ def test_error_exclude_exceptions(mock_get_current_span):
 
     # When
     hook.error(hook_context, exception, hints={})
-
+    # Then
     mock_span.record_exception.assert_not_called()
 
 
@@ -162,4 +162,5 @@ def test_error_no_provider_metadata(mock_get_current_span):
 
     # When
     hook.error(hook_context, exception, hints={})
+    # Then
     mock_span.record_exception.assert_called_once_with(exception, attributes)
