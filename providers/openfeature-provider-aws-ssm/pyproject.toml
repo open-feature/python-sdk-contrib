@@ -1,0 +1,77 @@
+[build-system]
+requires = ["uv_build~=0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "openfeature-provider-aws-ssm"
+version = "0.1.0"
+description = "OpenFeature Python AWS Systems Manager Parameter Store Provider"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["openfeature", "aws", "ssm", "parameter-store", "feature-flags"]
+dependencies = [
+    "openfeature-sdk>=0.8.2",
+    "boto3>=1.28.0",
+    "cachebox>=5.1.0,<6.0.0",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+async = ["aioboto3>=12.3.0"]
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+[dependency-groups]
+dev = [
+  "aioboto3>=12.3.0",
+  "types-boto3[ssm]>=1.28.0",
+  "types-aioboto3[ssm]>=13.0.0",
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "mypy>=1.18.0,<2.0.0",
+  "poethepoet>=0.37.0",
+  "pytest>=8.4.0,<9.0.0",
+  "pytest-asyncio>=0.23.0",
+  "moto[ssm]>=5.0.0,<6.0.0",
+]
+
+[tool.uv.build-backend]
+module-name = "openfeature"
+module-root = "src"
+namespace = true
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+
+python_version = "3.9" # should be identical to the minimum supported version
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true # will become the new default from version 2
+allow_redefinition_new = true # will become the new default from version 2
+fixed_format_cache = true # new caching mechanism
+pretty = true
+
+strict = true
+disallow_any_generics = false
+
+[tool.coverage.run]
+omit = [
+    "tests/**",
+]
+
+[tool.poe.tasks]
+test = "pytest tests"
+test-cov = "coverage run -m pytest tests"
+cov-report = "coverage xml"
+cov = [
+    "test-cov",
+    "cov-report"
+]
+mypy = "mypy"
