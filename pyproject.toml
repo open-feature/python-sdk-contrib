@@ -6,6 +6,7 @@ dependencies = [
     # hooks
     "openfeature-hooks-opentelemetry",
     # providers
+    "openfeature-provider-aws-ssm[async]",
     "openfeature-provider-env-var",
     "openfeature-provider-flagd",
     "openfeature-provider-flipt",
@@ -28,6 +29,7 @@ package = false
 # hooks
 openfeature-hooks-opentelemetry = { workspace = true }
 # providers
+openfeature-provider-aws-ssm = { workspace = true }
 openfeature-provider-env-var = { workspace = true }
 openfeature-provider-flagd = { workspace = true }
 openfeature-provider-flipt = { workspace = true }
