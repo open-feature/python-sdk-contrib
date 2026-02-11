@@ -69,5 +69,7 @@ class TracingHook(Hook):
             EventAttributes.KEY: hook_context.flag_key,
             EventAttributes.RESULT_VALUE: json.dumps(hook_context.default_value),
         }
+        if hook_context.provider_metadata:
+            attributes[EventAttributes.PROVIDER_NAME] = hook_context.provider_metadata.name
         current_span = trace.get_current_span()
         current_span.record_exception(exception, attributes)
