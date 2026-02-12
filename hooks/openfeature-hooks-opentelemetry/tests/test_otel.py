@@ -12,8 +12,6 @@ from openfeature.hook import HookContext
 from openfeature.provider.metadata import Metadata
 
 
-
-
 @pytest.fixture
 def mock_get_current_span(monkeypatch):
     monkeypatch.setattr(trace, "get_current_span", Mock())
@@ -121,6 +119,7 @@ def test_error(mock_get_current_span):
 
     # Then
     mock_span.record_exception.assert_called_once_with(exception, attributes)
+
 
 def test_error_exclude_exceptions(mock_get_current_span):
     # Given
