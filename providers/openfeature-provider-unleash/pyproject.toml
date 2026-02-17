@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "openfeature-provider-unleash"
-version = "0.1.1"
+version = "0.1.2"
 description = "OpenFeature provider for Unleash"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
