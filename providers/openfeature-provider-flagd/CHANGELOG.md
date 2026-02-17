@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.7...openfeature-provider-flagd/v0.2.8) (2026-02-17)
+
+
+### 🐛 Bug Fixes
+
+* replace project.scripts with poethepoet ([#335](https://github.com/open-feature/python-sdk-contrib/issues/335)) ([61add22](https://github.com/open-feature/python-sdk-contrib/commit/61add22b975140ccd39b618bf70efeeecbdc25c3))
+
 ## [0.2.7](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.6...openfeature-provider-flagd/v0.2.7) (2026-01-31)
 
 
