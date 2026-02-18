@@ -35,7 +35,7 @@ class TracingHook(Hook):
             error_type = str(details.error_code or ErrorCode.GENERAL).lower()
             event_attributes[Attributes.OTEL_ERROR_TYPE] = error_type
             if details.error_message:
-                event_attributes["error.message"] = details.error_message
+                event_attributes[Attributes.OTEL_ERROR_MESSAGE] = details.error_message
 
         context = hook_context.evaluation_context
         if context.targeting_key:
