@@ -85,6 +85,7 @@ def test_metric_after(mock_get_meter):
         1,
         {
             "feature_flag.key": "flag_key",
+            "feature_flag.result.reason": "targeting_match",
             "feature_flag.result.variant": "enabled",
             "feature_flag.provider.name": "test-provider",
         },

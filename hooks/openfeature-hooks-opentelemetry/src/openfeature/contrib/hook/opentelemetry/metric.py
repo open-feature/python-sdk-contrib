@@ -1,4 +1,4 @@
-from openfeature.flag_evaluation import FlagEvaluationDetails
+from openfeature.flag_evaluation import FlagEvaluationDetails, Reason
 from openfeature.hook import Hook, HookContext, HookHints
 from opentelemetry import metrics
 
@@ -40,6 +40,9 @@ class MetricsHook(Hook):
     ) -> None:
         attributes = {
             Attributes.OTEL_FLAG_KEY: details.flag_key,
+            Attributes.OTEL_RESULT_REASON: str(
+                details.reason or Reason.UNKNOWN
+            ).lower(),
         }
         if details.variant:
             attributes[Attributes.OTEL_FLAG_VARIANT] = details.variant
