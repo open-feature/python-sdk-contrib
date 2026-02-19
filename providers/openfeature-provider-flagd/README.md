@@ -81,7 +81,7 @@ The default options can be defined in the FlagdProvider constructor.
 |--------------------------|--------------------------------|----------------------------|-------------------------------|---------------------|
 | resolver_type            | FLAGD_RESOLVER                 | enum - `rpc`, `in-process` | rpc                           |                     |
 | host                     | FLAGD_HOST                     | str                        | localhost                     | rpc & in-process    |
-| port                     | FLAGD_SYNC_PORT (in-process), FLAGD_PORT (rpc or fallback) | int | 8013 (rpc), 8015 (in-process) | rpc & in-process    |
+| port                     | FLAGD_SYNC_PORT (in-process), FLAGD_PORT (rpc or fallback) | int                        | 8013 (rpc), 8015 (in-process) | rpc & in-process    |
 | tls                      | FLAGD_TLS                      | bool                       | false                         | rpc & in-process    |
 | cert_path                | FLAGD_SERVER_CERT_PATH         | String                     | null                          | rpc & in-process    |
 | deadline                 | FLAGD_DEADLINE_MS              | int                        | 500                           | rpc & in-process    |
