@@ -42,6 +42,7 @@ ENV_VAR_KEEP_ALIVE_TIME_MS = "FLAGD_KEEP_ALIVE_TIME_MS"
 ENV_VAR_OFFLINE_FLAG_SOURCE_PATH = "FLAGD_OFFLINE_FLAG_SOURCE_PATH"
 ENV_VAR_OFFLINE_POLL_MS = "FLAGD_OFFLINE_POLL_MS"
 ENV_VAR_PORT = "FLAGD_PORT"
+ENV_VAR_SYNC_PORT = "FLAGD_SYNC_PORT"
 ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
@@ -79,7 +80,7 @@ def env_or_default(
 
 @dataclasses.dataclass
 class Config:
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0915
         self,
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
@@ -149,17 +150,27 @@ class Config:
             else resolver
         )
 
-        default_port = (
-            DEFAULT_PORT_RPC
-            if self.resolver is ResolverType.RPC
-            else DEFAULT_PORT_IN_PROCESS
-        )
-
-        self.port: int = (
-            int(env_or_default(ENV_VAR_PORT, default_port, cast=int))
-            if port is None
-            else port
-        )
+        # Port configuration with FLAGD_SYNC_PORT support for in-process mode
+        if port is None:
+            if self.resolver is ResolverType.IN_PROCESS:
+                # For in-process: try FLAGD_SYNC_PORT first, then FLAGD_PORT (backwards compatibility), then default
+                sync_port_env = os.environ.get(ENV_VAR_SYNC_PORT)
+                if sync_port_env is not None:
+                    self.port = int(sync_port_env)
+                else:
+                    port_env = os.environ.get(ENV_VAR_PORT)
+                    self.port = (
+                        int(port_env)
+                        if port_env is not None
+                        else DEFAULT_PORT_IN_PROCESS
+                    )
+            else:
+                # For RPC: use FLAGD_PORT only
+                self.port = int(
+                    env_or_default(ENV_VAR_PORT, DEFAULT_PORT_RPC, cast=int)
+                )
+        else:
+            self.port = port
 
         self.offline_flag_source_path = (
             env_or_default(
