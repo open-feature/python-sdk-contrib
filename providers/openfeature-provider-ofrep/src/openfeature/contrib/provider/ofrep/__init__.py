@@ -183,6 +183,23 @@ class OFREPProvider(AbstractProvider):
                 f"Rate limited, retry after: {retry_after}"
             ) from exception
 
+        if response.status_code == 401:
+            raise OpenFeatureError(ErrorCode.GENERAL, "unauthorized") from exception
+
+        if response.status_code == 403:
+            raise OpenFeatureError(ErrorCode.GENERAL, "forbidden") from exception
+
+        if response.status_code == 404:
+            try:
+                data = response.json()
+                error_details = data["errorDetails"]
+            except JSONDecodeError:
+                error_details = response.text
+            raise FlagNotFoundError(error_details) from exception
+
+        if response.status_code > 400:
+            raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
+
         try:
             data = response.json()
         except JSONDecodeError:
@@ -190,9 +207,6 @@ class OFREPProvider(AbstractProvider):
 
         error_code = ErrorCode(data["errorCode"])
         error_details = data["errorDetails"]
-
-        if response.status_code == 404:
-            raise FlagNotFoundError(error_details) from exception
 
         if error_code == ErrorCode.PARSE_ERROR:
             raise ParseError(error_details) from exception
