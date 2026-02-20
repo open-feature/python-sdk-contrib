@@ -176,6 +176,20 @@ class OFREPProvider(AbstractProvider):
         if response is None:
             raise GeneralError(str(exception)) from exception
 
+        self._raise_for_http_status(response, exception)
+        # Fallthrough: parse JSON and raise based on error code
+        try:
+            data = response.json()
+        except JSONDecodeError:
+            raise ParseError(str(exception)) from exception
+
+        self._raise_for_error_code(data, exception)
+
+    def _raise_for_http_status(
+        self,
+        response: requests.Response,
+        exception: requests.RequestException,
+    ) -> None:
         if response.status_code == 429:
             retry_after = response.headers.get("Retry-After")
             self.retry_after = _parse_retry_after(retry_after)
@@ -200,11 +214,11 @@ class OFREPProvider(AbstractProvider):
         if response.status_code > 400:
             raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
 
-        try:
-            data = response.json()
-        except JSONDecodeError:
-            raise ParseError(str(exception)) from exception
-
+    def _raise_for_error_code(
+        self,
+        data: dict[str, Any],
+        exception: requests.RequestException,
+    ) -> NoReturn:
         error_code = ErrorCode(data["errorCode"])
         error_details = data["errorDetails"]
 
