@@ -54,6 +54,9 @@ class MetricsHook(Hook):
             attributes[Attributes.OTEL_PROVIDER_NAME] = (
                 hook_context.provider_metadata.name
             )
+        attributes = attributes | attributes_from_dimensions(
+            self.extra_attributes, details.flag_metadata
+        )
         self.evaluation_success_total.add(1, attributes)
 
     def error(
@@ -82,9 +85,6 @@ class MetricsHook(Hook):
             attributes[Attributes.OTEL_PROVIDER_NAME] = (
                 hook_context.provider_metadata.name
             )
-        attributes = attributes | attributes_from_dimensions(
-            self.extra_attributes, details.flag_metadata
-        )
         self.evaluation_active_count.add(-1, attributes)
 
 

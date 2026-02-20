@@ -95,6 +95,69 @@ def test_metric_after(mock_get_meter):
     mock_counters["feature_flag.evaluation.active_count"].add.assert_not_called()
 
 
+def test_metric_after_with_extra_dimensions(mock_get_meter):
+    _, mock_counters = mock_get_meter
+    hook = MetricsHook(extra_attributes=["scope", "test"])
+    hook_context = HookContext(
+        flag_key="flag_key",
+        flag_type=FlagType.BOOLEAN,
+        default_value=False,
+        evaluation_context=EvaluationContext(),
+        provider_metadata=Metadata(name="test-provider"),
+    )
+    details = FlagEvaluationDetails(
+        flag_key="flag_key",
+        value=True,
+        variant="enabled",
+        reason=Reason.TARGETING_MATCH,
+        flag_metadata={"scope": "application", "test": True},
+        error_code=None,
+        error_message=None,
+    )
+    hook.after(hook_context, details, hints={})
+    mock_counters["feature_flag.evaluation.success_total"].add.assert_called_once_with(
+        1,
+        {
+            "feature_flag.key": "flag_key",
+            "feature_flag.result.reason": "targeting_match",
+            "feature_flag.result.variant": "enabled",
+            "feature_flag.provider.name": "test-provider",
+            "scope": "application",
+            "test": True,
+        },
+    )
+
+
+def test_metric_after_with_extra_dimensions_missing_attribute(mock_get_meter):
+    _, mock_counters = mock_get_meter
+    hook = MetricsHook(extra_attributes=["scope", "test"])
+    hook_context = HookContext(
+        flag_key="flag_key",
+        flag_type=FlagType.BOOLEAN,
+        default_value=False,
+        evaluation_context=EvaluationContext(),
+        provider_metadata=Metadata(name="test-provider"),
+    )
+    details = FlagEvaluationDetails(
+        flag_key="flag_key",
+        value=True,
+        variant="enabled",
+        reason=Reason.TARGETING_MATCH,
+        flag_metadata={"test": True},
+    )
+    hook.after(hook_context, details, hints={})
+    mock_counters["feature_flag.evaluation.success_total"].add.assert_called_once_with(
+        1,
+        {
+            "feature_flag.key": "flag_key",
+            "feature_flag.result.reason": "targeting_match",
+            "feature_flag.result.variant": "enabled",
+            "feature_flag.provider.name": "test-provider",
+            "test": True,
+        },
+    )
+
+
 def test_metric_error(mock_get_meter):
     _, mock_counters = mock_get_meter
     hook = MetricsHook()
@@ -148,60 +211,3 @@ def test_metric_finally_after(mock_get_meter):
     mock_counters["feature_flag.evaluation.success_total"].add.assert_not_called()
     mock_counters["feature_flag.evaluation.request_total"].add.assert_not_called()
     mock_counters["feature_flag.evaluation.error_total"].add.assert_not_called()
-
-
-def test_metric_finally_after_with_extra_dimensions(mock_get_meter):
-    _, mock_counters = mock_get_meter
-    hook = MetricsHook(extra_attributes=["scope", "test"])
-    hook_context = HookContext(
-        flag_key="flag_key",
-        flag_type=FlagType.BOOLEAN,
-        default_value=False,
-        evaluation_context=EvaluationContext(),
-        provider_metadata=Metadata(name="test-provider"),
-    )
-    details = FlagEvaluationDetails(
-        flag_key="flag_key",
-        value=True,
-        variant="enabled",
-        reason=Reason.TARGETING_MATCH,
-        flag_metadata={"scope": "application", "test": True},
-    )
-    hook.finally_after(hook_context, details, hints={})
-    mock_counters["feature_flag.evaluation.active_count"].add.assert_called_once_with(
-        -1,
-        {
-            "feature_flag.key": "flag_key",
-            "feature_flag.provider.name": "test-provider",
-            "scope": "application",
-            "test": True,
-        },
-    )
-
-
-def test_metric_finally_after_with_extra_dimensions_missing_attribute(mock_get_meter):
-    _, mock_counters = mock_get_meter
-    hook = MetricsHook(extra_attributes=["scope", "test"])
-    hook_context = HookContext(
-        flag_key="flag_key",
-        flag_type=FlagType.BOOLEAN,
-        default_value=False,
-        evaluation_context=EvaluationContext(),
-        provider_metadata=Metadata(name="test-provider"),
-    )
-    details = FlagEvaluationDetails(
-        flag_key="flag_key",
-        value=True,
-        variant="enabled",
-        reason=Reason.TARGETING_MATCH,
-        flag_metadata={"test": True},
-    )
-    hook.finally_after(hook_context, details, hints={})
-    mock_counters["feature_flag.evaluation.active_count"].add.assert_called_once_with(
-        -1,
-        {
-            "feature_flag.key": "flag_key",
-            "feature_flag.provider.name": "test-provider",
-            "test": True,
-        },
-    )
