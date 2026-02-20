@@ -80,7 +80,7 @@ def env_or_default(
 
 @dataclasses.dataclass
 class Config:
-    def __init__(  # noqa: PLR0913, PLR0915
+    def __init__(  # noqa: PLR0913
         self,
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
@@ -152,21 +152,16 @@ class Config:
 
         # Port configuration with FLAGD_SYNC_PORT support for in-process mode
         if port is None:
-            if self.resolver is ResolverType.IN_PROCESS:
-                # For in-process: try FLAGD_SYNC_PORT, then FLAGD_PORT (backwards compatibility), then default
-                port_from_env = os.environ.get(ENV_VAR_SYNC_PORT) or os.environ.get(
-                    ENV_VAR_PORT
+            is_rpc = self.resolver is ResolverType.RPC
+            # Use FLAGD_SYNC_PORT for in-process/file if set, otherwise fallback to FLAGD_PORT
+            use_sync = not is_rpc and os.environ.get(ENV_VAR_SYNC_PORT)
+            self.port = int(
+                env_or_default(
+                    ENV_VAR_SYNC_PORT if use_sync else ENV_VAR_PORT,
+                    DEFAULT_PORT_RPC if is_rpc else DEFAULT_PORT_IN_PROCESS,
+                    cast=int,
                 )
-                self.port = (
-                    int(port_from_env)
-                    if port_from_env is not None
-                    else DEFAULT_PORT_IN_PROCESS
-                )
-            else:
-                # For RPC: use FLAGD_PORT only
-                self.port = int(
-                    env_or_default(ENV_VAR_PORT, DEFAULT_PORT_RPC, cast=int)
-                )
+            )
         else:
             self.port = port
 
