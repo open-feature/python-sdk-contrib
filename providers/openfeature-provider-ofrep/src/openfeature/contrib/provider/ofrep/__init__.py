@@ -42,6 +42,8 @@ TypeMap = dict[
     ],
 ]
 
+_HTTP_AUTH_ERRORS: dict[int, str] = {401: "unauthorized", 403: "forbidden"}
+
 
 class OFREPProvider(AbstractProvider):
     def __init__(
@@ -176,23 +178,18 @@ class OFREPProvider(AbstractProvider):
         if response is None:
             raise GeneralError(str(exception)) from exception
 
-        if response.status_code == 429:
-            retry_after = response.headers.get("Retry-After")
-            self.retry_after = _parse_retry_after(retry_after)
-            raise GeneralError(
-                f"Rate limited, retry after: {retry_after}"
-            ) from exception
-
+        self._raise_for_http_status(response, exception)
+        # Fallthrough: parse JSON and raise based on error code
         try:
             data = response.json()
         except JSONDecodeError:
             raise ParseError(str(exception)) from exception
 
-        error_code = ErrorCode(data["errorCode"])
+        try:
+            error_code = ErrorCode(data["errorCode"])
+        except ValueError:
+            error_code = ErrorCode.GENERAL
         error_details = data["errorDetails"]
-
-        if response.status_code == 404:
-            raise FlagNotFoundError(error_details) from exception
 
         if error_code == ErrorCode.PARSE_ERROR:
             raise ParseError(error_details) from exception
@@ -204,6 +201,32 @@ class OFREPProvider(AbstractProvider):
             raise GeneralError(error_details) from exception
 
         raise OpenFeatureError(error_code, error_details) from exception
+
+    def _raise_for_http_status(
+        self,
+        response: requests.Response,
+        exception: requests.RequestException,
+    ) -> None:
+        status = response.status_code
+
+        if status == 429:
+            retry_after = response.headers.get("Retry-After")
+            self.retry_after = _parse_retry_after(retry_after)
+            raise GeneralError(
+                f"Rate limited, retry after: {retry_after}"
+            ) from exception
+        elif status in _HTTP_AUTH_ERRORS:
+            raise OpenFeatureError(
+                ErrorCode.GENERAL, _HTTP_AUTH_ERRORS[status]
+            ) from exception
+        elif status == 404:
+            try:
+                error_details = response.json()["errorDetails"]
+            except (JSONDecodeError, KeyError):
+                error_details = response.text
+            raise FlagNotFoundError(error_details) from exception
+        elif status > 400:
+            raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
 
 
 def _build_request_data(
