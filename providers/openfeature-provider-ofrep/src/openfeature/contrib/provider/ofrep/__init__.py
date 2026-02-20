@@ -42,6 +42,8 @@ TypeMap = dict[
     ],
 ]
 
+_HTTP_AUTH_ERRORS: dict[int, str] = {401: "unauthorized", 403: "forbidden"}
+
 
 class OFREPProvider(AbstractProvider):
     def __init__(
@@ -183,42 +185,6 @@ class OFREPProvider(AbstractProvider):
         except JSONDecodeError:
             raise ParseError(str(exception)) from exception
 
-        self._raise_for_error_code(data, exception)
-
-    def _raise_for_http_status(
-        self,
-        response: requests.Response,
-        exception: requests.RequestException,
-    ) -> None:
-        if response.status_code == 429:
-            retry_after = response.headers.get("Retry-After")
-            self.retry_after = _parse_retry_after(retry_after)
-            raise GeneralError(
-                f"Rate limited, retry after: {retry_after}"
-            ) from exception
-
-        if response.status_code == 401:
-            raise OpenFeatureError(ErrorCode.GENERAL, "unauthorized") from exception
-
-        if response.status_code == 403:
-            raise OpenFeatureError(ErrorCode.GENERAL, "forbidden") from exception
-
-        if response.status_code == 404:
-            try:
-                data = response.json()
-                error_details = data["errorDetails"]
-            except JSONDecodeError:
-                error_details = response.text
-            raise FlagNotFoundError(error_details) from exception
-
-        if response.status_code > 400:
-            raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
-
-    def _raise_for_error_code(
-        self,
-        data: dict[str, Any],
-        exception: requests.RequestException,
-    ) -> NoReturn:
         error_code = ErrorCode(data["errorCode"])
         error_details = data["errorDetails"]
 
@@ -232,6 +198,32 @@ class OFREPProvider(AbstractProvider):
             raise GeneralError(error_details) from exception
 
         raise OpenFeatureError(error_code, error_details) from exception
+
+    def _raise_for_http_status(
+        self,
+        response: requests.Response,
+        exception: requests.RequestException,
+    ) -> None:
+        status = response.status_code
+
+        if status == 429:
+            retry_after = response.headers.get("Retry-After")
+            self.retry_after = _parse_retry_after(retry_after)
+            raise GeneralError(
+                f"Rate limited, retry after: {retry_after}"
+            ) from exception
+        elif status in _HTTP_AUTH_ERRORS:
+            raise OpenFeatureError(
+                ErrorCode.GENERAL, _HTTP_AUTH_ERRORS[status]
+            ) from exception
+        elif status == 404:
+            try:
+                error_details = response.json()["errorDetails"]
+            except (JSONDecodeError, KeyError):
+                error_details = response.text
+            raise FlagNotFoundError(error_details) from exception
+        elif status > 400:
+            raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
 
 
 def _build_request_data(
