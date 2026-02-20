@@ -13,7 +13,7 @@ from openfeature.provider.metadata import Metadata
 @pytest.fixture
 def mock_get_meter(monkeypatch):
     mock_counters = {
-        "feature_flag.evaluation.active_total": Mock(spec=metrics.UpDownCounter),
+        "feature_flag.evaluation.active_count": Mock(spec=metrics.UpDownCounter),
         "feature_flag.evaluation.error_total": Mock(spec=metrics.Counter),
         "feature_flag.evaluation.success_total": Mock(spec=metrics.Counter),
         "feature_flag.evaluation.request_total": Mock(spec=metrics.Counter),
@@ -44,7 +44,7 @@ def test_metric_before(mock_get_meter):
     )
 
     hook.before(hook_context, hints={})
-    mock_counters["feature_flag.evaluation.active_total"].add.assert_called_once_with(
+    mock_counters["feature_flag.evaluation.active_count"].add.assert_called_once_with(
         1,
         {
             "feature_flag.key": "flag_key",
@@ -92,7 +92,7 @@ def test_metric_after(mock_get_meter):
     )
     mock_counters["feature_flag.evaluation.error_total"].add.assert_not_called()
     mock_counters["feature_flag.evaluation.request_total"].add.assert_not_called()
-    mock_counters["feature_flag.evaluation.active_total"].add.assert_not_called()
+    mock_counters["feature_flag.evaluation.active_count"].add.assert_not_called()
 
 
 def test_metric_error(mock_get_meter):
@@ -116,7 +116,7 @@ def test_metric_error(mock_get_meter):
     )
     mock_counters["feature_flag.evaluation.success_total"].add.assert_not_called()
     mock_counters["feature_flag.evaluation.request_total"].add.assert_not_called()
-    mock_counters["feature_flag.evaluation.active_total"].add.assert_not_called()
+    mock_counters["feature_flag.evaluation.active_count"].add.assert_not_called()
 
 
 def test_metric_finally_after(mock_get_meter):
@@ -138,7 +138,7 @@ def test_metric_finally_after(mock_get_meter):
         error_message=None,
     )
     hook.finally_after(hook_context, details, hints={})
-    mock_counters["feature_flag.evaluation.active_total"].add.assert_called_once_with(
+    mock_counters["feature_flag.evaluation.active_count"].add.assert_called_once_with(
         -1,
         {
             "feature_flag.key": "flag_key",
