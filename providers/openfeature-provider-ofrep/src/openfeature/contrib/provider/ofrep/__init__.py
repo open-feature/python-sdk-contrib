@@ -185,7 +185,7 @@ class OFREPProvider(AbstractProvider):
         except JSONDecodeError:
             raise ParseError(str(exception)) from exception
 
-        error_code = ErrorCode(data["errorCode"])
+        error_code = ErrorCode(data.get("errorCode", "GENERAL"))
         error_details = data["errorDetails"]
 
         if error_code == ErrorCode.PARSE_ERROR:
