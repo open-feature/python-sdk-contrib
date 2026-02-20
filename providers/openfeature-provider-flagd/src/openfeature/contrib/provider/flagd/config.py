@@ -153,17 +153,15 @@ class Config:
         # Port configuration with FLAGD_SYNC_PORT support for in-process mode
         if port is None:
             if self.resolver is ResolverType.IN_PROCESS:
-                # For in-process: try FLAGD_SYNC_PORT first, then FLAGD_PORT (backwards compatibility), then default
-                sync_port_env = os.environ.get(ENV_VAR_SYNC_PORT)
-                if sync_port_env is not None:
-                    self.port = int(sync_port_env)
-                else:
-                    port_env = os.environ.get(ENV_VAR_PORT)
-                    self.port = (
-                        int(port_env)
-                        if port_env is not None
-                        else DEFAULT_PORT_IN_PROCESS
-                    )
+                # For in-process: try FLAGD_SYNC_PORT, then FLAGD_PORT (backwards compatibility), then default
+                port_from_env = os.environ.get(ENV_VAR_SYNC_PORT) or os.environ.get(
+                    ENV_VAR_PORT
+                )
+                self.port = (
+                    int(port_from_env)
+                    if port_from_env is not None
+                    else DEFAULT_PORT_IN_PROCESS
+                )
             else:
                 # For RPC: use FLAGD_PORT only
                 self.port = int(
