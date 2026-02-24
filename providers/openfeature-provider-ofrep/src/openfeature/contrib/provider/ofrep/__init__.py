@@ -162,10 +162,12 @@ class OFREPProvider(AbstractProvider):
         except JSONDecodeError as e:
             raise ParseError(str(e)) from e
 
-        _typecheck_flag_value(data["value"], flag_type)
+        value = data.get("value", default_value)
+
+        _typecheck_flag_value(value, flag_type)
 
         return FlagResolutionDetails(
-            value=data["value"],
+            value=value,
             reason=Reason[data["reason"]],
             variant=data["variant"],
             flag_metadata=data.get("metadata", {}),
