@@ -23,6 +23,7 @@ from openfeature.contrib.provider.flagd.config import (
     ENV_VAR_PORT,
     ENV_VAR_RETRY_BACKOFF_MS,
     ENV_VAR_STREAM_DEADLINE_MS,
+    ENV_VAR_SYNC_PORT,
     ENV_VAR_TLS,
     CacheType,
     Config,
@@ -147,3 +148,56 @@ def test_uses_arguments_over_environments_and_defaults(monkeypatch, resolver_typ
     assert config.retry_backoff_ms == retry_backoff
     assert config.stream_deadline_ms == stream_deadline
     assert config.tls is tls
+
+
+def test_in_process_uses_sync_port(monkeypatch):
+    """Test that FLAGD_SYNC_PORT is used for in-process mode when set."""
+    sync_port = 9999
+    monkeypatch.setenv(ENV_VAR_SYNC_PORT, str(sync_port))
+
+    config = Config(resolver=ResolverType.IN_PROCESS)
+    assert config.port == sync_port
+    assert config.resolver == ResolverType.IN_PROCESS
+
+
+def test_in_process_fallback_to_port(monkeypatch):
+    """Test that FLAGD_PORT is used as fallback when FLAGD_SYNC_PORT is not set."""
+    port = 7777
+    monkeypatch.setenv(ENV_VAR_PORT, str(port))
+
+    config = Config(resolver=ResolverType.IN_PROCESS)
+    assert config.port == port
+    assert config.resolver == ResolverType.IN_PROCESS
+
+
+def test_in_process_sync_port_priority(monkeypatch):
+    """Test that FLAGD_SYNC_PORT takes priority over FLAGD_PORT when both are set."""
+    sync_port = 9999
+    port = 7777
+    monkeypatch.setenv(ENV_VAR_SYNC_PORT, str(sync_port))
+    monkeypatch.setenv(ENV_VAR_PORT, str(port))
+
+    config = Config(resolver=ResolverType.IN_PROCESS)
+    assert config.port == sync_port  # FLAGD_SYNC_PORT should win
+    assert config.resolver == ResolverType.IN_PROCESS
+
+
+def test_rpc_ignores_sync_port(monkeypatch):
+    """Test that RPC mode uses FLAGD_PORT and ignores FLAGD_SYNC_PORT."""
+    sync_port = 9999
+    port = 7777
+    monkeypatch.setenv(ENV_VAR_SYNC_PORT, str(sync_port))
+    monkeypatch.setenv(ENV_VAR_PORT, str(port))
+
+    config = Config(resolver=ResolverType.RPC)
+    assert config.port == port  # RPC should use FLAGD_PORT
+    assert config.resolver == ResolverType.RPC
+
+
+def test_in_process_default_port_when_no_env_var(monkeypatch):
+    """Test that in-process mode uses default port when neither env var is set."""
+    monkeypatch.delenv(ENV_VAR_SYNC_PORT, raising=False)
+    monkeypatch.delenv(ENV_VAR_PORT, raising=False)
+    config = Config(resolver=ResolverType.IN_PROCESS)
+    assert config.port == DEFAULT_PORT_IN_PROCESS
+    assert config.resolver == ResolverType.IN_PROCESS

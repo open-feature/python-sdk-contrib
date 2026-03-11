@@ -42,6 +42,7 @@ ENV_VAR_KEEP_ALIVE_TIME_MS = "FLAGD_KEEP_ALIVE_TIME_MS"
 ENV_VAR_OFFLINE_FLAG_SOURCE_PATH = "FLAGD_OFFLINE_FLAG_SOURCE_PATH"
 ENV_VAR_OFFLINE_POLL_MS = "FLAGD_OFFLINE_POLL_MS"
 ENV_VAR_PORT = "FLAGD_PORT"
+ENV_VAR_SYNC_PORT = "FLAGD_SYNC_PORT"
 ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
@@ -149,17 +150,20 @@ class Config:
             else resolver
         )
 
-        default_port = (
-            DEFAULT_PORT_RPC
-            if self.resolver is ResolverType.RPC
-            else DEFAULT_PORT_IN_PROCESS
-        )
-
-        self.port: int = (
-            int(env_or_default(ENV_VAR_PORT, default_port, cast=int))
-            if port is None
-            else port
-        )
+        # Port configuration with FLAGD_SYNC_PORT support for in-process mode
+        if port is None:
+            is_rpc = self.resolver is ResolverType.RPC
+            # Use FLAGD_SYNC_PORT for in-process/file if set, otherwise fallback to FLAGD_PORT
+            use_sync = not is_rpc and os.environ.get(ENV_VAR_SYNC_PORT)
+            self.port = int(
+                env_or_default(
+                    ENV_VAR_SYNC_PORT if use_sync else ENV_VAR_PORT,
+                    DEFAULT_PORT_RPC if is_rpc else DEFAULT_PORT_IN_PROCESS,
+                    cast=int,
+                )
+            )
+        else:
+            self.port = port
 
         self.offline_flag_source_path = (
             env_or_default(
