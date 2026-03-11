@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openfeature-provider-flagd"
-version = "0.2.7"
+version = "0.3.0"
 description = "OpenFeature provider for the flagd flag evaluation engine"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
