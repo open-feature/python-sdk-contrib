@@ -33,6 +33,7 @@ class TestProviderType(Enum):
     SOCKET = "socket"
     METADATA = "metadata"
     SYNCPAYLOAD = "syncpayload"
+    FORBIDDEN = "forbidden"
 
 
 @given("a provider is registered", target_fixture="client")
@@ -68,6 +69,10 @@ def get_default_options_for_provider(
         options["cert_path"] = str(path.absolute())
         options["tls"] = True
         launchpad = "ssl"
+    elif t == TestProviderType.FORBIDDEN:
+        launchpad = "forbidden"
+        options["port"] = container.get_port(9212)
+        options["fatal_status_codes"] = ["FORBIDDEN"]
     elif t == TestProviderType.SOCKET:
         return options, True
     elif t == TestProviderType.METADATA:

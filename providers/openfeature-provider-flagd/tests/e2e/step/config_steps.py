@@ -32,6 +32,11 @@ type_cast = {
     "Boolean": str2bool,
     "ResolverType": convert_resolver_type,
     "CacheType": CacheType,
+    "StringList": lambda s: (
+        [item.strip() for item in s.split(",") if item.strip()]
+        if s and s.strip()
+        else []
+    ),
 }
 
 

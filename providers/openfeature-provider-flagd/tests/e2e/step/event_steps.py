@@ -62,7 +62,7 @@ def assert_handlers(handles, event_type: str, max_wait: int = 2):
     target_fixture="event_details",
 )
 def pass_for_event_fired(event_type: str, event_handles):
-    events = assert_handlers(event_handles, event_type, 30000)
+    events = assert_handlers(event_handles, event_type, 30)
     events = [e for e in events if e["type"] == event_type]
     assert_greater(len(events), 0)
     for event in event_handles:
