@@ -52,7 +52,7 @@ jobs:
           submodules: recursive
 
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@85856786d1ce8acfbcc2f13a5f3fbd6b938f9f41 # v7
+        uses: astral-sh/setup-uv@6ee6290f1cbc4156c0bdd66691b2c144ef8df19a # v7
         with:
           python-version: "3.13"
 
