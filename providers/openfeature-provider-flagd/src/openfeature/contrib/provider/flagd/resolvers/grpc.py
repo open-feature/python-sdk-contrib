@@ -68,6 +68,7 @@ class GrpcResolver:
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
+        self._is_fatal = False
         self.channel = self._generate_channel(config)
         self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
@@ -153,8 +154,13 @@ class GrpcResolver:
         ## block until ready or deadline reached
         timeout = self.deadline + time.monotonic()
         while not self.connected and time.monotonic() < timeout:
+            if self._is_fatal:
+                raise ProviderFatalError("fatal gRPC status code")
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
+
+        if self._is_fatal:
+            raise ProviderFatalError("fatal gRPC status code")
 
         if not self.connected:
             raise ProviderNotReadyError(
@@ -166,6 +172,8 @@ class GrpcResolver:
 
     def _state_change_callback(self, new_state: ChannelConnectivity) -> None:
         logger.debug(f"gRPC state change: {new_state}")
+        if self._is_fatal:
+            return
         if (
             new_state == grpc.ChannelConnectivity.READY
             or new_state == grpc.ChannelConnectivity.IDLE
@@ -197,6 +205,8 @@ class GrpcResolver:
             self.connected = False
 
     def emit_error(self) -> None:
+        if self._is_fatal:
+            return
         logger.debug("gRPC error emitted")
         if self.cache:
             self.cache.clear()
@@ -238,7 +248,15 @@ class GrpcResolver:
                 # although it seems like this error log is not interesting, without it, the retry is not working as expected
                 logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
                 if e.code().name in self.config.fatal_status_codes:
-                    raise ProviderFatalError("fatal error") from e
+                    self._is_fatal = True
+                    self.active = False
+                    self.emit_provider_error(
+                        ProviderEventDetails(
+                            message=f"Fatal gRPC status code: {e.code()}",
+                            error_code=ErrorCode.PROVIDER_FATAL,
+                        )
+                    )
+                    return
             except ParseError:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
