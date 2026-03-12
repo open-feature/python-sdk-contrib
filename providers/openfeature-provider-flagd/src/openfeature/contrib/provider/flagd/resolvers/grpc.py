@@ -18,6 +18,7 @@ from openfeature.exception import (
     GeneralError,
     InvalidContextError,
     ParseError,
+    ProviderFatalError,
     ProviderNotReadyError,
     TypeMismatchError,
 )
@@ -61,6 +62,7 @@ class GrpcResolver:
             if self.config.cache == CacheType.LRU
             else None
         )
+        logger.debug(self.config.fatal_status_codes)
 
         self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
@@ -235,6 +237,8 @@ class GrpcResolver:
             except grpc.RpcError as e:  # noqa: PERF203
                 # although it seems like this error log is not interesting, without it, the retry is not working as expected
                 logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                if e.code().name in self.config.fatal_status_codes:
+                    raise ProviderFatalError("fatal error") from e
             except ParseError:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
@@ -399,8 +403,11 @@ class GrpcResolver:
         except grpc.RpcError as e:
             code = e.code()
             message = f"received grpc status code {code}"
+            logger.debug(message)
 
-            if code == grpc.StatusCode.NOT_FOUND:
+            if code.name in self.config.fatal_status_codes:
+                raise ProviderFatalError(message) from e
+            elif code == grpc.StatusCode.NOT_FOUND:
                 raise FlagNotFoundError(message) from e
             elif code == grpc.StatusCode.INVALID_ARGUMENT:
                 raise TypeMismatchError(message) from e

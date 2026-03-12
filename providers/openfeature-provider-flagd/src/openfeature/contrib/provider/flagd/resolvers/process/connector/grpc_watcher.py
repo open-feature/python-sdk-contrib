@@ -10,7 +10,12 @@ from grpc import StatusCode
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
+from openfeature.exception import (
+    ErrorCode,
+    ParseError,
+    ProviderFatalError,
+    ProviderNotReadyError,
+)
 from openfeature.schemas.protobuf.flagd.sync.v1 import (
     sync_pb2,
     sync_pb2_grpc,
@@ -268,7 +273,8 @@ class GrpcWatcher(FlagStateConnector):
                         logger.debug("Terminating gRPC sync thread")
                         return
             except grpc.RpcError as e:  # noqa: PERF203
-                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                logger.warning(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                self._raise_on_fatal_status_code(e)
             except json.JSONDecodeError:
                 logger.exception(
                     f"Could not parse JSON flag data from SyncFlags endpoint: {flag_str=}"
@@ -287,3 +293,8 @@ class GrpcWatcher(FlagStateConnector):
         if metadata is not None:
             call_args["metadata"] = metadata
         return call_args
+
+    def _raise_on_fatal_status_code(self, e: grpc.RpcError) -> None:
+        if e.code().name in self.config.fatal_status_codes:
+            logger.error(f"Fatal gRPC status code received: {e.code()}")
+            raise ProviderFatalError(f"Fatal gRPC status code: {e.code()}") from e

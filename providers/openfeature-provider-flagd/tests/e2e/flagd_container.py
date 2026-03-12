@@ -12,6 +12,7 @@ from openfeature.contrib.provider.flagd.config import ResolverType
 
 HEALTH_CHECK = 8014
 LAUNCHPAD = 8080
+FORBIDDEN = 9212
 
 
 class FlagdContainer(DockerContainer):
@@ -30,7 +31,7 @@ class FlagdContainer(DockerContainer):
         self.ipr = 8015
         self.flagDir = Path("./flags")
         self.flagDir.mkdir(parents=True, exist_ok=True)
-        self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK, LAUNCHPAD)
+        self.with_exposed_ports(self.rpc, self.ipr, HEALTH_CHECK, LAUNCHPAD, FORBIDDEN)
         self.with_volume_mapping(os.path.abspath(self.flagDir.name), "/flags", "rw")
         self.waiting_for(LogMessageWaitStrategy("listening").with_startup_timeout(5))
 
