@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-ofrep/v0.2.0...openfeature-provider-ofrep/v0.3.0) (2026-03-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* graceful fallback to code default when no default variant ([#347](https://github.com/open-feature/python-sdk-contrib/issues/347))
+
+### 🐛 Bug Fixes
+
+* replace project.scripts with poethepoet ([#335](https://github.com/open-feature/python-sdk-contrib/issues/335)) ([61add22](https://github.com/open-feature/python-sdk-contrib/commit/61add22b975140ccd39b618bf70efeeecbdc25c3))
+
+
+### ✨ New Features
+
+* graceful fallback to code default when no default variant ([#347](https://github.com/open-feature/python-sdk-contrib/issues/347)) ([36db67d](https://github.com/open-feature/python-sdk-contrib/commit/36db67de59732463a372c056525d6453d8a51a75))
+
 ## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-ofrep/v0.1.1...openfeature-provider-ofrep/v0.2.0) (2025-09-25)
 
 
