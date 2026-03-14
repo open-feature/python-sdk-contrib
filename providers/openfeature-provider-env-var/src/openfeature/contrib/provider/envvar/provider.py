@@ -33,7 +33,7 @@ class EnvVarProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return _load_and_parse_env_var(flag_key, lambda v: bool(v))
 
@@ -41,7 +41,7 @@ class EnvVarProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return _load_and_parse_env_var(flag_key, lambda v: v)
 
@@ -49,7 +49,7 @@ class EnvVarProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return _load_and_parse_env_var(flag_key, lambda v: int(v))
 
@@ -57,21 +57,20 @@ class EnvVarProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return _load_and_parse_env_var(flag_key, lambda v: float(v))
 
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
-        def parse(value: str) -> typing.Union[dict, list]:
+        def parse(value: str) -> dict | list:
             result = json.loads(value)
 
             if isinstance(result, (dict, list)):

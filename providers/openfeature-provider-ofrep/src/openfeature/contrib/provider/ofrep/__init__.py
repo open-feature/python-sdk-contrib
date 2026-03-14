@@ -1,8 +1,8 @@
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Callable, NoReturn, Optional, Union
+from typing import Any, NoReturn
 from urllib.parse import urljoin
 
 import requests
@@ -33,13 +33,7 @@ __all__ = ["OFREPProvider"]
 
 TypeMap = dict[
     FlagType,
-    Union[
-        type[bool],
-        type[int],
-        type[float],
-        type[str],
-        tuple[type[dict], type[list]],
-    ],
+    type[bool] | type[int] | type[float] | type[str] | tuple[type[dict], type[list]],
 ]
 
 
@@ -48,13 +42,13 @@ class OFREPProvider(AbstractProvider):
         self,
         base_url: str,
         *,
-        headers_factory: Optional[Callable[[], dict[str, str]]] = None,
+        headers_factory: Callable[[], dict[str, str]] | None = None,
         timeout: float = 5.0,
     ):
         self.base_url = base_url
         self.headers_factory = headers_factory
         self.timeout = timeout
-        self.retry_after: Optional[datetime] = None
+        self.retry_after: datetime | None = None
         self.session = requests.Session()
 
     def get_metadata(self) -> Metadata:
@@ -67,7 +61,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(
             FlagType.BOOLEAN, flag_key, default_value, evaluation_context
@@ -77,7 +71,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(
             FlagType.STRING, flag_key, default_value, evaluation_context
@@ -87,7 +81,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(
             FlagType.INTEGER, flag_key, default_value, evaluation_context
@@ -97,7 +91,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self._resolve(
             FlagType.FLOAT, flag_key, default_value, evaluation_context
@@ -106,11 +100,9 @@ class OFREPProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         return self._resolve(
             FlagType.OBJECT, flag_key, default_value, evaluation_context
         )
@@ -125,17 +117,8 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_type: FlagType,
         flag_key: str,
-        default_value: Union[
-            bool,
-            str,
-            int,
-            float,
-            dict,
-            list,
-            Sequence[FlagValueType],
-            Mapping[str, FlagValueType],
-        ],
-        evaluation_context: Optional[EvaluationContext] = None,
+        default_value: FlagValueType,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[Any]:
         now = datetime.now(timezone.utc)
         if self.retry_after and now <= self.retry_after:
@@ -209,7 +192,7 @@ class OFREPProvider(AbstractProvider):
 
 
 def _build_request_data(
-    evaluation_context: Optional[EvaluationContext],
+    evaluation_context: EvaluationContext | None,
 ) -> dict[str, Any]:
     data: dict[str, Any] = {}
     if evaluation_context:
@@ -220,7 +203,7 @@ def _build_request_data(
     return data
 
 
-def _parse_retry_after(retry_after: Optional[str]) -> Optional[datetime]:
+def _parse_retry_after(retry_after: str | None) -> datetime | None:
     if retry_after is None:
         return None
     if re.match(r"^\s*[0-9]+\s*$", retry_after):

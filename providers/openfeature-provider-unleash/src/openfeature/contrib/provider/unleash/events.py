@@ -1,7 +1,8 @@
 """Events functionality for Unleash provider."""
 
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from UnleashClient.events import BaseEvent, UnleashEventType
 

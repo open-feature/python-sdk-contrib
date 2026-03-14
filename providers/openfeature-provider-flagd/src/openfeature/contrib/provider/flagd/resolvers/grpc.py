@@ -56,7 +56,7 @@ class GrpcResolver:
         self.emit_provider_error = emit_provider_error
         self.emit_provider_stale = emit_provider_stale
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
-        self.cache: typing.Optional[BaseCacheImpl] = (
+        self.cache: BaseCacheImpl | None = (
             LRUCache(maxsize=self.config.max_cache_size)
             if self.config.cache == CacheType.LRU
             else None
@@ -69,8 +69,8 @@ class GrpcResolver:
         self.channel = self._generate_channel(config)
         self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
-        self.thread: typing.Optional[threading.Thread] = None
-        self.timer: typing.Optional[threading.Timer] = None
+        self.thread: threading.Thread | None = None
+        self.timer: threading.Timer | None = None
 
     def _generate_channel(self, config: Config) -> grpc.Channel:
         target = f"{config.host}:{config.port}"
@@ -253,7 +253,7 @@ class GrpcResolver:
         self,
         key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
 
@@ -261,7 +261,7 @@ class GrpcResolver:
         self,
         key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(key, FlagType.STRING, default_value, evaluation_context)
 
@@ -269,7 +269,7 @@ class GrpcResolver:
         self,
         key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self._resolve(key, FlagType.FLOAT, default_value, evaluation_context)
 
@@ -277,19 +277,18 @@ class GrpcResolver:
         self,
         key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(key, FlagType.INTEGER, default_value, evaluation_context)
 
     def resolve_object_details(
         self,
         key: str,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
@@ -299,7 +298,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[bool]: ...
 
     @typing.overload
@@ -308,7 +307,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[int]: ...
 
     @typing.overload
@@ -317,7 +316,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[float]: ...
 
     @typing.overload
@@ -326,7 +325,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[str]: ...
 
     @typing.overload
@@ -334,12 +333,11 @@ class GrpcResolver:
         self,
         flag_key: str,
         flag_type: FlagType,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext],
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]: ...
 
     def _resolve(  # noqa: PLR0915 C901
@@ -347,7 +345,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: FlagValueType,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[FlagValueType]:
         if self.cache is not None and flag_key in self.cache:
             cached_flag: FlagResolutionDetails[FlagValueType] = self.cache[flag_key]
@@ -425,9 +423,7 @@ class GrpcResolver:
 
         return result
 
-    def _convert_context(
-        self, evaluation_context: typing.Optional[EvaluationContext]
-    ) -> Struct:
+    def _convert_context(self, evaluation_context: EvaluationContext | None) -> Struct:
         s = Struct()
         if evaluation_context:
             try:

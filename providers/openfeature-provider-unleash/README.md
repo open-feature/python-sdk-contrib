@@ -10,7 +10,7 @@ pip install openfeature-provider-unleash
 
 ### Requirements
 
-- Python 3.9+
+- Python 3.10+
 - `openfeature-sdk>=0.8.2`
 - `UnleashClient>=6.3.0`
 

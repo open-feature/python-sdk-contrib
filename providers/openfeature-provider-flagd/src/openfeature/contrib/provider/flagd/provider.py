@@ -45,26 +45,26 @@ class FlagdProvider(AbstractProvider):
 
     def __init__(  # noqa: PLR0913
         self,
-        host: typing.Optional[str] = None,
-        port: typing.Optional[int] = None,
-        tls: typing.Optional[bool] = None,
-        deadline_ms: typing.Optional[int] = None,
-        timeout: typing.Optional[int] = None,
-        retry_backoff_ms: typing.Optional[int] = None,
-        selector: typing.Optional[str] = None,
-        provider_id: typing.Optional[str] = None,
-        resolver_type: typing.Optional[ResolverType] = None,
-        offline_flag_source_path: typing.Optional[str] = None,
-        stream_deadline_ms: typing.Optional[int] = None,
-        keep_alive_time: typing.Optional[int] = None,
-        cache: typing.Optional[CacheType] = None,
-        max_cache_size: typing.Optional[int] = None,
-        retry_backoff_max_ms: typing.Optional[int] = None,
-        retry_grace_period: typing.Optional[int] = None,
-        cert_path: typing.Optional[str] = None,
-        default_authority: typing.Optional[str] = None,
-        channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
-        sync_metadata_disabled: typing.Optional[bool] = None,
+        host: str | None = None,
+        port: int | None = None,
+        tls: bool | None = None,
+        deadline_ms: int | None = None,
+        timeout: int | None = None,
+        retry_backoff_ms: int | None = None,
+        selector: str | None = None,
+        provider_id: str | None = None,
+        resolver_type: ResolverType | None = None,
+        offline_flag_source_path: str | None = None,
+        stream_deadline_ms: int | None = None,
+        keep_alive_time: int | None = None,
+        cache: CacheType | None = None,
+        max_cache_size: int | None = None,
+        retry_backoff_max_ms: int | None = None,
+        retry_grace_period: int | None = None,
+        cert_path: str | None = None,
+        default_authority: str | None = None,
+        channel_credentials: grpc.ChannelCredentials | None = None,
+        sync_metadata_disabled: bool | None = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -163,7 +163,7 @@ class FlagdProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self.resolver.resolve_boolean_details(
             flag_key, default_value, evaluation_context
@@ -173,7 +173,7 @@ class FlagdProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self.resolver.resolve_string_details(
             flag_key, default_value, evaluation_context
@@ -183,7 +183,7 @@ class FlagdProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self.resolver.resolve_float_details(
             flag_key, default_value, evaluation_context
@@ -193,7 +193,7 @@ class FlagdProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self.resolver.resolve_integer_details(
             flag_key, default_value, evaluation_context
@@ -202,12 +202,11 @@ class FlagdProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
         return self.resolver.resolve_object_details(
             flag_key, default_value, evaluation_context

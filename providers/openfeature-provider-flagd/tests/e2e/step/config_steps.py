@@ -1,5 +1,4 @@
 import re
-import typing
 
 import pytest
 from asserts import assert_equal, assert_true
@@ -17,7 +16,7 @@ def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
 
-def convert_resolver_type(val: typing.Union[str, ResolverType]) -> ResolverType:
+def convert_resolver_type(val: str | ResolverType) -> ResolverType:
     if isinstance(val, str):
         v = val.lower()
         return ResolverType(v)
