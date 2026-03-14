@@ -65,6 +65,7 @@ class FlagdProvider(AbstractProvider):
         default_authority: typing.Optional[str] = None,
         channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
         sync_metadata_disabled: typing.Optional[bool] = None,
+        fatal_status_codes: typing.Optional[list[str]] = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -111,6 +112,7 @@ class FlagdProvider(AbstractProvider):
             default_authority=default_authority,
             channel_credentials=channel_credentials,
             sync_metadata_disabled=sync_metadata_disabled,
+            fatal_status_codes=fatal_status_codes,
         )
         self.enriched_context: dict = {}
 

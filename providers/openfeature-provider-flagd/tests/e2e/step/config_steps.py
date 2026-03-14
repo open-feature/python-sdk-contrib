@@ -46,8 +46,8 @@ def option_values() -> dict:
 
 
 @given(
-    parsers.cfparse(
-        'an option "{option}" of type "{type_info}" with value "{value}"',
+    parsers.re(
+        r'an option "(?P<option>[^"]+)" of type "(?P<type_info>[^"]+)" with value "(?P<value>[^"]*)"',
     ),
 )
 def option_with_value(option: str, value: str, type_info: str, option_values: dict):
@@ -91,8 +91,8 @@ def initialize_config_for(resolver_type: str, option_values: dict):
 
 
 @then(
-    parsers.cfparse(
-        'the option "{option}" of type "{type_info}" should have the value "{value}"',
+    parsers.re(
+        r'the option "(?P<option>[^"]+)" of type "(?P<type_info>[^"]+)" should have the value "(?P<value>[^"]*)"',
     )
 )
 def check_option_value(option, value, type_info, config_or_error):

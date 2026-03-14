@@ -10,7 +10,12 @@ from grpc import StatusCode
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
+from openfeature.exception import (
+    ErrorCode,
+    ParseError,
+    ProviderFatalError,
+    ProviderNotReadyError,
+)
 from openfeature.schemas.protobuf.flagd.sync.v1 import (
     sync_pb2,
     sync_pb2_grpc,
@@ -50,6 +55,7 @@ class GrpcWatcher(FlagStateConnector):
         self.emit_provider_stale = emit_provider_stale
 
         self.connected = False
+        self._is_fatal = False
         self.thread: typing.Optional[threading.Thread] = None
         self.timer: typing.Optional[threading.Timer] = None
 
@@ -132,8 +138,13 @@ class GrpcWatcher(FlagStateConnector):
         ## block until ready or deadline reached
         timeout = self.deadline + time.monotonic()
         while not self.connected and time.monotonic() < timeout:
+            if self._is_fatal:
+                raise ProviderFatalError("fatal gRPC status code")
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
+
+        if self._is_fatal:
+            raise ProviderFatalError("fatal gRPC status code")
 
         if not self.connected:
             raise ProviderNotReadyError(
@@ -145,6 +156,8 @@ class GrpcWatcher(FlagStateConnector):
 
     def _state_change_callback(self, new_state: grpc.ChannelConnectivity) -> None:
         logger.debug(f"gRPC state change: {new_state}")
+        if self._is_fatal:
+            return
         if (
             new_state == grpc.ChannelConnectivity.READY
             or new_state == grpc.ChannelConnectivity.IDLE
@@ -176,6 +189,8 @@ class GrpcWatcher(FlagStateConnector):
             self.connected = False
 
     def emit_error(self) -> None:
+        if self._is_fatal:
+            return
         logger.debug("gRPC error emitted")
         self.emit_provider_error(
             ProviderEventDetails(
@@ -268,7 +283,17 @@ class GrpcWatcher(FlagStateConnector):
                         logger.debug("Terminating gRPC sync thread")
                         return
             except grpc.RpcError as e:  # noqa: PERF203
-                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                logger.warning(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                if e.code().name in self.config.fatal_status_codes:
+                    self._is_fatal = True
+                    self.active = False
+                    self.emit_provider_error(
+                        ProviderEventDetails(
+                            message=f"Fatal gRPC status code: {e.code()}",
+                            error_code=ErrorCode.PROVIDER_FATAL,
+                        )
+                    )
+                    return
             except json.JSONDecodeError:
                 logger.exception(
                     f"Could not parse JSON flag data from SyncFlags endpoint: {flag_str=}"

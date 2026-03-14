@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 import requests
-from pytest_bdd import given, parsers, when
+from asserts import assert_equal
+from pytest_bdd import given, parsers, then, when
 from tests.e2e.flagd_container import FlagdContainer
 from tests.e2e.step._utils import wait_for
 
@@ -58,6 +59,7 @@ def get_default_options_for_provider(
         "retry_grace_period": 3,
         "port": container.get_port(resolver_type),
     }
+    wait: bool = True
 
     if t == TestProviderType.UNAVAILABLE:
         return {}, False
@@ -70,11 +72,10 @@ def get_default_options_for_provider(
         options["tls"] = True
         launchpad = "ssl"
     elif t == TestProviderType.FORBIDDEN:
-        launchpad = "forbidden"
-        options["port"] = container.get_port(9212)
-        options["fatal_status_codes"] = ["FORBIDDEN"]
+        options["port"] = container.get_exposed_port(9212)
+        wait = False
     elif t == TestProviderType.SOCKET:
-        return options, True
+        return options, wait
     elif t == TestProviderType.METADATA:
         launchpad = "metadata"
     elif t == TestProviderType.SYNCPAYLOAD:
@@ -96,7 +97,7 @@ def get_default_options_for_provider(
         f"{container.get_launchpad_url()}/start?config={launchpad}", timeout=1
     )
     time.sleep(0.1)
-    return options, True
+    return options, wait
 
 
 @given(
@@ -142,6 +143,16 @@ def flagd_restart(
         timeout=float(seconds) + 2,
     )
     pass
+
+
+@then(parsers.cfparse("the client should be in {status} state"))
+def client_state(status, client: OpenFeatureClient):
+    expected_status = ProviderStatus[status.upper()]
+    # wait_for(
+    #     lambda: client.get_provider_status() == expected_status,
+    #     timeout_sec=2,
+    # )
+    assert_equal(client.get_provider_status(), expected_status)
 
 
 @pytest.fixture(autouse=True, scope="package")
