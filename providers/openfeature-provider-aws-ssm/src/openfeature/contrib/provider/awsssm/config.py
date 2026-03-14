@@ -65,6 +65,6 @@ class AwsSsmProviderConfig:
     """
 
     config: Optional["Config"] = None
-    endpoint_url: Optional[str] = None
+    endpoint_url: str | None = None
     enable_decryption: bool = False
-    cache_config: Optional[CacheConfig] = field(default_factory=CacheConfig)
+    cache_config: CacheConfig | None = field(default_factory=CacheConfig)

@@ -1,7 +1,7 @@
 from collections.abc import Awaitable, Callable, Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TypeVar, Union
+from typing import TypeVar
 
 import aiobotocore.endpoint
 import boto3
@@ -25,7 +25,7 @@ R = TypeVar("R")
 class _PatchedAWSResponseContent:
     """Patched version of `botocore.awsrequest.AWSResponse.content`."""
 
-    content: Union[bytes, Awaitable[bytes]]
+    content: bytes | Awaitable[bytes]
 
     def decode(self, encoding: str) -> str:
         assert isinstance(self.content, bytes)

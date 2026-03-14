@@ -28,7 +28,7 @@ OPERATORS = {
 def targeting(
     key: str,
     targeting: dict,
-    evaluation_context: typing.Optional[EvaluationContext] = None,
+    evaluation_context: EvaluationContext | None = None,
 ) -> JsonValue:
     if not isinstance(targeting, dict):
         raise ParseError(f"Invalid 'targeting' value in flag: {targeting}")

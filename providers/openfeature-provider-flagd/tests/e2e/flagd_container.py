@@ -1,6 +1,5 @@
 import os.path
 import time
-import typing
 from pathlib import Path
 
 import grpc
@@ -17,7 +16,7 @@ LAUNCHPAD = 8080
 class FlagdContainer(DockerContainer):
     def __init__(
         self,
-        feature: typing.Optional[str] = None,
+        feature: str | None = None,
         **kwargs,
     ) -> None:
         image: str = "ghcr.io/open-feature/flagd-testbed"

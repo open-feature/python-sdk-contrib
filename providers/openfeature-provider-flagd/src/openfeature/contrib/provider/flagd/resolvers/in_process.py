@@ -18,13 +18,9 @@ T = typing.TypeVar("T")
 
 
 def _merge_metadata(
-    flag_metadata: typing.Optional[
-        typing.Mapping[str, typing.Union[float, int, str, bool]]
-    ],
-    flag_set_metadata: typing.Optional[
-        typing.Mapping[str, typing.Union[float, int, str, bool]]
-    ],
-) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
+    flag_metadata: typing.Mapping[str, float | int | str | bool] | None,
+    flag_set_metadata: typing.Mapping[str, float | int | str | bool] | None,
+) -> typing.Mapping[str, float | int | str | bool]:
     metadata = {} if flag_set_metadata is None else dict(flag_set_metadata)
 
     if flag_metadata is not None:
@@ -71,7 +67,7 @@ class InProcessResolver:
         self,
         key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(key, default_value, evaluation_context)
 
@@ -79,7 +75,7 @@ class InProcessResolver:
         self,
         key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(key, default_value, evaluation_context)
 
@@ -87,7 +83,7 @@ class InProcessResolver:
         self,
         key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         result = self._resolve(key, default_value, evaluation_context)
         if isinstance(result.value, int):
@@ -98,19 +94,18 @@ class InProcessResolver:
         self,
         key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(key, default_value, evaluation_context)
 
     def resolve_object_details(
         self,
         key: str,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
         return self._resolve(key, default_value, evaluation_context)
 
@@ -118,7 +113,7 @@ class InProcessResolver:
         self,
         key: str,
         default_value: T,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[T]:
         flag = self.flag_store.get_flag(key)
         if not flag:
@@ -167,7 +162,7 @@ class InProcessResolver:
 
 def _default_resolve(
     flag: Flag,
-    metadata: typing.Mapping[str, typing.Union[float, int, str, bool]],
+    metadata: typing.Mapping[str, float | int | str | bool],
     reason: Reason,
     default_value: typing.Any = None,
 ) -> FlagResolutionDetails:

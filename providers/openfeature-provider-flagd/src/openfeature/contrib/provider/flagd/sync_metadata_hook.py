@@ -10,5 +10,5 @@ class SyncMetadataHook(Hook):
 
     def before(
         self, hook_context: HookContext, hints: HookHints
-    ) -> typing.Optional[EvaluationContext]:
+    ) -> EvaluationContext | None:
         return self.context_supplier()

@@ -1,12 +1,13 @@
 import logging
 import typing
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import mmh3
 import semver
 
-JsonPrimitive = typing.Union[str, bool, float, int]
-JsonLogicArg = typing.Union[JsonPrimitive, typing.Sequence[JsonPrimitive]]
+JsonPrimitive: typing.TypeAlias = str | bool | float | int
+JsonLogicArg: typing.TypeAlias = JsonPrimitive, Sequence[JsonPrimitive]
 
 logger = logging.getLogger("openfeature.contrib")
 
@@ -17,7 +18,7 @@ class Fraction:
     weight: int = 1
 
 
-def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
+def fractional(data: dict, *args: JsonLogicArg) -> str | None:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
@@ -85,14 +86,14 @@ def _parse_fraction(arg: JsonLogicArg) -> Fraction:
     return fraction
 
 
-def starts_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
+def starts_with(data: dict, *args: JsonLogicArg) -> bool | None:
     def f(s1: str, s2: str) -> bool:
         return s1.startswith(s2)
 
     return string_comp(f, data, *args)
 
 
-def ends_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
+def ends_with(data: dict, *args: JsonLogicArg) -> bool | None:
     def f(s1: str, s2: str) -> bool:
         return s1.endswith(s2)
 
@@ -101,7 +102,7 @@ def ends_with(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:
 
 def string_comp(
     comparator: typing.Callable[[str, str], bool], data: dict, *args: JsonLogicArg
-) -> typing.Optional[bool]:
+) -> bool | None:
     if not args:
         logger.error("No arguments provided to string_comp operator.")
         return None
@@ -119,7 +120,7 @@ def string_comp(
     return comparator(arg1, arg2)
 
 
-def sem_ver(data: dict, *args: JsonLogicArg) -> typing.Optional[bool]:  # noqa: C901
+def sem_ver(data: dict, *args: JsonLogicArg) -> bool | None:  # noqa: C901
     if not args:
         logger.error("No arguments provided to sem_ver operator.")
         return None
