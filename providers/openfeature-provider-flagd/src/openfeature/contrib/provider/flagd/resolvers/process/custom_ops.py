@@ -7,7 +7,7 @@ import mmh3
 import semver
 
 JsonPrimitive: typing.TypeAlias = str | bool | float | int
-JsonLogicArg: typing.TypeAlias = JsonPrimitive, Sequence[JsonPrimitive]
+JsonLogicArg: typing.TypeAlias = JsonPrimitive | Sequence[JsonPrimitive]
 
 logger = logging.getLogger("openfeature.contrib")
 
