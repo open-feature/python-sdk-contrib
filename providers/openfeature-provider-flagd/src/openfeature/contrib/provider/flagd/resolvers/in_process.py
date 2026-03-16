@@ -5,7 +5,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher
 )
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ErrorCode, FlagNotFoundError, GeneralError, ParseError
+from openfeature.exception import FlagNotFoundError, GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 
 from ..config import Config
@@ -132,12 +132,12 @@ class InProcessResolver:
             )
 
         if not flag.targeting:
-            return _default_resolve(flag, metadata, Reason.STATIC)
+            return _default_resolve(flag, metadata, Reason.STATIC, default_value)
 
         try:
             variant = targeting(flag.key, flag.targeting, evaluation_context)
             if variant is None:
-                return _default_resolve(flag, metadata, Reason.DEFAULT)
+                return _default_resolve(flag, metadata, Reason.DEFAULT, default_value)
 
             # convert to string to support shorthand (boolean in python is with capital T hence the special case)
             if isinstance(variant, bool):
@@ -169,14 +169,14 @@ def _default_resolve(
     flag: Flag,
     metadata: typing.Mapping[str, typing.Union[float, int, str, bool]],
     reason: Reason,
+    default_value: typing.Any = None,
 ) -> FlagResolutionDetails:
     variant, value = flag.default
     if variant is None:
         return FlagResolutionDetails(
-            value,
+            default_value,
             variant=variant,
-            reason=Reason.ERROR,
-            error_code=ErrorCode.FLAG_NOT_FOUND,
+            reason=Reason.DEFAULT,
             flag_metadata=metadata,
         )
     if variant not in flag.variants:

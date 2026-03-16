@@ -22,7 +22,7 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
-from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
+from openfeature.schemas.protobuf.flagd.evaluation.v2 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
 )
@@ -89,28 +89,16 @@ class GrpcResolver:
                                 "name": [
                                     {"service": "flagd.sync.v1.FlagSyncService"},
                                     {"service": "flagd.evaluation.v1.Service"},
+                                    {"service": "flagd.evaluation.v2.Service"},
                                 ],
                                 "retryPolicy": {
                                     "maxAttempts": 3,
-                                    "initialBackoff": "1s",
-                                    "maxBackoff": "5s",
+                                    "initialBackoff": f"{max(config.retry_backoff_ms // 1000, 1)}s",
+                                    "maxBackoff": f"{max(config.retry_backoff_max_ms // 1000, 1)}s",
                                     "backoffMultiplier": 2.0,
                                     "retryableStatusCodes": [
-                                        "CANCELLED",
-                                        "UNKNOWN",
-                                        "INVALID_ARGUMENT",
-                                        "NOT_FOUND",
-                                        "ALREADY_EXISTS",
-                                        "PERMISSION_DENIED",
-                                        "RESOURCE_EXHAUSTED",
-                                        "FAILED_PRECONDITION",
-                                        "ABORTED",
-                                        "OUT_OF_RANGE",
-                                        "UNIMPLEMENTED",
-                                        "INTERNAL",
                                         "UNAVAILABLE",
-                                        "DATA_LOSS",
-                                        "UNAUTHENTICATED",
+                                        "UNKNOWN",
                                     ],
                                 },
                             }
@@ -237,7 +225,8 @@ class GrpcResolver:
                         )
                         self.connected = True
                     elif message.type == "configuration_change":
-                        data = MessageToDict(message)["data"]
+                        msg_dict = MessageToDict(message)
+                        data = msg_dict.get("data", {})
                         self.handle_changed_flags(data)
 
                     if not self.active:
@@ -252,7 +241,7 @@ class GrpcResolver:
                 )
 
     def handle_changed_flags(self, data: typing.Any) -> None:
-        changed_flags = list(data["flags"].keys())
+        changed_flags = list(data.get("flags", {}).keys())
 
         if self.cache:
             for flag in changed_flags:
@@ -419,11 +408,16 @@ class GrpcResolver:
                 raise ParseError(message) from e
             raise GeneralError(message) from e
 
+        # When no default variant is configured, the server returns an empty/zero proto
+        # value with reason=DEFAULT. In that case, return the caller's code default value.
+        if response.reason == Reason.DEFAULT and not response.variant:
+            value = default_value
+
         # Got a valid flag and valid type. Return it.
         result = FlagResolutionDetails(
             value=value,
             reason=response.reason,
-            variant=response.variant,
+            variant=response.variant or None,
         )
 
         if response.reason == Reason.STATIC and self.cache is not None:

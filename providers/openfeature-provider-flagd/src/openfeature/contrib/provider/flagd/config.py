@@ -28,7 +28,7 @@ DEFAULT_PORT_IN_PROCESS = 8015
 DEFAULT_PORT_RPC = 8013
 DEFAULT_RESOLVER_TYPE = ResolverType.RPC
 DEFAULT_RETRY_BACKOFF = 1000
-DEFAULT_RETRY_BACKOFF_MAX = 120000
+DEFAULT_RETRY_BACKOFF_MAX = 12000
 DEFAULT_RETRY_GRACE_PERIOD_SECONDS = 5
 DEFAULT_STREAM_DEADLINE = 600000
 DEFAULT_TLS = False
@@ -43,6 +43,7 @@ ENV_VAR_OFFLINE_FLAG_SOURCE_PATH = "FLAGD_OFFLINE_FLAG_SOURCE_PATH"
 ENV_VAR_OFFLINE_POLL_MS = "FLAGD_OFFLINE_POLL_MS"
 ENV_VAR_PORT = "FLAGD_PORT"
 ENV_VAR_SYNC_PORT = "FLAGD_SYNC_PORT"
+ENV_VAR_FATAL_STATUS_CODES = "FLAGD_FATAL_STATUS_CODES"
 ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
@@ -84,6 +85,7 @@ class Config:
         self,
         host: typing.Optional[str] = None,
         port: typing.Optional[int] = None,
+        sync_port: typing.Optional[int] = None,
         tls: typing.Optional[bool] = None,
         selector: typing.Optional[str] = None,
         provider_id: typing.Optional[str] = None,
@@ -102,6 +104,7 @@ class Config:
         default_authority: typing.Optional[str] = None,
         channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
         sync_metadata_disabled: typing.Optional[bool] = None,
+        fatal_status_codes: typing.Optional[list[str]] = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -109,6 +112,19 @@ class Config:
             env_or_default(ENV_VAR_TLS, DEFAULT_TLS, cast=str_to_bool)
             if tls is None
             else tls
+        )
+
+        self.fatal_status_codes: list[str] = (
+            typing.cast(
+                list[str],
+                env_or_default(
+                    ENV_VAR_FATAL_STATUS_CODES,
+                    [],
+                    cast=lambda s: [item.strip() for item in s.split(",")],
+                ),
+            )
+            if fatal_status_codes is None
+            else fatal_status_codes
         )
 
         self.retry_backoff_ms: int = (
@@ -164,6 +180,14 @@ class Config:
             )
         else:
             self.port = port
+
+        self.port = (
+            int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
+            if sync_port is None and port is None
+            else sync_port
+            if sync_port is not None
+            else self.port
+        )
 
         self.offline_flag_source_path = (
             env_or_default(

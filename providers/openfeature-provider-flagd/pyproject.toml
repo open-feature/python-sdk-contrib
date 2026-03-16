@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openfeature-provider-flagd"
-version = "0.2.7"
+version = "0.3.0"
 description = "OpenFeature provider for the flagd flag evaluation engine"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
@@ -18,7 +18,7 @@ classifiers = [
 keywords = []
 dependencies = [
   "openfeature-sdk>=0.8.2",
-  "grpcio>=1.76.0",
+  "grpcio>=1.78.0",
   "protobuf>=6.30.0,<7.0.0",
   "mmh3>=5.0.0,<6.0.0",
   "panzi-json-logic>=1.0.1",

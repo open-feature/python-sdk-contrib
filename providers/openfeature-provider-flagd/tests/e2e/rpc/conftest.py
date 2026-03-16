@@ -4,7 +4,14 @@ from openfeature.contrib.provider.flagd.config import ResolverType
 from tests.e2e.testfilter import TestFilter
 
 resolver = ResolverType.RPC
-feature_list = ["~targetURI", "~unixsocket", "~sync", "~metadata"]
+feature_list = [
+    "~targetURI",
+    "~unixsocket",
+    "~sync",
+    "~metadata",
+    "~deprecated",
+    "~forbidden",
+]
 
 
 def pytest_collection_modifyitems(config, items):
