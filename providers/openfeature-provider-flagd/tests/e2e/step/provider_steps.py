@@ -148,10 +148,6 @@ def flagd_restart(
 @then(parsers.cfparse("the client should be in {status} state"))
 def client_state(status, client: OpenFeatureClient):
     expected_status = ProviderStatus[status.upper()]
-    # wait_for(
-    #     lambda: client.get_provider_status() == expected_status,
-    #     timeout_sec=2,
-    # )
     assert_equal(client.get_provider_status(), expected_status)
 
 

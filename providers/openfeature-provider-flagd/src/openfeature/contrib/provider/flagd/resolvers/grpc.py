@@ -155,12 +155,12 @@ class GrpcResolver:
         timeout = self.deadline + time.monotonic()
         while not self.connected and time.monotonic() < timeout:
             if self._is_fatal:
-                raise ProviderFatalError("fatal gRPC status code")
+                break
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
 
         if self._is_fatal:
-            raise ProviderFatalError("fatal gRPC status code")
+            raise ProviderFatalError("Fatal gRPC status code received")
 
         if not self.connected:
             raise ProviderNotReadyError(
@@ -205,8 +205,6 @@ class GrpcResolver:
             self.connected = False
 
     def emit_error(self) -> None:
-        if self._is_fatal:
-            return
         logger.debug("gRPC error emitted")
         if self.cache:
             self.cache.clear()
