@@ -1,3 +1,4 @@
+import time
 import typing
 
 from openfeature.flag_evaluation import FlagEvaluationDetails, FlagMetadata, Reason
@@ -24,6 +25,9 @@ class MetricsHook(Hook):
         self.evaluation_request_total = meter.create_counter(
             Metrics.REQUEST_TOTAL, "request flag evaluations"
         )
+        self.evaluation_duration = meter.create_histogram(
+            Metrics.DURATION, unit="s", description="duration of flag evaluations"
+        )
 
     def before(self, hook_context: HookContext, hints: HookHints) -> None:
         attributes: dict[str, AttributeValue] = {
@@ -33,6 +37,7 @@ class MetricsHook(Hook):
             attributes[Attributes.OTEL_PROVIDER_NAME] = (
                 hook_context.provider_metadata.name
             )
+        hook_context.hook_data["start_time"] = time.perf_counter()
         self.evaluation_active_count.add(1, attributes)
         self.evaluation_request_total.add(1, attributes)
 
@@ -86,6 +91,10 @@ class MetricsHook(Hook):
                 hook_context.provider_metadata.name
             )
         self.evaluation_active_count.add(-1, attributes)
+        start_time = hook_context.hook_data.get("start_time")
+        if start_time is not None:
+            elapsed = time.perf_counter() - start_time
+            self.evaluation_duration.record(elapsed, attributes)
 
 
 def get_extra_attributes(

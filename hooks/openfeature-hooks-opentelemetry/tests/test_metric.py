@@ -17,6 +17,7 @@ def mock_get_meter(monkeypatch):
         "feature_flag.evaluation.error_total": Mock(spec=metrics.Counter),
         "feature_flag.evaluation.success_total": Mock(spec=metrics.Counter),
         "feature_flag.evaluation.request_total": Mock(spec=metrics.Counter),
+        "feature_flag.evaluation.duration": Mock(spec=metrics.Histogram),
     }
 
     def side_effect(*args, **kwargs):
@@ -26,6 +27,7 @@ def mock_get_meter(monkeypatch):
         spec=metrics.Meter,
         create_up_down_counter=side_effect,
         create_counter=side_effect,
+        create_histogram=side_effect,
     )
     monkeypatch.setattr(metrics, "get_meter", lambda name: mock_meter)
 
@@ -210,4 +212,37 @@ def test_metric_finally_after(mock_get_meter):
     )
     mock_counters["feature_flag.evaluation.success_total"].add.assert_not_called()
     mock_counters["feature_flag.evaluation.request_total"].add.assert_not_called()
+    mock_counters["feature_flag.evaluation.error_total"].add.assert_not_called()
+
+
+def test_metric_duration(mock_get_meter):
+    _, mock_counters = mock_get_meter
+    hook = MetricsHook()
+    hook_context = HookContext(
+        flag_key="flag_key",
+        flag_type=FlagType.BOOLEAN,
+        default_value=False,
+        evaluation_context=EvaluationContext(),
+        provider_metadata=Metadata(name="test-provider"),
+    )
+    details = FlagEvaluationDetails(
+        flag_key="flag_key",
+        value=True,
+        variant="enabled",
+        reason=Reason.TARGETING_MATCH,
+        error_code=None,
+        error_message=None,
+    )
+    hook.before(hook_context, hints={})
+    hook.finally_after(hook_context, details, hints={})
+
+    call_args = mock_counters["feature_flag.evaluation.duration"].record.call_args
+    assert call_args is not None
+    elapsed, attributes = call_args.args
+    assert isinstance(elapsed, float)
+    assert attributes == {
+        "feature_flag.key": "flag_key",
+        "feature_flag.provider.name": "test-provider",
+    }
+    mock_counters["feature_flag.evaluation.success_total"].add.assert_not_called()
     mock_counters["feature_flag.evaluation.error_total"].add.assert_not_called()

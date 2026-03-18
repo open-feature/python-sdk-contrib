@@ -17,3 +17,4 @@ class Metrics:
     SUCCESS_TOTAL = "feature_flag.evaluation.success_total"
     REQUEST_TOTAL = "feature_flag.evaluation.request_total"
     ERROR_TOTAL = "feature_flag.evaluation.error_total"
+    DURATION = "feature_flag.evaluation.duration"
