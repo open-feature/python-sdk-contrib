@@ -5,6 +5,7 @@ from opentelemetry import metrics
 
 from openfeature.contrib.hook.opentelemetry import MetricsHook
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.exception import FlagNotFoundError
 from openfeature.flag_evaluation import Reason
 from openfeature.hook import FlagEvaluationDetails, FlagType, HookContext
 from openfeature.provider.metadata import Metadata
@@ -170,13 +171,13 @@ def test_metric_error(mock_get_meter):
         evaluation_context=EvaluationContext(),
         provider_metadata=Metadata(name="test-provider"),
     )
-    hook.error(hook_context, Exception("test error"), hints={})
+    hook.error(hook_context, FlagNotFoundError("Flag not found: flag_key"), hints={})
     mock_counters["feature_flag.evaluation.error_total"].add.assert_called_once_with(
         1,
         {
             "feature_flag.key": "flag_key",
             "feature_flag.provider.name": "test-provider",
-            "exception": "test error",
+            "exception": "flag not found: flag_key",
         },
     )
     mock_counters["feature_flag.evaluation.success_total"].add.assert_not_called()
