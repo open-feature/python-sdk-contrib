@@ -69,7 +69,7 @@ class MetricsHook(Hook):
     ) -> None:
         attributes: dict[str, AttributeValue] = {
             Attributes.OTEL_FLAG_KEY: hook_context.flag_key,
-            "exception": str(exception).lower(),
+            Attributes.OTEL_ERROR_MESSAGE: str(exception).lower(),
         }
         if hook_context.provider_metadata:
             attributes[Attributes.OTEL_PROVIDER_NAME] = (

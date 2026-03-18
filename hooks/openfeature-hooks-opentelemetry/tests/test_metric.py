@@ -177,7 +177,7 @@ def test_metric_error(mock_get_meter):
         {
             "feature_flag.key": "flag_key",
             "feature_flag.provider.name": "test-provider",
-            "exception": "flag not found: flag_key",
+            "error.message": "flag not found: flag_key",
         },
     )
     mock_counters["feature_flag.evaluation.success_total"].add.assert_not_called()

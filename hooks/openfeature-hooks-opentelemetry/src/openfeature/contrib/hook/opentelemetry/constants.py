@@ -8,8 +8,6 @@ class Attributes:
     OTEL_PROVIDER_NAME = "feature_flag.provider.name"
     OTEL_RESULT_VALUE = "feature_flag.result.value"
     OTEL_RESULT_REASON = "feature_flag.result.reason"
-    OTEL_SET_ID = "feature_flag.set.id"
-    OTEL_VERSION = "feature_flag.version"
 
 
 class Metrics:
