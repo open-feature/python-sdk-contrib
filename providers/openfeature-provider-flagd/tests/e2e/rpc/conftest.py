@@ -10,7 +10,6 @@ feature_list = [
     "~sync",
     "~metadata",
     "~deprecated",
-    "~forbidden",
 ]
 
 

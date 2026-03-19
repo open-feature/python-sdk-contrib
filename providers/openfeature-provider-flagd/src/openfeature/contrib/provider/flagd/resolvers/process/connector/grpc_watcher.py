@@ -10,7 +10,12 @@ from grpc import StatusCode
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
+from openfeature.exception import (
+    ErrorCode,
+    ParseError,
+    ProviderFatalError,
+    ProviderNotReadyError,
+)
 from openfeature.schemas.protobuf.flagd.sync.v1 import (
     sync_pb2,
     sync_pb2_grpc,
@@ -50,6 +55,7 @@ class GrpcWatcher(FlagStateConnector):
         self.emit_provider_stale = emit_provider_stale
 
         self.connected = False
+        self._is_fatal = False
         self.thread: typing.Optional[threading.Thread] = None
         self.timer: typing.Optional[threading.Timer] = None
 
@@ -132,8 +138,13 @@ class GrpcWatcher(FlagStateConnector):
         ## block until ready or deadline reached
         timeout = self.deadline + time.monotonic()
         while not self.connected and time.monotonic() < timeout:
+            if self._is_fatal:
+                break
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
+
+        if self._is_fatal:
+            raise ProviderFatalError("Fatal gRPC status code received")
 
         if not self.connected:
             raise ProviderNotReadyError(
@@ -145,6 +156,8 @@ class GrpcWatcher(FlagStateConnector):
 
     def _state_change_callback(self, new_state: grpc.ChannelConnectivity) -> None:
         logger.debug(f"gRPC state change: {new_state}")
+        if self._is_fatal:
+            return
         if (
             new_state == grpc.ChannelConnectivity.READY
             or new_state == grpc.ChannelConnectivity.IDLE
@@ -228,55 +241,69 @@ class GrpcWatcher(FlagStateConnector):
             else:
                 raise e
 
+    def _handle_flag_response(
+        self,
+        flag_rsp: sync_pb2.SyncFlagsResponse,
+        context_values_response: typing.Optional[sync_pb2.GetMetadataResponse],
+    ) -> bool:
+        """Process a single flag response. Returns True if the loop should terminate."""
+        flag_str = flag_rsp.flag_configuration
+        logger.debug(f"Received flag configuration - {abs(hash(flag_str)) % (10**8)}")
+        self.flag_store.update(json.loads(flag_str))
+
+        if not self.connected:
+            context_values = {}
+            if flag_rsp.sync_context:
+                context_values = MessageToDict(flag_rsp.sync_context)
+            elif context_values_response:
+                context_values = MessageToDict(context_values_response)["metadata"]
+            self.emit_provider_ready(
+                ProviderEventDetails(message="gRPC sync connection established"),
+                context_values,
+            )
+            self.connected = True
+
+        if not self.active:
+            logger.debug("Terminating gRPC sync thread")
+            return True
+        return False
+
+    def _handle_rpc_error(self, e: grpc.RpcError) -> bool:
+        """Handle a gRPC RpcError. Returns True if the stream loop should stop."""
+        logger.warning(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+        if e.code().name in self.config.fatal_status_codes:
+            self._is_fatal = True
+            self.active = False
+            self.emit_provider_error(
+                ProviderEventDetails(
+                    message=f"Fatal gRPC status code: {e.code()}",
+                    error_code=ErrorCode.PROVIDER_FATAL,
+                )
+            )
+            return True
+        return False
+
     def listen(self) -> None:
         call_args = self.generate_grpc_call_args()
-
         request_args = self._create_request_args()
 
         while self.active:
             try:
                 context_values_response = self._fetch_metadata()
-
                 request = sync_pb2.SyncFlagsRequest(**request_args)
-
                 logger.debug("Setting up gRPC sync flags connection")
                 for flag_rsp in self.stub.SyncFlags(request, **call_args):
-                    flag_str = flag_rsp.flag_configuration
-                    logger.debug(
-                        f"Received flag configuration - {abs(hash(flag_str)) % (10**8)}"
-                    )
-                    self.flag_store.update(json.loads(flag_str))
-
-                    context_values = {}
-                    if flag_rsp.sync_context:
-                        context_values = MessageToDict(flag_rsp.sync_context)
-                    elif context_values_response:
-                        context_values = MessageToDict(context_values_response)[
-                            "metadata"
-                        ]
-
-                    if not self.connected:
-                        self.emit_provider_ready(
-                            ProviderEventDetails(
-                                message="gRPC sync connection established"
-                            ),
-                            context_values,
-                        )
-                        self.connected = True
-
-                    if not self.active:
-                        logger.debug("Terminating gRPC sync thread")
+                    if self._handle_flag_response(flag_rsp, context_values_response):
                         return
             except grpc.RpcError as e:  # noqa: PERF203
-                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                if self._handle_rpc_error(e):
+                    return
             except json.JSONDecodeError:
                 logger.exception(
-                    f"Could not parse JSON flag data from SyncFlags endpoint: {flag_str=}"
+                    "Could not parse JSON flag data from SyncFlags endpoint"
                 )
             except ParseError:
-                logger.exception(
-                    f"Could not parse flag data using flagd syntax: {flag_str=}"
-                )
+                logger.exception("Could not parse flag data using flagd syntax")
 
     def generate_grpc_call_args(self) -> GrpcMultiCallableArgs:
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
