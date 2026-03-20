@@ -17,29 +17,31 @@ class Fraction:
     weight: int = 1
 
 
+def _resolve_bucket_by(data: dict, args: tuple) -> tuple[typing.Optional[str], tuple]:
+    """Resolve the hash key and remaining fraction args from the fractional operator arguments."""
+    if isinstance(args[0], str):
+        return args[0], args[1:]
+
+    seed = data.get("$flagd", {}).get("flagKey", "")
+    targeting_key = data.get("targetingKey")
+    if not targeting_key:
+        logger.error("No targetingKey provided for fractional shorthand syntax.")
+        return None, args
+    return seed + targeting_key, args
+
+
 def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
 
-    bucket_by = None
-    if isinstance(args[0], str):
-        bucket_by = args[0]
-        args = args[1:]
-    else:
-        seed = data.get("$flagd", {}).get("flagKey", "")
-        targeting_key = data.get("targetingKey")
-        if not targeting_key:
-            logger.error("No targetingKey provided for fractional shorthand syntax.")
-            return None
-        bucket_by = seed + targeting_key
+    bucket_by, args = _resolve_bucket_by(data, args)
 
     if not bucket_by:
         logger.error("No hashKey value resolved")
         return None
 
-    hash_ratio = abs(mmh3.hash(bucket_by)) / (2**31 - 1)
-    bucket = hash_ratio * 100
+    hash_value = mmh3.hash(bucket_by, signed=False)
 
     total_weight = 0
     fractions = []
@@ -54,9 +56,15 @@ def fractional(data: dict, *args: JsonLogicArg) -> typing.Optional[str]:
         logger.debug(f"Invalid {args} configuration")
         return None
 
-    range_end: float = 0
+    if total_weight > 2_147_483_647:
+        logger.error("Total fractional weight exceeds MaxInt32 (2,147,483,647).")
+        return None
+
+    bucket = (hash_value * total_weight) >> 32
+
+    range_end = 0
     for fraction in fractions:
-        range_end += fraction.weight * 100 / total_weight
+        range_end += fraction.weight
         if bucket < range_end:
             return fraction.variant
     return None
