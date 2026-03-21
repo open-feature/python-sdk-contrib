@@ -3,9 +3,11 @@ import pytest
 from openfeature.contrib.provider.ofrep import OFREPProvider
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
+    ErrorCode,
     FlagNotFoundError,
     GeneralError,
     InvalidContextError,
+    OpenFeatureError,
     ParseError,
     TypeMismatchError,
 )
@@ -81,6 +83,61 @@ def test_provider_flag_not_found(ofrep_provider, requests_mock):
 
     with pytest.raises(FlagNotFoundError):
         ofrep_provider.resolve_boolean_details("flag_key", False)
+
+
+def test_provider_unauthorized(ofrep_provider, requests_mock):
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        status_code=401,
+        text="unauthorized",
+    )
+
+    with pytest.raises(OpenFeatureError) as exc_info:
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+
+    assert exc_info.value.error_code == ErrorCode.GENERAL
+    assert exc_info.value.error_message == "unauthorized"
+
+
+def test_provider_forbidden(ofrep_provider, requests_mock):
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        status_code=403,
+        text="forbidden",
+    )
+
+    with pytest.raises(OpenFeatureError) as exc_info:
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+
+    assert exc_info.value.error_code == ErrorCode.GENERAL
+    assert exc_info.value.error_message == "forbidden"
+
+
+def test_provider_flag_not_found_invalid_json(ofrep_provider, requests_mock):
+    """Test 404 with non-JSON response falls back to response text for error details"""
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        status_code=404,
+        text="Flag not found - plain text response",
+    )
+
+    with pytest.raises(FlagNotFoundError, match="Flag not found - plain text response"):
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+
+
+def test_provider_server_error(ofrep_provider, requests_mock):
+    """Test generic OpenFeatureError for status codes > 400 (e.g. 500, 502)"""
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        status_code=500,
+        text="Internal Server Error",
+    )
+
+    with pytest.raises(OpenFeatureError) as exc_info:
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+
+    assert exc_info.value.error_code == ErrorCode.GENERAL
+    assert exc_info.value.error_message == "Internal Server Error"
 
 
 def test_provider_invalid_context(ofrep_provider, requests_mock):
