@@ -244,7 +244,7 @@ class GrpcWatcher(FlagStateConnector):
     def _handle_flag_response(
         self,
         flag_rsp: sync_pb2.SyncFlagsResponse,
-        context_values_response: typing.Optional[sync_pb2.GetMetadataResponse],
+        context_values_response: sync_pb2.GetMetadataResponse | None,
     ) -> bool:
         """Process a single flag response. Returns True if the loop should terminate."""
         flag_str = flag_rsp.flag_configuration
