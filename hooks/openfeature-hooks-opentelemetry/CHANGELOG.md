@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.3.1...openfeature-hooks-opentelemetry/v0.4.0) (2026-03-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364))
+
+### chore
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364)) ([0ecd1d4](https://github.com/open-feature/python-sdk-contrib/commit/0ecd1d4c41e96f90b019a76ce9c3b1f70f2a23a4))
+
 ## [0.3.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-hooks-opentelemetry/v0.3.0...openfeature-hooks-opentelemetry/v0.3.1) (2026-02-17)
 
 
