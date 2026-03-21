@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-import typing
 from pathlib import Path
 
 import grpc
@@ -26,7 +25,7 @@ class FlagdContainer:
 
     def __init__(
         self,
-        feature: typing.Optional[str] = None,
+        feature: str | None = None,
         **kwargs,
     ) -> None:
         self._test_harness_dir = (

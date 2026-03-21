@@ -1,5 +1,5 @@
 import json
-from typing import Any, Union
+from typing import Any
 
 from openfeature.exception import ParseError, TypeMismatchError
 
@@ -65,7 +65,7 @@ def parse_float(value: str) -> float:
         raise TypeMismatchError(f"Cannot parse '{value}' as float") from e
 
 
-def parse_object(value: str) -> Union[dict[str, Any], list[Any]]:
+def parse_object(value: str) -> dict[str, Any] | list[Any]:
     """
     Parse a string value as a JSON object.
 

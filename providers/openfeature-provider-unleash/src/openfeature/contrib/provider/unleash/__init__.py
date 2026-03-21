@@ -1,5 +1,5 @@
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 from UnleashClient import UnleashClient
 from UnleashClient.cache import BaseCache
@@ -25,7 +25,7 @@ class UnleashProvider(AbstractProvider):
         app_name: str,
         api_token: str,
         fetch_toggles: bool = True,
-        cache: Optional[BaseCache] = None,
+        cache: BaseCache | None = None,
     ) -> None:
         """Initialize the Unleash provider.
 
@@ -49,7 +49,7 @@ class UnleashProvider(AbstractProvider):
             event_callback=self._unleash_event_callback,
             cache=self.cache,
         )
-        self._last_context: Optional[EvaluationContext] = None
+        self._last_context: EvaluationContext | None = None
         self._event_handlers: dict[ProviderEvent, list[Callable]] = {
             ProviderEvent.PROVIDER_READY: [],
             ProviderEvent.PROVIDER_ERROR: [],
@@ -60,9 +60,7 @@ class UnleashProvider(AbstractProvider):
         self._flag_evaluator = FlagEvaluator(self)
         self.fetch_toggles = fetch_toggles
 
-    def initialize(
-        self, evaluation_context: Optional[EvaluationContext] = None
-    ) -> None:
+    def initialize(self, evaluation_context: EvaluationContext | None = None) -> None:
         """Initialize the Unleash provider.
 
         Args:
@@ -99,8 +97,8 @@ class UnleashProvider(AbstractProvider):
 
     def on_context_changed(
         self,
-        old_context: Optional[EvaluationContext],
-        new_context: Optional[EvaluationContext],
+        old_context: EvaluationContext | None,
+        new_context: EvaluationContext | None,
     ) -> None:
         """Handle evaluation context changes.
 
@@ -141,7 +139,7 @@ class UnleashProvider(AbstractProvider):
     def track(
         self,
         event_name: str,
-        event_details: Optional[dict] = None,
+        event_details: dict | None = None,
     ) -> None:
         """No-op tracking method.
 
@@ -151,8 +149,8 @@ class UnleashProvider(AbstractProvider):
         return None
 
     def _build_unleash_context(
-        self, evaluation_context: Optional[EvaluationContext] = None
-    ) -> Optional[dict[str, Any]]:
+        self, evaluation_context: EvaluationContext | None = None
+    ) -> dict[str, Any] | None:
         """Convert OpenFeature evaluation context to Unleash context."""
         if not evaluation_context:
             return None
@@ -167,7 +165,7 @@ class UnleashProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         """Resolve boolean flag details."""
         return self._flag_evaluator.resolve_boolean_details(
@@ -178,7 +176,7 @@ class UnleashProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         """Resolve string flag details."""
         return self._flag_evaluator.resolve_string_details(
@@ -189,7 +187,7 @@ class UnleashProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         """Resolve integer flag details."""
         return self._flag_evaluator.resolve_integer_details(
@@ -200,7 +198,7 @@ class UnleashProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         """Resolve float flag details."""
         return self._flag_evaluator.resolve_float_details(
@@ -210,11 +208,9 @@ class UnleashProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         """Resolve object flag details."""
         return self._flag_evaluator.resolve_object_details(
             flag_key, default_value, evaluation_context

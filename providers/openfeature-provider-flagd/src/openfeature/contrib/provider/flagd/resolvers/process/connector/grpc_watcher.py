@@ -56,8 +56,8 @@ class GrpcWatcher(FlagStateConnector):
 
         self.connected = False
         self._is_fatal = False
-        self.thread: typing.Optional[threading.Thread] = None
-        self.timer: typing.Optional[threading.Timer] = None
+        self.thread: threading.Thread | None = None
+        self.timer: threading.Timer | None = None
 
     def _generate_channel(self, config: Config) -> grpc.Channel:
         target = f"{config.host}:{config.port}"
@@ -212,7 +212,7 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
-    def _create_metadata(self) -> typing.Optional[tuple[tuple[str, str]]]:
+    def _create_metadata(self) -> tuple[tuple[str, str]] | None:
         """Create gRPC metadata headers for the request.
 
         Returns gRPC metadata as a tuples of tuples containing header key-value pairs.
@@ -224,7 +224,7 @@ class GrpcWatcher(FlagStateConnector):
 
         return (("flagd-selector", self.selector),)
 
-    def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
+    def _fetch_metadata(self) -> sync_pb2.GetMetadataResponse | None:
         if self.config.sync_metadata_disabled:
             return None
 
@@ -244,7 +244,7 @@ class GrpcWatcher(FlagStateConnector):
     def _handle_flag_response(
         self,
         flag_rsp: sync_pb2.SyncFlagsResponse,
-        context_values_response: typing.Optional[sync_pb2.GetMetadataResponse],
+        context_values_response: sync_pb2.GetMetadataResponse | None,
     ) -> bool:
         """Process a single flag response. Returns True if the loop should terminate."""
         flag_str = flag_rsp.flag_configuration
