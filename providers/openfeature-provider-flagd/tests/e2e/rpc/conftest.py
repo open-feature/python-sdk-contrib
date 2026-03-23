@@ -11,6 +11,8 @@ feature_list = [
     "~metadata",
     "~deprecated",
     "~fractional-v1",
+    "~fractional-v2",
+    "~fractional-nested",
 ]
 
 
