@@ -7,7 +7,7 @@ from openfeature.event import ProviderEventDetails
 from openfeature.exception import ParseError
 
 
-def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> None:
+def _validate_metadata(key: str, value: float | int | str | bool) -> None:
     if key is None:
         raise ParseError("Metadata key must be set")
     elif not isinstance(key, str):
@@ -31,9 +31,7 @@ class FlagStore:
     ):
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
         self.flags: typing.Mapping[str, Flag] = {}
-        self.flag_set_metadata: typing.Mapping[
-            str, typing.Union[float, int, str, bool]
-        ] = {}
+        self.flag_set_metadata: typing.Mapping[str, float | int | str | bool] = {}
 
     def get_flag(self, key: str) -> typing.Optional["Flag"]:
         return self.flags.get(key)
@@ -41,7 +39,7 @@ class FlagStore:
     def update(self, flags_data: dict) -> None:
         flags = flags_data.get("flags", {})
         metadata = flags_data.get("metadata", {})
-        evaluators: typing.Optional[dict] = flags_data.get("$evaluators")
+        evaluators: dict | None = flags_data.get("$evaluators")
         if evaluators:
             transposed = json.dumps(flags)
             for name, rule in evaluators.items():
@@ -72,11 +70,9 @@ class Flag:
     key: str
     state: str
     variants: typing.Mapping[str, typing.Any]
-    default_variant: typing.Optional[typing.Union[bool, str]] = None
-    targeting: typing.Optional[dict] = None
-    metadata: typing.Optional[
-        typing.Mapping[str, typing.Union[float, int, str, bool]]
-    ] = None
+    default_variant: bool | str | None = None
+    targeting: dict | None = None
+    metadata: typing.Mapping[str, float | int | str | bool] | None = None
 
     def __post_init__(self) -> None:
         if not self.state or not (self.state == "ENABLED" or self.state == "DISABLED"):
@@ -113,12 +109,12 @@ class Flag:
             raise ParseError from err
 
     @property
-    def default(self) -> tuple[typing.Optional[str], typing.Any]:
+    def default(self) -> tuple[str | None, typing.Any]:
         return self.get_variant(self.default_variant)
 
     def get_variant(
-        self, variant_key: typing.Union[str, bool, None]
-    ) -> tuple[typing.Optional[str], typing.Any]:
+        self, variant_key: str | bool | None
+    ) -> tuple[str | None, typing.Any]:
         if isinstance(variant_key, bool):
             variant_key = str(variant_key).lower()
 

@@ -1,6 +1,5 @@
 import itertools
 import time
-import typing
 import unittest
 from dataclasses import dataclass
 from enum import Enum
@@ -99,7 +98,7 @@ class VersionPrefixed(Enum):
 class SemVerTest:
     title: str
     rule: list[str]
-    result: typing.Optional[bool]
+    result: bool | None
 
 
 semver_operations: list[SemVerTest] = [

@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from openfeature.contrib.provider.ofrep import OFREPProvider
 from openfeature.provider import Metadata
@@ -15,7 +15,7 @@ class FliptProvider(OFREPProvider):
         base_url: str,
         namespace: str,
         *,
-        headers_factory: Optional[Callable[[], dict[str, str]]] = None,
+        headers_factory: Callable[[], dict[str, str]] | None = None,
         timeout: float = 5.0,
     ):
         """Override the OFREPProvider constructor to add a namespace parameter"""
@@ -25,7 +25,7 @@ class FliptProvider(OFREPProvider):
         super().__init__(base_url, headers_factory=headers_factory, timeout=timeout)
 
     def _resolve_header_factory(
-        self, namespace: str, headers_factory: Optional[Callable[[], dict[str, str]]]
+        self, namespace: str, headers_factory: Callable[[], dict[str, str]] | None
     ) -> Callable[[], dict[str, str]]:
         """
         Resolves and returns a headers factory callable that includes the "X-Flipt-Namespace" header.
