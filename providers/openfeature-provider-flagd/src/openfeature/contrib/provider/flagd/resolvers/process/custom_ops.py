@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import mmh3
 import semver
 
+MAX_WEIGHT_SUM = 2_147_483_647  # MaxInt32
+
 JsonPrimitive: typing.TypeAlias = str | bool | float | int
 JsonLogicArg: typing.TypeAlias = JsonPrimitive | Sequence[JsonPrimitive]
 
@@ -18,7 +20,7 @@ class Fraction:
     weight: int = 1
 
 
-def _resolve_bucket_by(data: dict, args: tuple) -> tuple[typing.Optional[str], tuple]:
+def _resolve_bucket_by(data: dict, args: tuple) -> tuple[str | None, tuple]:
     """Resolve the hash key and remaining fraction args from the fractional operator arguments."""
     if isinstance(args[0], str):
         return args[0], args[1:]
@@ -57,8 +59,8 @@ def fractional(data: dict, *args: JsonLogicArg) -> str | None:
         logger.debug(f"Invalid {args} configuration")
         return None
 
-    if total_weight > 2_147_483_647:
-        logger.error("Total fractional weight exceeds MaxInt32 (2,147,483,647).")
+    if total_weight > MAX_WEIGHT_SUM:
+        logger.error(f"Total fractional weight exceeds MaxInt32 ({MAX_WEIGHT_SUM:,}).")
         return None
 
     bucket = (hash_value * total_weight) >> 32

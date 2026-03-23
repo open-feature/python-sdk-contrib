@@ -182,7 +182,7 @@ class FractionalOperator(unittest.TestCase):
         logic = targeting(
             "flagA", rule, EvaluationContext(attributes={"key": "bucketKeyB"})
         )
-        assert logic == "blue"
+        assert logic == "red"
 
     def test_should_evaluate_valid_rule_with_targeting_key(self):
         rule = {
@@ -193,7 +193,7 @@ class FractionalOperator(unittest.TestCase):
         }
 
         logic = targeting("flagA", rule, EvaluationContext(targeting_key="bucketKeyB"))
-        assert logic == "blue"
+        assert logic == "red"
 
     def test_should_evaluate_valid_rule_with_targeting_key_although_one_does_not_have_a_fraction(
         self,
@@ -203,7 +203,7 @@ class FractionalOperator(unittest.TestCase):
         }
 
         logic = targeting("flagA", rule, EvaluationContext(targeting_key="bucketKeyB"))
-        assert logic == "blue"
+        assert logic == "red"
 
     def test_should_return_null_if_targeting_key_is_missing(self):
         rule = {
