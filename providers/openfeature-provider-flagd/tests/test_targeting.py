@@ -216,46 +216,256 @@ class FractionalOperator(unittest.TestCase):
         logic = jsonLogic(rule, {}, OPERATORS)
         assert logic is None
 
-    def test_bucket_sum_with_sum_bigger_than_100(self):
+    def test_no_args_returns_none(self):
+        logic = fractional({})
+        assert logic is None
+
+    def test_omitted_weight_defaults_to_1(self):
+        rule = {
+            "fractional": [["red", 1], ["blue"]],
+        }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="bucketKeyB"))
+        assert logic == "red"
+
+    def test_weight_zero_bucket_never_wins(self):
         rule = {
             "fractional": [
-                ["red", 55],
-                ["blue", 55],
+                ["never", 0],
+                ["always", 1],
             ],
         }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="any"))
+        assert logic == "always"
 
-        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
-        assert logic == "blue"
-
-    def test_bucket_sum_with_sum_lower_than_100(self):
+    def test_weight_as_fractional_float_is_invalid(self):
         rule = {
             "fractional": [
-                ["red", 45],
-                ["blue", 45],
+                ["red", 50.0],
+                ["blue", 50],
             ],
         }
-
-        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
-        assert logic == "blue"
-
-    def test_buckets_properties_to_have_variant_and_fraction(self):
-        rule = {
-            "fractional": [
-                ["red", 50],
-                [100, 50],
-            ],
-        }
-
         logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
         assert logic is None
 
-    def test_buckets_properties_to_have_variant_and_fraction2(self):
+    def test_weight_as_bool_is_invalid(self):
+        rule = {
+            "fractional": [
+                ["red", True],
+                ["blue", 50],
+            ],
+        }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic is None
+
+    def test_weight_as_string_is_invalid(self):
+        rule = {
+            "fractional": [
+                ["red", "50"],
+                ["blue", 50],
+            ],
+        }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic is None
+
+    def test_dynamic_weight_from_var_expression(self):
+        # seed="flagAkey" → bucket=55; rolloutPercent=70 → new-feature=[0,70), control=[70,100)
+        rule = {
+            "fractional": [
+                ["new-feature", {"var": "rolloutPercent"}],
+                ["control", {"-": [100, {"var": "rolloutPercent"}]}],
+            ],
+        }
+        logic = targeting(
+            "flagA",
+            rule,
+            EvaluationContext(targeting_key="key", attributes={"rolloutPercent": 70}),
+        )
+        assert logic == "new-feature"
+
+    def test_total_weight_exceeds_max_int32_returns_none(self):
+        logic = targeting(
+            "flagA",
+            {"fractional": [["red", 2_147_483_647], ["blue", 1]]},
+            EvaluationContext(targeting_key="key"),
+        )
+        assert logic is None
+
+    def test_variant_as_string(self):
+        rule = {"fractional": [["red", 1]]}
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic == "red"
+
+    def test_variant_as_int(self):
+        rule = {"fractional": [[42, 1]]}
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic == 42
+
+    def test_variant_as_float(self):
+        rule = {"fractional": [[3.14, 1]]}
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic == 3.14
+
+    def test_variant_as_bool_true(self):
+        rule = {"fractional": [[True, 1]]}
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic is True
+
+    def test_variant_as_none(self):
+        rule = {"fractional": [[None, 1]]}
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic is None
+
+    def test_mixed_variant_types_all_participate(self):
+        # seed="flagAkey", 4 buckets weight 1 each → bucket=2 → third bucket → variant=1 (int)
+        rule = {
+            "fractional": [
+                ["clubs", 1],
+                [True, 1],
+                [1, 1],
+                [None, 1],
+            ],
+        }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic == 1
+
+    def test_nested_if_as_variant_name(self):
+        rule = {
+            "fractional": [
+                {"var": "targetingKey"},
+                [
+                    {
+                        "if": [
+                            {"==": [{"var": "tier"}, "premium"]},
+                            "premium",
+                            "standard",
+                        ]
+                    },
+                    50,
+                ],
+                ["standard", 50],
+            ],
+        }
+        assert (
+            targeting(
+                "fractional-nested-if-flag",
+                rule,
+                EvaluationContext(
+                    targeting_key="jon@company.com", attributes={"tier": "premium"}
+                ),
+            )
+            == "premium"
+        )
+        assert (
+            targeting(
+                "fractional-nested-if-flag",
+                rule,
+                EvaluationContext(
+                    targeting_key="jon@company.com", attributes={"tier": "basic"}
+                ),
+            )
+            == "standard"
+        )
+
+    def test_nested_var_as_variant_name_resolved(self):
+        rule = {
+            "fractional": [
+                {"var": "targetingKey"},
+                [{"var": "color"}, 50],
+                ["blue", 50],
+            ],
+        }
+        assert (
+            targeting(
+                "fractional-nested-var-flag",
+                rule,
+                EvaluationContext(
+                    targeting_key="jon@company.com", attributes={"color": "red"}
+                ),
+            )
+            == "red"
+        )
+
+    def test_nested_var_as_variant_name_absent_key_resolves_to_none(self):
+        rule = {
+            "fractional": [
+                {"var": "targetingKey"},
+                [{"var": "color"}, 50],
+                ["blue", 50],
+            ],
+        }
+        logic = targeting(
+            "fractional-nested-var-flag",
+            rule,
+            EvaluationContext(targeting_key="jon@company.com"),
+        )
+        assert logic is None
+
+    def test_nested_fractional_as_variant_name(self):
+        # json_logic evaluates the inner {"fractional":[...]} before the outer one sees it.
+        # Inner: seed="flagAkey", bucket=55 → hearts=[50,75) → "hearts".
+        # Outer: seed="flagAkey", bucket=1, buckets are ["clubs",1]=[0,1) and [inner,1]=[1,2) → inner & "hearts".
+        inner = {
+            "fractional": [
+                ["clubs", 25],
+                ["diamonds", 25],
+                ["hearts", 25],
+                ["spades", 25],
+            ]
+        }
+        rule = {
+            "fractional": [
+                ["clubs", 1],
+                [inner, 1],
+            ],
+        }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic == "hearts"
+
+    def test_nested_if_as_weight(self):
+        rule = {
+            "fractional": [
+                {"var": "targetingKey"},
+                ["red", {"if": [{"==": [{"var": "tier"}, "premium"]}, 100, 0]}],
+                ["blue", 10],
+            ],
+        }
+        assert (
+            targeting(
+                "fractional-nested-weight-flag",
+                rule,
+                EvaluationContext(
+                    targeting_key="jon@company.com", attributes={"tier": "premium"}
+                ),
+            )
+            == "red"
+        )
+        assert (
+            targeting(
+                "fractional-nested-weight-flag",
+                rule,
+                EvaluationContext(
+                    targeting_key="jon@company.com", attributes={"tier": "basic"}
+                ),
+            )
+            == "blue"
+        )
+
+    def test_bucket_too_many_elements_returns_none(self):
         rule = {
             "fractional": [
                 ["red", 45, 1256],
                 ["blue", 4, 455],
             ],
         }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
+        assert logic is None
 
+    def test_bucket_empty_list_returns_none(self):
+        rule = {
+            "fractional": [
+                [],
+                ["blue", 1],
+            ],
+        }
         logic = targeting("flagA", rule, EvaluationContext(targeting_key="key"))
         assert logic is None

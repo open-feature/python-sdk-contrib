@@ -16,12 +16,11 @@ logger = logging.getLogger("openfeature.contrib")
 
 @dataclass
 class Fraction:
-    variant: str
+    variant: str | float | int | bool | None
     weight: int = 1
 
 
 def _resolve_bucket_by(data: dict, args: tuple) -> tuple[str | None, tuple]:
-    """Resolve the hash key and remaining fraction args from the fractional operator arguments."""
     if isinstance(args[0], str):
         return args[0], args[1:]
 
@@ -33,7 +32,7 @@ def _resolve_bucket_by(data: dict, args: tuple) -> tuple[str | None, tuple]:
     return seed + targeting_key, args
 
 
-def fractional(data: dict, *args: JsonLogicArg) -> str | None:
+def fractional(data: dict, *args: JsonLogicArg) -> str | float | int | bool | None:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
@@ -51,9 +50,8 @@ def fractional(data: dict, *args: JsonLogicArg) -> str | None:
     try:
         for arg in args:
             fraction = _parse_fraction(arg)
-            if fraction:
-                fractions.append(fraction)
-                total_weight += fraction.weight
+            fractions.append(fraction)
+            total_weight += fraction.weight
 
     except ValueError:
         logger.debug(f"Invalid {args} configuration")
@@ -79,19 +77,21 @@ def _parse_fraction(arg: JsonLogicArg) -> Fraction:
             "Fractional variant weights must be (str, int) tuple or [str] list"
         )
 
-    if not isinstance(arg[0], str):
-        raise ValueError(
-            "Fractional variant identifier (first element) isn't of type 'str'"
-        )
+    variant = arg[0]
 
-    if len(arg) >= 2 and not isinstance(arg[1], int):
-        raise ValueError(
-            "Fractional variant weight value (second element) isn't of type 'int'"
-        )
+    weight = None
+    if len(arg) == 2:
+        w = arg[1]
+        if isinstance(w, bool):
+            raise ValueError("Fractional weight value isn't of type 'int'")
+        elif isinstance(w, int):
+            weight = w
+        else:
+            raise ValueError("Fractional weight value isn't of type 'int'")
 
-    fraction = Fraction(variant=arg[0])
-    if len(arg) >= 2:
-        fraction.weight = arg[1]
+    fraction = Fraction(variant=variant)
+    if weight is not None:
+        fraction.weight = weight
 
     return fraction
 
