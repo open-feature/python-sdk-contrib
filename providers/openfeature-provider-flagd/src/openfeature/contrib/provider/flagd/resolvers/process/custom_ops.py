@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import mmh3
 import semver
 
+MAX_WEIGHT_SUM = 2_147_483_647  # MaxInt32
+
 JsonPrimitive: typing.TypeAlias = str | bool | float | int
 JsonLogicArg: typing.TypeAlias = JsonPrimitive | Sequence[JsonPrimitive]
 
@@ -14,50 +16,56 @@ logger = logging.getLogger("openfeature.contrib")
 
 @dataclass
 class Fraction:
-    variant: str
+    variant: str | float | int | bool | None
     weight: int = 1
 
 
-def fractional(data: dict, *args: JsonLogicArg) -> str | None:
+def _resolve_bucket_by(data: dict, args: tuple) -> tuple[str | None, tuple]:
+    if isinstance(args[0], str):
+        return args[0], args[1:]
+
+    seed = data.get("$flagd", {}).get("flagKey", "")
+    targeting_key = data.get("targetingKey")
+    if not targeting_key:
+        logger.error("No targetingKey provided for fractional shorthand syntax.")
+        return None, args
+    return seed + targeting_key, args
+
+
+def fractional(data: dict, *args: JsonLogicArg) -> str | float | int | bool | None:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
 
-    bucket_by = None
-    if isinstance(args[0], str):
-        bucket_by = args[0]
-        args = args[1:]
-    else:
-        seed = data.get("$flagd", {}).get("flagKey", "")
-        targeting_key = data.get("targetingKey")
-        if not targeting_key:
-            logger.error("No targetingKey provided for fractional shorthand syntax.")
-            return None
-        bucket_by = seed + targeting_key
+    bucket_by, args = _resolve_bucket_by(data, args)
 
     if not bucket_by:
         logger.error("No hashKey value resolved")
         return None
 
-    hash_ratio = abs(mmh3.hash(bucket_by)) / (2**31 - 1)
-    bucket = hash_ratio * 100
+    hash_value = mmh3.hash(bucket_by, signed=False)
 
     total_weight = 0
     fractions = []
     try:
         for arg in args:
             fraction = _parse_fraction(arg)
-            if fraction:
-                fractions.append(fraction)
-                total_weight += fraction.weight
+            fractions.append(fraction)
+            total_weight += fraction.weight
 
     except ValueError:
         logger.debug(f"Invalid {args} configuration")
         return None
 
-    range_end: float = 0
+    if total_weight > MAX_WEIGHT_SUM:
+        logger.error(f"Total fractional weight exceeds MaxInt32 ({MAX_WEIGHT_SUM:,}).")
+        return None
+
+    bucket = (hash_value * total_weight) >> 32
+
+    range_end = 0
     for fraction in fractions:
-        range_end += fraction.weight * 100 / total_weight
+        range_end += fraction.weight
         if bucket < range_end:
             return fraction.variant
     return None
@@ -69,19 +77,21 @@ def _parse_fraction(arg: JsonLogicArg) -> Fraction:
             "Fractional variant weights must be (str, int) tuple or [str] list"
         )
 
-    if not isinstance(arg[0], str):
-        raise ValueError(
-            "Fractional variant identifier (first element) isn't of type 'str'"
-        )
+    variant = arg[0]
 
-    if len(arg) >= 2 and not isinstance(arg[1], int):
-        raise ValueError(
-            "Fractional variant weight value (second element) isn't of type 'int'"
-        )
+    weight = None
+    if len(arg) == 2:
+        w = arg[1]
+        if isinstance(w, bool):
+            raise ValueError("Fractional weight value isn't of type 'int'")
+        elif isinstance(w, int):
+            weight = w
+        else:
+            raise ValueError("Fractional weight value isn't of type 'int'")
 
-    fraction = Fraction(variant=arg[0])
-    if len(arg) >= 2:
-        fraction.weight = arg[1]
+    fraction = Fraction(variant=variant)
+    if weight is not None:
+        fraction.weight = weight
 
     return fraction
 
