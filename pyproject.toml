@@ -1,7 +1,7 @@
 [project]
 name = "openfeature-python-contrib"
 version = "0.0.0" # not used
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # hooks
     "openfeature-hooks-opentelemetry",
@@ -18,11 +18,11 @@ dependencies = [
 dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "mypy>=1.18.0,<2.0.0",
-  "pytest>=8.4.0,<9.0.0",
+  "pytest>=9.0.0,<10.0.0",
 ]
 
 [tool.uv]
-required-version = "~=0.9.0"
+required-version = "~=0.10.0"
 package = false
 
 [tool.uv.sources]
@@ -43,7 +43,7 @@ members = [
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 exclude = [
     ".git",
     ".venv",

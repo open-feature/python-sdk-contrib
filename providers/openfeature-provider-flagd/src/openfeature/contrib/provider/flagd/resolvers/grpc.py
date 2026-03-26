@@ -18,11 +18,12 @@ from openfeature.exception import (
     GeneralError,
     InvalidContextError,
     ParseError,
+    ProviderFatalError,
     ProviderNotReadyError,
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
-from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
+from openfeature.schemas.protobuf.flagd.evaluation.v2 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
 )
@@ -56,21 +57,23 @@ class GrpcResolver:
         self.emit_provider_error = emit_provider_error
         self.emit_provider_stale = emit_provider_stale
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
-        self.cache: typing.Optional[BaseCacheImpl] = (
+        self.cache: BaseCacheImpl | None = (
             LRUCache(maxsize=self.config.max_cache_size)
             if self.config.cache == CacheType.LRU
             else None
         )
+        logger.debug(self.config.fatal_status_codes)
 
         self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
+        self._is_fatal = False
         self.channel = self._generate_channel(config)
         self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
-        self.thread: typing.Optional[threading.Thread] = None
-        self.timer: typing.Optional[threading.Timer] = None
+        self.thread: threading.Thread | None = None
+        self.timer: threading.Timer | None = None
 
     def _generate_channel(self, config: Config) -> grpc.Channel:
         target = f"{config.host}:{config.port}"
@@ -89,28 +92,16 @@ class GrpcResolver:
                                 "name": [
                                     {"service": "flagd.sync.v1.FlagSyncService"},
                                     {"service": "flagd.evaluation.v1.Service"},
+                                    {"service": "flagd.evaluation.v2.Service"},
                                 ],
                                 "retryPolicy": {
                                     "maxAttempts": 3,
-                                    "initialBackoff": "1s",
-                                    "maxBackoff": "5s",
+                                    "initialBackoff": f"{max(config.retry_backoff_ms // 1000, 1)}s",
+                                    "maxBackoff": f"{max(config.retry_backoff_max_ms // 1000, 1)}s",
                                     "backoffMultiplier": 2.0,
                                     "retryableStatusCodes": [
-                                        "CANCELLED",
-                                        "UNKNOWN",
-                                        "INVALID_ARGUMENT",
-                                        "NOT_FOUND",
-                                        "ALREADY_EXISTS",
-                                        "PERMISSION_DENIED",
-                                        "RESOURCE_EXHAUSTED",
-                                        "FAILED_PRECONDITION",
-                                        "ABORTED",
-                                        "OUT_OF_RANGE",
-                                        "UNIMPLEMENTED",
-                                        "INTERNAL",
                                         "UNAVAILABLE",
-                                        "DATA_LOSS",
-                                        "UNAUTHENTICATED",
+                                        "UNKNOWN",
                                     ],
                                 },
                             }
@@ -163,8 +154,13 @@ class GrpcResolver:
         ## block until ready or deadline reached
         timeout = self.deadline + time.monotonic()
         while not self.connected and time.monotonic() < timeout:
+            if self._is_fatal:
+                break
             time.sleep(0.05)
         logger.debug("Finished blocking gRPC state initialization")
+
+        if self._is_fatal:
+            raise ProviderFatalError("Fatal gRPC status code received")
 
         if not self.connected:
             raise ProviderNotReadyError(
@@ -176,6 +172,8 @@ class GrpcResolver:
 
     def _state_change_callback(self, new_state: ChannelConnectivity) -> None:
         logger.debug(f"gRPC state change: {new_state}")
+        if self._is_fatal:
+            return
         if (
             new_state == grpc.ChannelConnectivity.READY
             or new_state == grpc.ChannelConnectivity.IDLE
@@ -237,7 +235,8 @@ class GrpcResolver:
                         )
                         self.connected = True
                     elif message.type == "configuration_change":
-                        data = MessageToDict(message)["data"]
+                        msg_dict = MessageToDict(message)
+                        data = msg_dict.get("data", {})
                         self.handle_changed_flags(data)
 
                     if not self.active:
@@ -246,13 +245,23 @@ class GrpcResolver:
             except grpc.RpcError as e:  # noqa: PERF203
                 # although it seems like this error log is not interesting, without it, the retry is not working as expected
                 logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+                if e.code().name in self.config.fatal_status_codes:
+                    self._is_fatal = True
+                    self.active = False
+                    self.emit_provider_error(
+                        ProviderEventDetails(
+                            message=f"Fatal gRPC status code: {e.code()}",
+                            error_code=ErrorCode.PROVIDER_FATAL,
+                        )
+                    )
+                    return
             except ParseError:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
                 )
 
     def handle_changed_flags(self, data: typing.Any) -> None:
-        changed_flags = list(data["flags"].keys())
+        changed_flags = list(data.get("flags", {}).keys())
 
         if self.cache:
             for flag in changed_flags:
@@ -264,7 +273,7 @@ class GrpcResolver:
         self,
         key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(key, FlagType.BOOLEAN, default_value, evaluation_context)
 
@@ -272,7 +281,7 @@ class GrpcResolver:
         self,
         key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(key, FlagType.STRING, default_value, evaluation_context)
 
@@ -280,7 +289,7 @@ class GrpcResolver:
         self,
         key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self._resolve(key, FlagType.FLOAT, default_value, evaluation_context)
 
@@ -288,19 +297,18 @@ class GrpcResolver:
         self,
         key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(key, FlagType.INTEGER, default_value, evaluation_context)
 
     def resolve_object_details(
         self,
         key: str,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
 
@@ -310,7 +318,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[bool]: ...
 
     @typing.overload
@@ -319,7 +327,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[int]: ...
 
     @typing.overload
@@ -328,7 +336,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[float]: ...
 
     @typing.overload
@@ -337,7 +345,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[str]: ...
 
     @typing.overload
@@ -345,12 +353,11 @@ class GrpcResolver:
         self,
         flag_key: str,
         flag_type: FlagType,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext],
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]: ...
 
     def _resolve(  # noqa: PLR0915 C901
@@ -358,7 +365,7 @@ class GrpcResolver:
         flag_key: str,
         flag_type: FlagType,
         default_value: FlagValueType,
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[FlagValueType]:
         if self.cache is not None and flag_key in self.cache:
             cached_flag: FlagResolutionDetails[FlagValueType] = self.cache[flag_key]
@@ -410,8 +417,11 @@ class GrpcResolver:
         except grpc.RpcError as e:
             code = e.code()
             message = f"received grpc status code {code}"
+            logger.debug(message)
 
-            if code == grpc.StatusCode.NOT_FOUND:
+            if code.name in self.config.fatal_status_codes:
+                raise ProviderFatalError(message) from e
+            elif code == grpc.StatusCode.NOT_FOUND:
                 raise FlagNotFoundError(message) from e
             elif code == grpc.StatusCode.INVALID_ARGUMENT:
                 raise TypeMismatchError(message) from e
@@ -419,11 +429,16 @@ class GrpcResolver:
                 raise ParseError(message) from e
             raise GeneralError(message) from e
 
+        # When no default variant is configured, the server returns an empty/zero proto
+        # value with reason=DEFAULT. In that case, return the caller's code default value.
+        if response.reason == Reason.DEFAULT and not response.variant:
+            value = default_value
+
         # Got a valid flag and valid type. Return it.
         result = FlagResolutionDetails(
             value=value,
             reason=response.reason,
-            variant=response.variant,
+            variant=response.variant or None,
         )
 
         if response.reason == Reason.STATIC and self.cache is not None:
@@ -431,9 +446,7 @@ class GrpcResolver:
 
         return result
 
-    def _convert_context(
-        self, evaluation_context: typing.Optional[EvaluationContext]
-    ) -> Struct:
+    def _convert_context(self, evaluation_context: EvaluationContext | None) -> Struct:
         s = Struct()
         if evaluation_context:
             try:

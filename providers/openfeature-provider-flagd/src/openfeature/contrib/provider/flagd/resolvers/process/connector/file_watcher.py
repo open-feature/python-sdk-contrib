@@ -88,7 +88,7 @@ class FileWatcher(FlagStateConnector):
         except Exception:
             self.handle_error("Could not read flags from file")
 
-    def _load_data(self, modified_time: typing.Optional[float] = None) -> None:
+    def _load_data(self, modified_time: float | None = None) -> None:
         with open(self.file_path) as file:
             if self.file_path.endswith(".yaml"):
                 data = yaml.safe_load(file)

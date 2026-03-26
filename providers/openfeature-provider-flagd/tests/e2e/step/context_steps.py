@@ -1,5 +1,3 @@
-import typing
-
 import pytest
 from pytest_bdd import given, parsers, when
 from tests.e2e.parsers import to_bool, to_list
@@ -77,7 +75,7 @@ def update_context_nested(
     evaluation_context: EvaluationContext,
     outer: str,
     inner: str,
-    value: typing.Union[str, int],
+    value: str | int,
 ):
     """a context containing a nested property with outer key, and inner key, and value."""
     if outer not in evaluation_context.attributes:

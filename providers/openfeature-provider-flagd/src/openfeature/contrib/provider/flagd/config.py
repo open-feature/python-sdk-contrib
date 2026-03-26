@@ -22,17 +22,17 @@ DEFAULT_CACHE_SIZE = 1000
 DEFAULT_DEADLINE = 500
 DEFAULT_HOST = "localhost"
 DEFAULT_KEEP_ALIVE = 0
-DEFAULT_OFFLINE_SOURCE_PATH: typing.Optional[str] = None
+DEFAULT_OFFLINE_SOURCE_PATH: str | None = None
 DEFAULT_OFFLINE_POLL_MS = 5000
 DEFAULT_PORT_IN_PROCESS = 8015
 DEFAULT_PORT_RPC = 8013
 DEFAULT_RESOLVER_TYPE = ResolverType.RPC
 DEFAULT_RETRY_BACKOFF = 1000
-DEFAULT_RETRY_BACKOFF_MAX = 120000
+DEFAULT_RETRY_BACKOFF_MAX = 12000
 DEFAULT_RETRY_GRACE_PERIOD_SECONDS = 5
 DEFAULT_STREAM_DEADLINE = 600000
 DEFAULT_TLS = False
-DEFAULT_TLS_CERT: typing.Optional[str] = None
+DEFAULT_TLS_CERT: str | None = None
 
 ENV_VAR_CACHE_SIZE = "FLAGD_MAX_CACHE_SIZE"
 ENV_VAR_CACHE_TYPE = "FLAGD_CACHE"
@@ -42,6 +42,8 @@ ENV_VAR_KEEP_ALIVE_TIME_MS = "FLAGD_KEEP_ALIVE_TIME_MS"
 ENV_VAR_OFFLINE_FLAG_SOURCE_PATH = "FLAGD_OFFLINE_FLAG_SOURCE_PATH"
 ENV_VAR_OFFLINE_POLL_MS = "FLAGD_OFFLINE_POLL_MS"
 ENV_VAR_PORT = "FLAGD_PORT"
+ENV_VAR_SYNC_PORT = "FLAGD_SYNC_PORT"
+ENV_VAR_FATAL_STATUS_CODES = "FLAGD_FATAL_STATUS_CODES"
 ENV_VAR_RESOLVER_TYPE = "FLAGD_RESOLVER"
 ENV_VAR_RETRY_BACKOFF_MS = "FLAGD_RETRY_BACKOFF_MS"
 ENV_VAR_RETRY_BACKOFF_MAX_MS = "FLAGD_RETRY_BACKOFF_MAX_MS"
@@ -60,7 +62,7 @@ def str_to_bool(val: str) -> bool:
     return val.lower() == "true"
 
 
-def convert_resolver_type(val: typing.Union[str, ResolverType]) -> ResolverType:
+def convert_resolver_type(val: str | ResolverType) -> ResolverType:
     if isinstance(val, str):
         v = val.lower()
         return ResolverType(v)
@@ -69,8 +71,8 @@ def convert_resolver_type(val: typing.Union[str, ResolverType]) -> ResolverType:
 
 
 def env_or_default(
-    env_var: str, default: T, cast: typing.Optional[typing.Callable[[str], T]] = None
-) -> typing.Union[str, T]:
+    env_var: str, default: T, cast: typing.Callable[[str], T] | None = None
+) -> str | T:
     val = os.environ.get(env_var)
     if val is None:
         return default
@@ -81,26 +83,28 @@ def env_or_default(
 class Config:
     def __init__(  # noqa: PLR0913
         self,
-        host: typing.Optional[str] = None,
-        port: typing.Optional[int] = None,
-        tls: typing.Optional[bool] = None,
-        selector: typing.Optional[str] = None,
-        provider_id: typing.Optional[str] = None,
-        resolver: typing.Optional[ResolverType] = None,
-        offline_flag_source_path: typing.Optional[str] = None,
-        offline_poll_interval_ms: typing.Optional[int] = None,
-        retry_backoff_ms: typing.Optional[int] = None,
-        retry_backoff_max_ms: typing.Optional[int] = None,
-        retry_grace_period: typing.Optional[int] = None,
-        deadline_ms: typing.Optional[int] = None,
-        stream_deadline_ms: typing.Optional[int] = None,
-        keep_alive_time: typing.Optional[int] = None,
-        cache: typing.Optional[CacheType] = None,
-        max_cache_size: typing.Optional[int] = None,
-        cert_path: typing.Optional[str] = None,
-        default_authority: typing.Optional[str] = None,
-        channel_credentials: typing.Optional[grpc.ChannelCredentials] = None,
-        sync_metadata_disabled: typing.Optional[bool] = None,
+        host: str | None = None,
+        port: int | None = None,
+        sync_port: int | None = None,
+        tls: bool | None = None,
+        selector: str | None = None,
+        provider_id: str | None = None,
+        resolver: ResolverType | None = None,
+        offline_flag_source_path: str | None = None,
+        offline_poll_interval_ms: int | None = None,
+        retry_backoff_ms: int | None = None,
+        retry_backoff_max_ms: int | None = None,
+        retry_grace_period: int | None = None,
+        deadline_ms: int | None = None,
+        stream_deadline_ms: int | None = None,
+        keep_alive_time: int | None = None,
+        cache: CacheType | None = None,
+        max_cache_size: int | None = None,
+        cert_path: str | None = None,
+        default_authority: str | None = None,
+        channel_credentials: grpc.ChannelCredentials | None = None,
+        sync_metadata_disabled: bool | None = None,
+        fatal_status_codes: list[str] | None = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -108,6 +112,19 @@ class Config:
             env_or_default(ENV_VAR_TLS, DEFAULT_TLS, cast=str_to_bool)
             if tls is None
             else tls
+        )
+
+        self.fatal_status_codes: list[str] = (
+            typing.cast(
+                list[str],
+                env_or_default(
+                    ENV_VAR_FATAL_STATUS_CODES,
+                    [],
+                    cast=lambda s: [item.strip() for item in s.split(",")],
+                ),
+            )
+            if fatal_status_codes is None
+            else fatal_status_codes
         )
 
         self.retry_backoff_ms: int = (
@@ -159,6 +176,14 @@ class Config:
             int(env_or_default(ENV_VAR_PORT, default_port, cast=int))
             if port is None
             else port
+        )
+
+        self.port = (
+            int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
+            if sync_port is None and port is None
+            else sync_port
+            if sync_port is not None
+            else self.port
         )
 
         self.offline_flag_source_path = (

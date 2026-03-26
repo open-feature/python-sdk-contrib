@@ -1,6 +1,5 @@
 import threading
 import time
-import typing
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -44,8 +43,8 @@ class TestGrpcWatcher(unittest.TestCase):
         emit_provider_stale = Mock()
         channel = Mock(spec=Channel)
         self.provider_done = False
-        self.provider_details: typing.Optional[ProviderEventDetails] = None
-        self.context: typing.Optional[dict] = None
+        self.provider_details: ProviderEventDetails | None = None
+        self.context: dict | None = None
 
         with patch(
             "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.GrpcWatcher._generate_channel",

@@ -20,6 +20,9 @@ on:
 permissions:
   contents: read
 
+env:
+  TARGET_PYTHON_VERSION: "3.14"
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -60,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         package: ${{ fromJSON(needs.changes.outputs.packages) }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
@@ -68,7 +71,7 @@ jobs:
           submodules: recursive
 
       - name: Install uv and set the python version ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@85856786d1ce8acfbcc2f13a5f3fbd6b938f9f41 # v7
+        uses: astral-sh/setup-uv@6ee6290f1cbc4156c0bdd66691b2c144ef8df19a # v7
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
@@ -82,7 +85,7 @@ jobs:
         run: uv build
 
       - name: Type checking
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == env.TARGET_PYTHON_VERSION
         working-directory: ${{ matrix.package }}
         run: poe mypy
 
@@ -90,7 +93,7 @@ jobs:
         working-directory: ${{ matrix.package }}
         run: poe cov
 
-      - if: matrix.python-version == '3.13'
+      - if: matrix.python-version == env.TARGET_PYTHON_VERSION
         name: Upload coverage to Codecov
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
         with:
@@ -106,9 +109,9 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@85856786d1ce8acfbcc2f13a5f3fbd6b938f9f41 # v7
+        uses: astral-sh/setup-uv@6ee6290f1cbc4156c0bdd66691b2c144ef8df19a # v7
         with:
-          python-version: "3.13"
+          python-version: ${{ env.TARGET_PYTHON_VERSION }}
           enable-cache: false # caching is done automatically in `pre-commit/action`
 
       - name: Run pre-commit
