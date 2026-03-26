@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from openfeature.contrib.provider.ofrep import OFREPProvider
@@ -153,6 +155,28 @@ def test_provider_invalid_context(ofrep_provider, requests_mock):
 
     with pytest.raises(InvalidContextError):
         ofrep_provider.resolve_boolean_details("flag_key", False)
+
+
+def test_provider_invalid_error_code_logs_warning(
+    ofrep_provider, requests_mock, caplog
+):
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        status_code=400,
+        json={
+            "key": "flag_key",
+            "errorCode": "UNKNOWN_CODE",
+            "errorDetails": "Something went wrong",
+        },
+    )
+
+    with (
+        caplog.at_level(logging.WARNING, logger="openfeature.contrib.ofrep"),
+        pytest.raises(GeneralError),
+    ):
+        ofrep_provider.resolve_boolean_details("flag_key", False)
+
+    assert any("UNKNOWN_CODE" in record.message for record in caplog.records)
 
 
 def test_provider_invalid_response(ofrep_provider, requests_mock):

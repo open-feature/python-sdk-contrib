@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
@@ -29,6 +30,8 @@ from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider, Metadata
 
 __all__ = ["OFREPProvider"]
+
+logger = logging.getLogger("openfeature.contrib.ofrep")
 
 
 TypeMap = dict[
@@ -188,6 +191,9 @@ class OFREPProvider(AbstractProvider):
         try:
             error_code = ErrorCode(data["errorCode"])
         except ValueError:
+            logger.warning(
+                "Invalid errorCode %r, falling back to GENERAL", data.get("errorCode")
+            )
             error_code = ErrorCode.GENERAL
         error_details = data["errorDetails"]
 
