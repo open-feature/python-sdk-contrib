@@ -255,6 +255,46 @@ def enable_flag(flag_name: str, headers: dict):
         logger.error(f"Error enabling flag '{flag_name}': {e}")
 
 
+EXPECTED_FLAGS = {
+    "integration-boolean-flag",
+    "integration-string-flag",
+    "integration-float-flag",
+    "integration-object-flag",
+    "integration-integer-flag",
+    "integration-targeting-flag",
+}
+
+
+def wait_for_flags_visible(timeout=30, interval=2):
+    """Poll the client features endpoint until all expected flags are visible.
+
+    After flags are created via the Admin API, there is a short propagation
+    delay before they appear on the Client API.  Without this wait the
+    provider's initial fetch may return stale data, causing flaky tests.
+    """
+    headers = {"Authorization": API_TOKEN}
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            resp = requests.get(
+                f"{UNLEASH_URL}/api/client/features",
+                headers=headers,
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                names = {f["name"] for f in resp.json().get("features", [])}
+                if EXPECTED_FLAGS.issubset(names):
+                    logger.info("All flags visible via client API")
+                    return
+                logger.info(
+                    f"Waiting for flags; have {len(names)}/{len(EXPECTED_FLAGS)}"
+                )
+        except Exception as e:
+            logger.warning(f"Polling client features: {e}")
+        time.sleep(interval)
+    raise TimeoutError(f"Flags not visible via client API within {timeout}s")
+
+
 @pytest.fixture(scope="session")
 def postgres_container():
     """Create and start PostgreSQL container."""
@@ -291,7 +331,7 @@ def unleash_container(postgres_container):  # noqa: PLR0915
 
         # Wait for health check to pass
         logger.info("Waiting for Unleash container to be healthy...")
-        max_wait_time = 60  # 1 minute max wait
+        max_wait_time = 120  # 2 minutes; Unleash DB migrations can be slow in CI
         start_time = time.time()
 
         while time.time() - start_time < max_wait_time:
@@ -301,6 +341,16 @@ def unleash_container(postgres_container):  # noqa: PLR0915
                     unleash_url = f"http://localhost:{exposed_port}"
                     logger.info(f"Trying health check at: {unleash_url}")
                 except Exception as port_error:
+                    # if the container exited, fail fast with its logs
+                    docker_container = container.get_wrapped_container()
+                    if docker_container:
+                        docker_container.reload()
+                        if docker_container.status in ("exited", "dead"):
+                            logs = docker_container.logs().decode(errors="replace")
+                            raise RuntimeError(
+                                f"Unleash container died ({docker_container.status}).\n"
+                                f"Logs:\n{logs}"
+                            ) from port_error
                     logger.error(f"Port not ready yet: {port_error}")
                     time.sleep(2)
                     continue
@@ -313,10 +363,24 @@ def unleash_container(postgres_container):  # noqa: PLR0915
                 logger.error(f"Health check failed, status: {response.status_code}")
                 time.sleep(2)
 
+            except RuntimeError:
+                raise
             except Exception as e:
                 logger.error(f"Health check error: {e}")
                 time.sleep(2)
         else:
+            # timeout; dump container logs for debugging
+            try:
+                docker_container = container.get_wrapped_container()
+                if docker_container:
+                    docker_container.reload()
+                    logs = docker_container.logs().decode(errors="replace")
+                    logger.error(
+                        f"Unleash container status: {docker_container.status}\n"
+                        f"Logs:\n{logs}"
+                    )
+            except Exception:
+                logger.exception("Failed to retrieve container logs")
             raise Exception("Unleash container did not become healthy within timeout")
 
         # Get the exposed port and set global URL
@@ -331,9 +395,11 @@ def unleash_container(postgres_container):  # noqa: PLR0915
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_flags(unleash_container):
-    """Setup test flags before running any tests."""
+    """Setup test flags and wait for them to be visible via the client API."""
     logger.info("Creating test flags in Unleash...")
     create_test_flags()
+    logger.info("Waiting for flags to propagate to client API...")
+    wait_for_flags_visible()
     logger.info("Test flags setup completed")
 
 
