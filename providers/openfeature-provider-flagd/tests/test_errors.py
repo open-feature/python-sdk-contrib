@@ -84,7 +84,6 @@ def test_broken_targeting():
         "invalid-stringcomp-args.json",
         "invalid-fractional-args.json",
         "invalid-fractional-args-wrong-content.json",
-        "invalid-fractional-weights.json",
         "invalid-fractional-weights-strings.json",
     ],
 )

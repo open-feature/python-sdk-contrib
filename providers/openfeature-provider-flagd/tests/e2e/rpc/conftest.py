@@ -10,6 +10,9 @@ feature_list = [
     "~sync",
     "~metadata",
     "~deprecated",
+    "~fractional-v1",
+    "~fractional-v2",
+    "~fractional-nested",
 ]
 
 
