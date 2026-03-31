@@ -91,7 +91,8 @@ def _parse_fraction(arg: JsonLogicArg) -> Fraction:
 
     fraction = Fraction(variant=variant)
     if weight is not None:
-        fraction.weight = weight
+        # negative weights can be the result of rollout calculations, so we clamp to 0 rather than raising an error
+        fraction.weight = max(0, weight)
 
     return fraction
 

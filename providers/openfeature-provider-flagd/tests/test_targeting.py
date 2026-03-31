@@ -237,6 +237,16 @@ class FractionalOperator(unittest.TestCase):
         logic = targeting("flagA", rule, EvaluationContext(targeting_key="any"))
         assert logic == "always"
 
+    def test_negative_weight_clamped_to_zero(self):
+        rule = {
+            "fractional": [
+                ["on", -1000],
+                ["off", 1],
+            ],
+        }
+        logic = targeting("flagA", rule, EvaluationContext(targeting_key="any"))
+        assert logic == "off"
+
     def test_weight_as_fractional_float_is_invalid(self):
         rule = {
             "fractional": [
