@@ -414,7 +414,6 @@ def unleash_container(postgres_container):
 
         with unleash as container:
             logger.info(f"Starting Unleash container (attempt {attempt})...")
-            container.start()
             logger.info("Unleash container started")
 
             try:
