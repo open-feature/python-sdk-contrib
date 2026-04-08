@@ -1,0 +1,75 @@
+[build-system]
+requires = ["uv_build~=0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "openfeature-flagd-core"
+version = "0.1.0"
+description = "OpenFeature flagd evaluator core implementation"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = []
+dependencies = [
+    "openfeature-flagd-api",
+    "openfeature-sdk>=0.8.2",
+    "mmh3>=4.1.0",
+    "panzi-json-logic>=1.0.1",
+    "semver>=3,<4",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+[dependency-groups]
+dev = [
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "mypy>=1.18.0,<2.0.0",
+  "pytest>=9.0.0,<10.0.0",
+  "pytest-bdd>=8.1.0,<9.0.0",
+  "openfeature-flagd-api-testkit",
+]
+
+[tool.uv.sources]
+openfeature-flagd-api = { workspace = true }
+openfeature-flagd-api-testkit = { workspace = true }
+
+[tool.uv.build-backend]
+module-name = "openfeature"
+module-root = "src"
+namespace = true
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+python_version = "3.9"
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+allow_redefinition_new = true
+fixed_format_cache = true
+pretty = true
+strict = true
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = [
+    "json_logic.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = ["tests/**"]
+
+[project.scripts]
+cov-report = "scripts.scripts:cov_report"
+cov = "scripts.scripts:cov"
+mypy-check = "scripts.scripts:mypy"
+test = "scripts.scripts:test"
+test-cov = "scripts.scripts:test_cov"

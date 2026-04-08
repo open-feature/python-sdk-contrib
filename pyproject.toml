@@ -12,6 +12,10 @@ dependencies = [
     "openfeature-provider-flipt",
     "openfeature-provider-ofrep",
     "openfeature-provider-unleash",
+    # tools
+    "openfeature-flagd-api",
+    "openfeature-flagd-core",
+    "openfeature-flagd-api-testkit",
 ]
 
 [dependency-groups]
@@ -35,11 +39,16 @@ openfeature-provider-flagd = { workspace = true }
 openfeature-provider-flipt = { workspace = true }
 openfeature-provider-ofrep = { workspace = true }
 openfeature-provider-unleash = { workspace = true }
+# tools
+openfeature-flagd-api = { workspace = true }
+openfeature-flagd-core = { workspace = true }
+openfeature-flagd-api-testkit = { workspace = true }
 
 [tool.uv.workspace]
 members = [
     "hooks/*",
     "providers/*",
+    "tools/*",
 ]
 
 [tool.ruff]

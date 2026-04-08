@@ -70,6 +70,33 @@
       "extra-files": [
         "README.md"
       ]
+    },
+    "tools/openfeature-flagd-api": {
+      "package-name": "openfeature-flagd-api",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
+    },
+    "tools/openfeature-flagd-core": {
+      "package-name": "openfeature-flagd-core",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
+    },
+    "tools/openfeature-flagd-api-testkit": {
+      "package-name": "openfeature-flagd-api-testkit",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
     }
   },
   "changelog-sections": [

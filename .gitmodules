@@ -6,4 +6,5 @@
 	url = https://github.com/open-feature/spec
 [submodule "providers/openfeature-provider-flagd/openfeature/test-harness"]
 	path = providers/openfeature-provider-flagd/openfeature/test-harness
-    url = https://github.com/open-feature/flagd-testbed.git
+	url = https://github.com/open-feature/flagd-testbed.git
+	branch = v3.5.0
