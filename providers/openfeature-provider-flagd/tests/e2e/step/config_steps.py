@@ -1,5 +1,4 @@
 import re
-import typing
 
 import pytest
 from asserts import assert_equal, assert_true
@@ -17,7 +16,7 @@ def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
 
-def convert_resolver_type(val: typing.Union[str, ResolverType]) -> ResolverType:
+def convert_resolver_type(val: str | ResolverType) -> ResolverType:
     if isinstance(val, str):
         v = val.lower()
         return ResolverType(v)
@@ -46,8 +45,8 @@ def option_values() -> dict:
 
 
 @given(
-    parsers.cfparse(
-        'an option "{option}" of type "{type_info}" with value "{value}"',
+    parsers.re(
+        r'an option "(?P<option>[^"]+)" of type "(?P<type_info>[^"]+)" with value "(?P<value>[^"]*)"',
     ),
 )
 def option_with_value(option: str, value: str, type_info: str, option_values: dict):
@@ -91,8 +90,8 @@ def initialize_config_for(resolver_type: str, option_values: dict):
 
 
 @then(
-    parsers.cfparse(
-        'the option "{option}" of type "{type_info}" should have the value "{value}"',
+    parsers.re(
+        r'the option "(?P<option>[^"]+)" of type "(?P<type_info>[^"]+)" should have the value "(?P<value>[^"]*)"',
     )
 )
 def check_option_value(option, value, type_info, config_or_error):

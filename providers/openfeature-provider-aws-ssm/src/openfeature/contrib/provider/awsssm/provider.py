@@ -1,5 +1,5 @@
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, TypeVar, cast
 
 from cachebox import BaseCacheImpl, LRUCache, TTLCache
 
@@ -17,7 +17,7 @@ T = TypeVar("T")
 class AwsSsmProvider(AbstractProvider):
     """Provider for AWS Systems Manager Parameter Store."""
 
-    def __init__(self, config: Optional[AwsSsmProviderConfig] = None) -> None:
+    def __init__(self, config: AwsSsmProviderConfig | None = None) -> None:
         """
         Initialize the AWS SSM Provider.
 
@@ -31,7 +31,7 @@ class AwsSsmProvider(AbstractProvider):
             enable_decryption=self.config.enable_decryption,
         )
 
-        self.cache: Optional[BaseCacheImpl] = None
+        self.cache: BaseCacheImpl | None = None
         if self.config.cache_config:
             cache_config = self.config.cache_config
             if cache_config.cache_type == "lru":
@@ -48,7 +48,7 @@ class AwsSsmProvider(AbstractProvider):
         """
         return Metadata(name="aws-ssm")
 
-    def _get_cached_value(self, flag_key: str) -> Optional[Any]:
+    def _get_cached_value(self, flag_key: str) -> Any | None:
         """
         Get value from cache if available.
 
@@ -76,7 +76,7 @@ class AwsSsmProvider(AbstractProvider):
     def _resolve_with_cache(
         self,
         flag_key: str,
-        parser: Optional[Callable[[str], T]] = None,
+        parser: Callable[[str], T] | None = None,
     ) -> FlagResolutionDetails[T]:
         """
         Base resolution logic with caching for synchronous operations.
@@ -108,7 +108,7 @@ class AwsSsmProvider(AbstractProvider):
     async def _resolve_with_cache_async(
         self,
         flag_key: str,
-        parser: Optional[Callable[[str], T]] = None,
+        parser: Callable[[str], T] | None = None,
     ) -> FlagResolutionDetails[T]:
         """
         Base resolution logic with caching for asynchronous operations.
@@ -141,7 +141,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         """
         Resolve a boolean flag.
@@ -160,7 +160,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         """
         Resolve a string flag.
@@ -179,7 +179,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         """
         Resolve an integer flag.
@@ -198,7 +198,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         """
         Resolve a float flag.
@@ -216,11 +216,9 @@ class AwsSsmProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         """
         Resolve an object flag.
 
@@ -239,7 +237,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         """
         Resolve a boolean flag asynchronously.
@@ -258,7 +256,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         """
         Resolve a string flag asynchronously.
@@ -277,7 +275,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         """
         Resolve an integer flag asynchronously.
@@ -296,7 +294,7 @@ class AwsSsmProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         """
         Resolve a float flag asynchronously.
@@ -314,11 +312,9 @@ class AwsSsmProvider(AbstractProvider):
     async def resolve_object_details_async(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         """
         Resolve an object flag asynchronously.
 

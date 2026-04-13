@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from botocore.config import Config
@@ -25,8 +25,8 @@ class SsmService:
 
     def __init__(
         self,
-        config: Optional[Config] = None,
-        endpoint_url: Optional[str] = None,
+        config: Config | None = None,
+        endpoint_url: str | None = None,
         enable_decryption: bool = False,
     ) -> None:
         """
@@ -38,8 +38,8 @@ class SsmService:
             enable_decryption: Whether to decrypt SecureString parameters
         """
         self.enable_decryption = enable_decryption
-        self._client: Optional[SSMClient] = None
-        self._async_session: Optional[aioboto3.Session] = None
+        self._client: SSMClient | None = None
+        self._async_session: aioboto3.Session | None = None
         self._client_kwargs: dict[str, Any] = {}
         if endpoint_url:
             self._client_kwargs["endpoint_url"] = endpoint_url

@@ -1,7 +1,8 @@
 """Flag evaluation functionality for Unleash provider."""
 
 import json
-from typing import Any, Callable, Optional, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from UnleashClient import UnleashClient
 
@@ -23,8 +24,8 @@ class UnleashProvider(Protocol):
     def app_name(self) -> str: ...
 
     def _build_unleash_context(
-        self, evaluation_context: Optional[EvaluationContext] = None
-    ) -> Optional[dict[str, Any]]: ...
+        self, evaluation_context: EvaluationContext | None = None
+    ) -> dict[str, Any] | None: ...
 
 
 class FlagEvaluator:
@@ -42,7 +43,7 @@ class FlagEvaluator:
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         """Resolve boolean flag details.
 
@@ -79,7 +80,7 @@ class FlagEvaluator:
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         """Resolve string flag details.
 
@@ -99,7 +100,7 @@ class FlagEvaluator:
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         """Resolve integer flag details.
 
@@ -119,7 +120,7 @@ class FlagEvaluator:
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         """Resolve float flag details.
 
@@ -139,7 +140,7 @@ class FlagEvaluator:
         self,
         flag_key: str,
         default_value: Any,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[Any]:
         """Resolve object flag details.
 
@@ -160,7 +161,7 @@ class FlagEvaluator:
         flag_key: str,
         default_value: Any,
         value_converter: Callable[[Any], Any],
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[Any]:
         """Helper method to resolve variant-based flags.
 

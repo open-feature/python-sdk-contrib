@@ -18,8 +18,8 @@ type_cast = {
 }
 
 
-JsonObject = typing.Union[dict, list]
-JsonPrimitive = typing.Union[str, bool, float, int, JsonObject]
+JsonObject: typing.TypeAlias = dict | list
+JsonPrimitive: typing.TypeAlias = str | bool | float | int | JsonObject
 
 
 def wait_for(pred, poll_sec=2, timeout_sec=10):

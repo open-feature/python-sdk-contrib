@@ -10,7 +10,8 @@ feature_list = [
     "~sync",
     "~metadata",
     "~deprecated",
-    "~forbidden",
+    "~fractional-v1",
+    "~operator-errors",
 ]
 
 

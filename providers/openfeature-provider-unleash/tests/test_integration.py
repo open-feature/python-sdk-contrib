@@ -255,19 +255,144 @@ def enable_flag(flag_name: str, headers: dict):
         logger.error(f"Error enabling flag '{flag_name}': {e}")
 
 
+EXPECTED_FLAGS = {
+    "integration-boolean-flag",
+    "integration-string-flag",
+    "integration-float-flag",
+    "integration-object-flag",
+    "integration-integer-flag",
+    "integration-targeting-flag",
+}
+
+
+def wait_for_flags_visible(timeout=30, interval=2):
+    """Poll the client features endpoint until all expected flags are visible.
+
+    After flags are created via the Admin API, there is a short propagation
+    delay before they appear on the Client API.  Without this wait the
+    provider's initial fetch may return stale data, causing flaky tests.
+    """
+    headers = {"Authorization": API_TOKEN}
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            resp = requests.get(
+                f"{UNLEASH_URL}/api/client/features",
+                headers=headers,
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                names = {f["name"] for f in resp.json().get("features", [])}
+                if EXPECTED_FLAGS.issubset(names):
+                    logger.info("All flags visible via client API")
+                    return
+                logger.info(
+                    f"Waiting for flags; have {len(names)}/{len(EXPECTED_FLAGS)}"
+                )
+        except Exception as e:
+            logger.warning(f"Polling client features: {e}")
+        time.sleep(interval)
+    raise TimeoutError(f"Flags not visible via client API within {timeout}s")
+
+
 @pytest.fixture(scope="session")
 def postgres_container():
     """Create and start PostgreSQL container."""
     with PostgresContainer("postgres:15", driver=None) as postgres:
-        postgres.start()
         postgres_url = postgres.get_connection_url()
         logger.info(f"PostgreSQL started at: {postgres_url}")
 
         yield postgres
 
 
+def _get_container_health_url(container):
+    """Get the health check URL for the container.
+
+    Raises if port is not exposed yet.
+    """
+    exposed_port = container.get_exposed_port(4242)
+    return f"http://localhost:{exposed_port}"
+
+
+def _check_container_not_dead(container):
+    """Check if container is still running, raise if dead.
+
+    Raises RuntimeError with logs if container exited or is dead.
+    """
+    docker_container = container.get_wrapped_container()
+    if docker_container:
+        docker_container.reload()
+        if docker_container.status in ("exited", "dead"):
+            logs = docker_container.logs().decode(errors="replace")
+            raise RuntimeError(
+                f"Unleash container died ({docker_container.status}).\nLogs:\n{logs}"
+            )
+
+
+def _get_container_logs(container):
+    """Get container logs for debugging."""
+    docker_container = container.get_wrapped_container()
+    if docker_container:
+        docker_container.reload()
+        return docker_container.logs().decode(errors="replace")
+    return ""
+
+
+def _log_timeout_and_logs(container):
+    """Log timeout error and container logs for debugging."""
+    try:
+        logs = _get_container_logs(container)
+        logger.error("Unleash container did not become healthy within timeout")
+        if logs:
+            logger.error(f"Logs:\n{logs}")
+    except Exception:
+        logger.exception("Failed to retrieve container logs")
+
+
+def _wait_for_healthy(container, max_wait_time=120):
+    """Poll the Unleash container until its /health endpoint returns 200.
+
+    Returns the base URL on success, raises on timeout or container death.
+    """
+    start_time = time.time()
+
+    while time.time() - start_time < max_wait_time:
+        try:
+            try:
+                unleash_url = _get_container_health_url(container)
+                logger.info(f"Trying health check at: {unleash_url}")
+            except Exception as port_error:
+                _check_container_not_dead(container)
+                logger.error(f"Port not ready yet: {port_error}")
+                time.sleep(2)
+                continue
+
+            response = requests.get(f"{unleash_url}/health", timeout=5)
+            if response.status_code == 200:
+                logger.info("Unleash container is healthy!")
+                return unleash_url
+
+            logger.error(f"Health check failed, status: {response.status_code}")
+            time.sleep(2)
+
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.error(f"Health check error: {e}")
+            time.sleep(2)
+
+    _log_timeout_and_logs(container)
+    raise RuntimeError("Unleash container did not become healthy within timeout")
+
+
+# Unleash's migration runner can hit a pg_class_relname_nsp_index race
+# condition that kills the process on first start.  Retrying is safe because
+# the partially-created objects already exist on the second attempt.
+MAX_UNLEASH_ATTEMPTS = 3
+
+
 @pytest.fixture(scope="session")
-def unleash_container(postgres_container):  # noqa: PLR0915
+def unleash_container(postgres_container):
     """Create and start Unleash container with PostgreSQL dependency."""
     global UNLEASH_URL
 
@@ -282,58 +407,48 @@ def unleash_container(postgres_container):  # noqa: PLR0915
         f":{exposed_port}", ":5432"
     )
 
-    unleash = UnleashContainer(internal_url)
+    last_error = None
 
-    with unleash as container:
-        logger.info("Starting Unleash container...")
-        container.start()
-        logger.info("Unleash container started")
+    for attempt in range(1, MAX_UNLEASH_ATTEMPTS + 1):
+        unleash = UnleashContainer(internal_url)
 
-        # Wait for health check to pass
-        logger.info("Waiting for Unleash container to be healthy...")
-        max_wait_time = 60  # 1 minute max wait
-        start_time = time.time()
+        with unleash as container:
+            logger.info(f"Starting Unleash container (attempt {attempt})...")
+            logger.info("Unleash container started")
 
-        while time.time() - start_time < max_wait_time:
             try:
-                try:
-                    exposed_port = container.get_exposed_port(4242)
-                    unleash_url = f"http://localhost:{exposed_port}"
-                    logger.info(f"Trying health check at: {unleash_url}")
-                except Exception as port_error:
-                    logger.error(f"Port not ready yet: {port_error}")
-                    time.sleep(2)
+                unleash_url = _wait_for_healthy(container)
+            except RuntimeError as exc:
+                last_error = exc
+                if "pg_class_relname_nsp_index" in str(exc) or "died" in str(exc):
+                    logger.warning(
+                        f"Unleash failed on attempt {attempt} "
+                        f"(likely migration race); retrying..."
+                    )
                     continue
+                raise
 
-                response = requests.get(f"{unleash_url}/health", timeout=5)
-                if response.status_code == 200:
-                    logger.info("Unleash container is healthy!")
-                    break
+            UNLEASH_URL = unleash_url
+            logger.info(f"Unleash started at: {unleash_url}")
 
-                logger.error(f"Health check failed, status: {response.status_code}")
-                time.sleep(2)
+            insert_admin_token(postgres_container)
+            logger.info("Admin token inserted into database")
 
-            except Exception as e:
-                logger.error(f"Health check error: {e}")
-                time.sleep(2)
-        else:
-            raise Exception("Unleash container did not become healthy within timeout")
+            yield container, unleash_url
+            return
 
-        # Get the exposed port and set global URL
-        UNLEASH_URL = f"http://localhost:{container.get_exposed_port(4242)}"
-        logger.info(f"Unleash started at: {unleash_url}")
-
-        insert_admin_token(postgres_container)
-        logger.info("Admin token inserted into database")
-
-        yield container, unleash_url
+    raise RuntimeError(
+        f"Unleash failed to start after {MAX_UNLEASH_ATTEMPTS} attempts"
+    ) from last_error
 
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_flags(unleash_container):
-    """Setup test flags before running any tests."""
+    """Setup test flags and wait for them to be visible via the client API."""
     logger.info("Creating test flags in Unleash...")
     create_test_flags()
+    logger.info("Waiting for flags to propagate to client API...")
+    wait_for_flags_visible()
     logger.info("Test flags setup completed")
 
 

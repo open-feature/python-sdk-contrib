@@ -1,8 +1,9 @@
+import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Callable, NoReturn, Optional, Union
+from typing import Any, NoReturn
 from urllib.parse import urljoin
 
 import requests
@@ -30,17 +31,15 @@ from openfeature.provider import AbstractProvider, Metadata
 
 __all__ = ["OFREPProvider"]
 
+logger = logging.getLogger("openfeature.contrib.ofrep")
+
 
 TypeMap = dict[
     FlagType,
-    Union[
-        type[bool],
-        type[int],
-        type[float],
-        type[str],
-        tuple[type[dict], type[list]],
-    ],
+    type[bool] | type[int] | type[float] | type[str] | tuple[type[dict], type[list]],
 ]
+
+_HTTP_AUTH_ERRORS: dict[int, str] = {401: "unauthorized", 403: "forbidden"}
 
 
 class OFREPProvider(AbstractProvider):
@@ -48,13 +47,13 @@ class OFREPProvider(AbstractProvider):
         self,
         base_url: str,
         *,
-        headers_factory: Optional[Callable[[], dict[str, str]]] = None,
+        headers_factory: Callable[[], dict[str, str]] | None = None,
         timeout: float = 5.0,
     ):
         self.base_url = base_url
         self.headers_factory = headers_factory
         self.timeout = timeout
-        self.retry_after: Optional[datetime] = None
+        self.retry_after: datetime | None = None
         self.session = requests.Session()
 
     def get_metadata(self) -> Metadata:
@@ -67,7 +66,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(
             FlagType.BOOLEAN, flag_key, default_value, evaluation_context
@@ -77,7 +76,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(
             FlagType.STRING, flag_key, default_value, evaluation_context
@@ -87,7 +86,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(
             FlagType.INTEGER, flag_key, default_value, evaluation_context
@@ -97,7 +96,7 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self._resolve(
             FlagType.FLOAT, flag_key, default_value, evaluation_context
@@ -106,11 +105,9 @@ class OFREPProvider(AbstractProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         return self._resolve(
             FlagType.OBJECT, flag_key, default_value, evaluation_context
         )
@@ -125,17 +122,8 @@ class OFREPProvider(AbstractProvider):
         self,
         flag_type: FlagType,
         flag_key: str,
-        default_value: Union[
-            bool,
-            str,
-            int,
-            float,
-            dict,
-            list,
-            Sequence[FlagValueType],
-            Mapping[str, FlagValueType],
-        ],
-        evaluation_context: Optional[EvaluationContext] = None,
+        default_value: FlagValueType,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[Any]:
         now = datetime.now(timezone.utc)
         if self.retry_after and now <= self.retry_after:
@@ -178,23 +166,21 @@ class OFREPProvider(AbstractProvider):
         if response is None:
             raise GeneralError(str(exception)) from exception
 
-        if response.status_code == 429:
-            retry_after = response.headers.get("Retry-After")
-            self.retry_after = _parse_retry_after(retry_after)
-            raise GeneralError(
-                f"Rate limited, retry after: {retry_after}"
-            ) from exception
-
+        self._raise_for_http_status(response, exception)
+        # Fallthrough: parse JSON and raise based on error code
         try:
             data = response.json()
         except JSONDecodeError:
             raise ParseError(str(exception)) from exception
 
-        error_code = ErrorCode(data["errorCode"])
+        try:
+            error_code = ErrorCode(data["errorCode"])
+        except ValueError:
+            logger.warning(
+                "Invalid errorCode %r, falling back to GENERAL", data.get("errorCode")
+            )
+            error_code = ErrorCode.GENERAL
         error_details = data["errorDetails"]
-
-        if response.status_code == 404:
-            raise FlagNotFoundError(error_details) from exception
 
         if error_code == ErrorCode.PARSE_ERROR:
             raise ParseError(error_details) from exception
@@ -207,9 +193,35 @@ class OFREPProvider(AbstractProvider):
 
         raise OpenFeatureError(error_code, error_details) from exception
 
+    def _raise_for_http_status(
+        self,
+        response: requests.Response,
+        exception: requests.RequestException,
+    ) -> None:
+        status = response.status_code
+
+        if status == 429:
+            retry_after = response.headers.get("Retry-After")
+            self.retry_after = _parse_retry_after(retry_after)
+            raise GeneralError(
+                f"Rate limited, retry after: {retry_after}"
+            ) from exception
+        elif status in _HTTP_AUTH_ERRORS:
+            raise OpenFeatureError(
+                ErrorCode.GENERAL, _HTTP_AUTH_ERRORS[status]
+            ) from exception
+        elif status == 404:
+            try:
+                error_details = response.json()["errorDetails"]
+            except (JSONDecodeError, KeyError):
+                error_details = response.text
+            raise FlagNotFoundError(error_details) from exception
+        elif status > 400:
+            raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
+
 
 def _build_request_data(
-    evaluation_context: Optional[EvaluationContext],
+    evaluation_context: EvaluationContext | None,
 ) -> dict[str, Any]:
     data: dict[str, Any] = {}
     if evaluation_context:
@@ -220,7 +232,7 @@ def _build_request_data(
     return data
 
 
-def _parse_retry_after(retry_after: Optional[str]) -> Optional[datetime]:
+def _parse_retry_after(retry_after: str | None) -> datetime | None:
     if retry_after is None:
         return None
     if re.match(r"^\s*[0-9]+\s*$", retry_after):

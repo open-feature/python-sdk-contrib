@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.3.0...openfeature-provider-flagd/v0.4.0) (2026-04-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* fractional bucketing improvements ([#373](https://github.com/open-feature/python-sdk-contrib/issues/373))
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364))
+
+### chore
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364)) ([0ecd1d4](https://github.com/open-feature/python-sdk-contrib/commit/0ecd1d4c41e96f90b019a76ce9c3b1f70f2a23a4))
+
+
+### ✨ New Features
+
+* fractional bucketing improvements ([#373](https://github.com/open-feature/python-sdk-contrib/issues/373)) ([83c3e48](https://github.com/open-feature/python-sdk-contrib/commit/83c3e48595c0f44b4a3259719a5d85fde987f492))
+* introduce list for fatal status codes ([#362](https://github.com/open-feature/python-sdk-contrib/issues/362)) ([96a88ad](https://github.com/open-feature/python-sdk-contrib/commit/96a88ada622fb7941a1d4d58205ff3342180fa9a))
+
 ## [0.3.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.2.7...openfeature-provider-flagd/v0.3.0) (2026-03-11)
 
 
