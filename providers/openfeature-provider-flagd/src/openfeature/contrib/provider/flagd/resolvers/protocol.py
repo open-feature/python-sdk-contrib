@@ -48,3 +48,41 @@ class AbstractResolver(Protocol):
     ) -> FlagResolutionDetails[
         typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]: ...
+
+    async def resolve_boolean_details_async(
+        self,
+        key: str,
+        default_value: bool,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[bool]: ...
+
+    async def resolve_string_details_async(
+        self,
+        key: str,
+        default_value: str,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[str]: ...
+
+    async def resolve_float_details_async(
+        self,
+        key: str,
+        default_value: float,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[float]: ...
+
+    async def resolve_integer_details_async(
+        self,
+        key: str,
+        default_value: int,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[int]: ...
+
+    async def resolve_object_details_async(
+        self,
+        key: str,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
+    ]: ...

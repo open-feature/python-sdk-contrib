@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import threading
@@ -311,6 +312,59 @@ class GrpcResolver:
         typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
         return self._resolve(key, FlagType.OBJECT, default_value, evaluation_context)
+
+    async def resolve_boolean_details_async(
+        self,
+        key: str,
+        default_value: bool,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[bool]:
+        return await asyncio.to_thread(
+            self._resolve, key, FlagType.BOOLEAN, default_value, evaluation_context
+        )
+
+    async def resolve_string_details_async(
+        self,
+        key: str,
+        default_value: str,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[str]:
+        return await asyncio.to_thread(
+            self._resolve, key, FlagType.STRING, default_value, evaluation_context
+        )
+
+    async def resolve_float_details_async(
+        self,
+        key: str,
+        default_value: float,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[float]:
+        return await asyncio.to_thread(
+            self._resolve, key, FlagType.FLOAT, default_value, evaluation_context
+        )
+
+    async def resolve_integer_details_async(
+        self,
+        key: str,
+        default_value: int,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[int]:
+        return await asyncio.to_thread(
+            self._resolve, key, FlagType.INTEGER, default_value, evaluation_context
+        )
+
+    async def resolve_object_details_async(
+        self,
+        key: str,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
+    ]:
+        return await asyncio.to_thread(
+            self._resolve, key, FlagType.OBJECT, default_value, evaluation_context
+        )
 
     @typing.overload
     def _resolve(
