@@ -27,6 +27,25 @@ from openfeature.contrib.provider.flagd import FlagdProvider
 api.set_provider(FlagdProvider())
 ```
 
+### Async Evaluations
+
+The provider natively supports asynchronous feature flag evaluations which allows performing evaluations via the `flagd` evaluator without blocking `asyncio` event loop.
+
+```python
+import asyncio
+from openfeature import api
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+api.set_provider(FlagdProvider())
+client = api.get_client()
+
+async def evaluate():
+    flag_value = await client.get_boolean_details_async("my-flag", False)
+    print(flag_value.value)
+
+asyncio.run(evaluate())
+```
+
 ### In-process resolver
 
 This mode performs flag evaluations locally (in-process). Flag configurations for evaluation are obtained via gRPC protocol using [sync protobuf schema](https://buf.build/open-feature/flagd/file/main:sync/v1/sync_service.proto) service definition.

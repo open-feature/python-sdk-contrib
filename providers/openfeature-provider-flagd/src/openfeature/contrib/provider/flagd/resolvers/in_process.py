@@ -1,3 +1,4 @@
+import asyncio
 import typing
 
 from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher import (
@@ -108,6 +109,62 @@ class InProcessResolver:
         typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
         return self._resolve(key, default_value, evaluation_context)
+
+    async def resolve_boolean_details_async(
+        self,
+        key: str,
+        default_value: bool,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[bool]:
+        return await asyncio.to_thread(
+            self._resolve, key, default_value, evaluation_context
+        )
+
+    async def resolve_string_details_async(
+        self,
+        key: str,
+        default_value: str,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[str]:
+        return await asyncio.to_thread(
+            self._resolve, key, default_value, evaluation_context
+        )
+
+    async def resolve_float_details_async(
+        self,
+        key: str,
+        default_value: float,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[float]:
+        result = await asyncio.to_thread(
+            self._resolve, key, default_value, evaluation_context
+        )
+        if isinstance(result.value, int):
+            result.value = float(result.value)
+        return result
+
+    async def resolve_integer_details_async(
+        self,
+        key: str,
+        default_value: int,
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[int]:
+        return await asyncio.to_thread(
+            self._resolve, key, default_value, evaluation_context
+        )
+
+    async def resolve_object_details_async(
+        self,
+        key: str,
+        default_value: typing.Sequence[FlagValueType]
+        | typing.Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[
+        typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
+    ]:
+        return await asyncio.to_thread(
+            self._resolve, key, default_value, evaluation_context
+        )
 
     def _resolve(
         self,
