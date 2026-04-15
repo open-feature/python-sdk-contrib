@@ -1,3 +1,5 @@
+import typing
+
 import pytest
 from pytest_bdd import given, parsers
 
@@ -16,7 +18,9 @@ def evaluation_context() -> EvaluationContext:
         'a context containing a targeting key with value "{targeting_key}"'
     ),
 )
-def assign_targeting_context(evaluation_context: EvaluationContext, targeting_key: str):
+def assign_targeting_context(
+    evaluation_context: EvaluationContext, targeting_key: str
+) -> None:
     evaluation_context.targeting_key = targeting_key
 
 
@@ -27,8 +31,9 @@ def assign_targeting_context(evaluation_context: EvaluationContext, targeting_ke
 )
 def update_context(
     evaluation_context: EvaluationContext, key: str, type_info: str, value: str
-):
-    evaluation_context.attributes[key] = type_cast[type_info](value)
+) -> None:
+    attrs = typing.cast(dict, evaluation_context.attributes)
+    attrs[key] = type_cast[type_info](value)
 
 
 @given(
@@ -38,7 +43,7 @@ def update_context(
 )
 def update_context_without_value(
     evaluation_context: EvaluationContext, key: str, type_info: str
-):
+) -> None:
     update_context(evaluation_context, key, type_info, "")
 
 
@@ -52,7 +57,8 @@ def update_context_nested(
     outer: str,
     inner: str,
     value: str | int,
-):
-    if outer not in evaluation_context.attributes:
-        evaluation_context.attributes[outer] = {}
-    evaluation_context.attributes[outer][inner] = value
+) -> None:
+    attrs = typing.cast(dict, evaluation_context.attributes)
+    if outer not in attrs:
+        attrs[outer] = {}
+    typing.cast(dict, attrs[outer])[inner] = value
