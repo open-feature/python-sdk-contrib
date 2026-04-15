@@ -67,14 +67,24 @@ class FlagdCore:
         self._lock = threading.RLock()
         self._flag_store = FlagStore()
 
-    def set_flags(self, flag_configuration_json: str) -> None:
+    def set_flags(self, flag_configuration: str | dict[str, typing.Any]) -> None:
         with self._lock:
-            data = json.loads(flag_configuration_json)
+            data: dict[str, typing.Any] = (
+                json.loads(flag_configuration)
+                if isinstance(flag_configuration, str)
+                else flag_configuration
+            )
             self._flag_store.update(data)
 
-    def set_flags_and_get_changed_keys(self, flag_configuration_json: str) -> list[str]:
+    def set_flags_and_get_changed_keys(
+        self, flag_configuration: str | dict[str, typing.Any]
+    ) -> list[str]:
         with self._lock:
-            data = json.loads(flag_configuration_json)
+            data: dict[str, typing.Any] = (
+                json.loads(flag_configuration)
+                if isinstance(flag_configuration, str)
+                else flag_configuration
+            )
             return self._flag_store.update(data)
 
     def get_flag_set_metadata(self) -> Mapping[str, float | int | str | bool]:
@@ -159,8 +169,8 @@ class FlagdCore:
                         f"Resolved variant {variant} not in variants config."
                     )
 
-            except ReferenceError:
-                raise ParseError(f"Invalid targeting {targeting}") from ReferenceError
+            except ReferenceError as e:
+                raise ParseError(f"Invalid targeting {flag.targeting}") from e
 
             variant, value = flag.get_variant(variant)
             if value is None:

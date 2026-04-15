@@ -28,7 +28,7 @@ class FlagStore(_CoreFlagStore):
         if self._emit_provider_configuration_changed is not None:
             self._emit_provider_configuration_changed(
                 ProviderEventDetails(
-                    flags_changed=list(self.flags.keys()),
+                    flags_changed=changed_keys,
                     metadata=dict(self.flag_set_metadata),
                 )
             )

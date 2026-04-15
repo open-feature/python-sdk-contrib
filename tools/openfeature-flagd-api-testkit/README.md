@@ -10,8 +10,8 @@ A compliance test suite for the flagd Evaluator protocol. This package bundles G
 
 ```python
 import pytest
-from openfeature.contrib.tools.flagd.api.testkit import load_testkit_flags
-from openfeature.contrib.tools.flagd.api.testkit.steps import *  # noqa: F401, F403
+from openfeature.contrib.tools.flagd.testkit import load_testkit_flags
+from openfeature.contrib.tools.flagd.testkit.steps import *  # noqa: F401, F403
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def evaluator():
 
 ```python
 from pytest_bdd import scenarios
-from openfeature.contrib.tools.flagd.api.testkit import get_features_path
+from openfeature.contrib.tools.flagd.testkit import get_features_path
 
 scenarios(get_features_path())
 ```

@@ -1,4 +1,3 @@
-import json
 import typing
 
 from openfeature.contrib.tools.flagd.core import FlagdCore
@@ -28,8 +27,7 @@ class _FlagStoreAdapter:
         self.emit_provider_configuration_changed = emit_provider_configuration_changed
 
     def update(self, flags_data: dict) -> None:
-        json_str = json.dumps(flags_data)
-        changed_keys = self.evaluator.set_flags_and_get_changed_keys(json_str)
+        changed_keys = self.evaluator.set_flags_and_get_changed_keys(flags_data)
         metadata = self.evaluator.get_flag_set_metadata()
         self.emit_provider_configuration_changed(
             ProviderEventDetails(flags_changed=changed_keys, metadata=dict(metadata))

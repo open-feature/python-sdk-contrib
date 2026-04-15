@@ -24,7 +24,9 @@ class FlagStore:
             transposed = json.dumps(flags)
             for name, rule in evaluators.items():
                 transposed = re.sub(
-                    rf"{{\s*\"\$ref\":\s*\"{name}\"\s*}}", json.dumps(rule), transposed
+                    rf"{{\s*\"\$ref\":\s*\"{re.escape(name)}\"\s*}}",
+                    json.dumps(rule),
+                    transposed,
                 )
             flags = json.loads(transposed)
 
