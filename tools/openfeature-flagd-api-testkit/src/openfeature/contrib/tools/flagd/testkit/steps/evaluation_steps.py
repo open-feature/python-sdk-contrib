@@ -69,7 +69,7 @@ def evaluate_with_details(
     except OpenFeatureError as e:
         return FlagResolutionDetails(
             default_value,
-            error_code=e.error_code if e.error_code else None,
+            error_code=e.error_code or None,
             reason=Reason.ERROR,
         )
 
