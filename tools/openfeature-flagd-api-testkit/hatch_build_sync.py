@@ -9,7 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 TEST_HARNESS_EVALUATOR = (
-    ROOT / "../../providers/openfeature-provider-flagd/openfeature/test-harness/evaluator"
+    ROOT
+    / "../../providers/openfeature-provider-flagd/openfeature/test-harness/evaluator"
 ).resolve()
 DEST_BASE = ROOT / "src/openfeature/contrib/tools/flagd/testkit"
 

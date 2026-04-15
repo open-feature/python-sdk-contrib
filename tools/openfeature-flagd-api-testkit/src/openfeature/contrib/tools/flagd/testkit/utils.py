@@ -11,6 +11,8 @@ type_cast: dict[str, typing.Callable] = {
     "Float": float,
     "String": str,
     "Boolean": str2bool,
+    # Gherkin uses \" to escape quotes in table cells; pytest-bdd preserves the
+    # backslash, so we strip it before feeding the string to json.loads.
     "Object": lambda v: json.loads(v.replace('\\\\"', '"')),
 }
 
