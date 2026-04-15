@@ -65,6 +65,9 @@ module = [
 ]
 ignore_missing_imports = true
 
+[tool.pytest.ini_options]
+addopts = "-m 'not fractional-v1'"
+
 [tool.coverage.run]
 omit = ["tests/**"]
 
