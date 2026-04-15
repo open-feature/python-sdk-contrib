@@ -68,8 +68,9 @@ disallow_any_generics = false
 omit = ["tests/**"]
 
 [tool.poe.tasks]
-test = "pytest tests"
-test-cov = "coverage run -m pytest tests"
+sync-test-harness = "python hatch_build_sync.py"
+test = ["sync-test-harness", {cmd = "pytest tests"}]
+test-cov = ["sync-test-harness", {cmd = "coverage run -m pytest tests"}]
 cov-report = "coverage xml"
 cov = [
     "test-cov",
