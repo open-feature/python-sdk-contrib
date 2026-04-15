@@ -21,7 +21,7 @@ dependencies = [
     "pytest>=8.4.0",
     "pytest-bdd>=8.1.0",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
@@ -46,7 +46,7 @@ data-dir = "src"
 [tool.mypy]
 mypy_path = "src"
 files = "src"
-python_version = "3.9"
+python_version = "3.10"
 namespace_packages = true
 explicit_package_bases = true
 local_partial_types = true

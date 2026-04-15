@@ -18,11 +18,11 @@ keywords = []
 dependencies = [
     "openfeature-flagd-api",
     "openfeature-sdk>=0.8.2",
-    "mmh3>=4.1.0",
+    "mmh3>=5.0.0,<6.0.0",
     "panzi-json-logic>=1.0.1",
     "semver>=3,<4",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
@@ -48,7 +48,7 @@ namespace = true
 [tool.mypy]
 mypy_path = "src"
 files = "src"
-python_version = "3.9"
+python_version = "3.10"
 namespace_packages = true
 explicit_package_bases = true
 local_partial_types = true

@@ -1588,7 +1588,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mmh3", specifier = ">=4.1.0" },
+    { name = "mmh3", specifier = ">=5.0.0,<6.0.0" },
     { name = "openfeature-flagd-api", editable = "tools/openfeature-flagd-api" },
     { name = "openfeature-sdk", specifier = ">=0.8.2" },
     { name = "panzi-json-logic", specifier = ">=1.0.1" },
