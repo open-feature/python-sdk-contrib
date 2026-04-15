@@ -2,7 +2,10 @@
 
 import json
 
-from openfeature.contrib.tools.flagd.testkit import get_features_path, load_testkit_flags
+from openfeature.contrib.tools.flagd.testkit import (
+    get_features_path,
+    load_testkit_flags,
+)
 
 
 def test_load_testkit_flags_returns_valid_json():
