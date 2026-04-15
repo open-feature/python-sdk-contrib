@@ -1519,6 +1519,7 @@ dependencies = [
 dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "mypy" },
+    { name = "poethepoet" },
     { name = "pytest" },
 ]
 
@@ -1529,6 +1530,7 @@ requires-dist = [{ name = "openfeature-sdk", specifier = ">=0.8.2" }]
 dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
+    { name = "poethepoet", specifier = ">=0.37.0" },
     { name = "pytest", specifier = ">=9.0.0,<10.0.0" },
 ]
 
@@ -1548,6 +1550,7 @@ dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "mypy" },
     { name = "openfeature-flagd-core" },
+    { name = "poethepoet" },
 ]
 
 [package.metadata]
@@ -1563,6 +1566,7 @@ dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
     { name = "openfeature-flagd-core", editable = "tools/openfeature-flagd-core" },
+    { name = "poethepoet", specifier = ">=0.37.0" },
 ]
 
 [[package]]
@@ -1582,6 +1586,7 @@ dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "mypy" },
     { name = "openfeature-flagd-api-testkit" },
+    { name = "poethepoet" },
     { name = "pytest" },
     { name = "pytest-bdd" },
 ]
@@ -1600,6 +1605,7 @@ dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
     { name = "openfeature-flagd-api-testkit", editable = "tools/openfeature-flagd-api-testkit" },
+    { name = "poethepoet", specifier = ">=0.37.0" },
     { name = "pytest", specifier = ">=9.0.0,<10.0.0" },
     { name = "pytest-bdd", specifier = ">=8.1.0,<9.0.0" },
 ]

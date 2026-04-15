@@ -57,6 +57,15 @@ jobs:
             providers/openfeature-provider-unleash:
               - 'providers/openfeature-provider-unleash/**'
               - 'uv.lock'
+            tools/openfeature-flagd-api:
+              - 'tools/openfeature-flagd-api/**'
+              - 'uv.lock'
+            tools/openfeature-flagd-core:
+              - 'tools/openfeature-flagd-core/**'
+              - 'uv.lock'
+            tools/openfeature-flagd-api-testkit:
+              - 'tools/openfeature-flagd-api-testkit/**'
+              - 'uv.lock'
 
   build:
     needs: changes
