@@ -23,7 +23,7 @@ from openfeature.exception import (
     TypeMismatchError,
 )
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
-from openfeature.schemas.protobuf.flagd.evaluation.v1 import (
+from openfeature.schemas.protobuf.flagd.evaluation.v2 import (
     evaluation_pb2,
     evaluation_pb2_grpc,
 )
@@ -92,6 +92,7 @@ class GrpcResolver:
                                 "name": [
                                     {"service": "flagd.sync.v1.FlagSyncService"},
                                     {"service": "flagd.evaluation.v1.Service"},
+                                    {"service": "flagd.evaluation.v2.Service"},
                                 ],
                                 "retryPolicy": {
                                     "maxAttempts": 3,

@@ -76,6 +76,7 @@ class GrpcWatcher(FlagStateConnector):
                                 "name": [
                                     {"service": "flagd.sync.v1.FlagSyncService"},
                                     {"service": "flagd.evaluation.v1.Service"},
+                                    {"service": "flagd.evaluation.v2.Service"},
                                 ],
                                 "retryPolicy": {
                                     "maxAttempts": 3,
