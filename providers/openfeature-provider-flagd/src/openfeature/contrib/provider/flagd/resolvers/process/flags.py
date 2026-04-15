@@ -1,6 +1,6 @@
 # Backward-compatible re-exports from openfeature-flagd-core.
 # The canonical implementation now lives in openfeature.contrib.tools.flagd.core.
-from collections.abc import Callable
+import typing
 
 from openfeature.contrib.tools.flagd.core.model.flag import (  # noqa: F401
     Flag,
@@ -17,7 +17,9 @@ class FlagStore(_CoreFlagStore):
 
     def __init__(
         self,
-        emit_provider_configuration_changed: Callable[[ProviderEventDetails], None]
+        emit_provider_configuration_changed: typing.Callable[
+            [ProviderEventDetails], None
+        ]
         | None = None,
     ):
         super().__init__()
@@ -28,7 +30,7 @@ class FlagStore(_CoreFlagStore):
         if self._emit_provider_configuration_changed is not None:
             self._emit_provider_configuration_changed(
                 ProviderEventDetails(
-                    flags_changed=changed_keys,
+                    flags_changed=list(self.flags.keys()),
                     metadata=dict(self.flag_set_metadata),
                 )
             )
