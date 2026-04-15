@@ -14,7 +14,7 @@ DEST_BASE = "src/openfeature/contrib/tools/flagd/testkit"
 class TestHarnessCopyHook(BuildHookInterface):
     PLUGIN_NAME = "test-harness-copy"
 
-    def initialize(self, version: str, build_data: dict) -> None:  # noqa: ARG002
+    def initialize(self, version: str, build_data: dict) -> None:
         root = Path(self.root)
         src = root / TEST_HARNESS_EVALUATOR
 
