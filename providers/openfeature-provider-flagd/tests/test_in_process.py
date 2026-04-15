@@ -19,7 +19,9 @@ def _targeting_rule():
     }
 
 
-def _flag_config(variants, targeting=None, state="ENABLED", default_variant="default_variant"):
+def _flag_config(
+    variants, targeting=None, state="ENABLED", default_variant="default_variant"
+):
     return {
         "flags": {
             "flag": {
