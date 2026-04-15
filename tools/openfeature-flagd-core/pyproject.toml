@@ -72,8 +72,9 @@ addopts = "-m 'not fractional-v1'"
 omit = ["tests/**"]
 
 [tool.poe.tasks]
-test = "pytest tests"
-test-cov = "coverage run -m pytest tests"
+sync-test-harness = "python ../openfeature-flagd-api-testkit/hatch_build_sync.py"
+test = ["sync-test-harness", {cmd = "pytest tests"}]
+test-cov = ["sync-test-harness", {cmd = "coverage run -m pytest tests"}]
 cov-report = "coverage xml"
 cov = [
     "test-cov",
