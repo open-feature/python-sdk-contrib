@@ -1,5 +1,3 @@
-import typing
-
 import pytest
 from pytest_bdd import given, parsers
 
@@ -53,7 +51,7 @@ def update_context_nested(
     evaluation_context: EvaluationContext,
     outer: str,
     inner: str,
-    value: typing.Union[str, int],
+    value: str | int,
 ):
     if outer not in evaluation_context.attributes:
         evaluation_context.attributes[outer] = {}

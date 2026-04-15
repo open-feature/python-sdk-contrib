@@ -1,12 +1,10 @@
-import typing
-
 from pytest_bdd import given, parsers, then, when
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import OpenFeatureError, TypeMismatchError
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 
-from ..utils import JsonPrimitive, type_cast
+from ..utils import type_cast
 
 
 @given(
@@ -15,21 +13,15 @@ from ..utils import JsonPrimitive, type_cast
     ),
     target_fixture="key_and_default_and_type",
 )
-def setup_key_and_default(
-    key: str, default: str, type_info: str
-) -> tuple:
+def setup_key_and_default(key: str, default: str, type_info: str) -> tuple:
     return key, default, type_info
 
 
 @given(
-    parsers.cfparse(
-        'a {type_info}-flag with key "{key}" and a fallback value ""'
-    ),
+    parsers.cfparse('a {type_info}-flag with key "{key}" and a fallback value ""'),
     target_fixture="key_and_default_and_type",
 )
-def setup_key_and_empty_default(
-    key: str, type_info: str
-) -> tuple:
+def setup_key_and_empty_default(key: str, type_info: str) -> tuple:
     return key, "", type_info
 
 
@@ -43,15 +35,23 @@ def evaluate_with_details(
     default_value = type_cast[type_info](default)
     try:
         if type_info == "Boolean":
-            return evaluator.resolve_boolean_value(key, default_value, evaluation_context)
+            return evaluator.resolve_boolean_value(
+                key, default_value, evaluation_context
+            )
         elif type_info == "String":
-            return evaluator.resolve_string_value(key, default_value, evaluation_context)
+            return evaluator.resolve_string_value(
+                key, default_value, evaluation_context
+            )
         elif type_info == "Integer":
-            return evaluator.resolve_integer_value(key, default_value, evaluation_context)
+            return evaluator.resolve_integer_value(
+                key, default_value, evaluation_context
+            )
         elif type_info == "Float":
             return evaluator.resolve_float_value(key, default_value, evaluation_context)
         elif type_info == "Object":
-            return evaluator.resolve_object_value(key, default_value, evaluation_context)
+            return evaluator.resolve_object_value(
+                key, default_value, evaluation_context
+            )
     except TypeMismatchError:
         return FlagResolutionDetails(
             default_value,

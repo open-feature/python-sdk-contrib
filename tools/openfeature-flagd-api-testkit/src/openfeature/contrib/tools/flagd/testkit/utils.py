@@ -6,7 +6,7 @@ def str2bool(v: str) -> bool:
     return v.lower() in ("yes", "true", "t", "1")
 
 
-type_cast: typing.Dict[str, typing.Callable] = {
+type_cast: dict[str, typing.Callable] = {
     "Integer": int,
     "Float": float,
     "String": str,
@@ -14,5 +14,5 @@ type_cast: typing.Dict[str, typing.Callable] = {
     "Object": lambda v: json.loads(v.replace('\\\\"', '"')),
 }
 
-JsonObject = typing.Union[dict, list]
-JsonPrimitive = typing.Union[str, bool, float, int, JsonObject]
+JsonObject = dict | list
+JsonPrimitive = str | bool | float | int | JsonObject

@@ -1,7 +1,3 @@
-import pytest
-
-from openfeature.evaluation_context import EvaluationContext
-
 from openfeature.contrib.tools.flagd.core.targeting import targeting
 from openfeature.contrib.tools.flagd.core.targeting.custom_ops import (
     ends_with,
@@ -9,6 +5,7 @@ from openfeature.contrib.tools.flagd.core.targeting.custom_ops import (
     sem_ver,
     starts_with,
 )
+from openfeature.evaluation_context import EvaluationContext
 
 
 class TestTargetingFunction:

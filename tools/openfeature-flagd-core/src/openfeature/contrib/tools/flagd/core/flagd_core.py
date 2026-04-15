@@ -1,10 +1,10 @@
 import json
 import threading
 import typing
+from collections.abc import Mapping, Sequence
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
-    ErrorCode,
     FlagNotFoundError,
     GeneralError,
     ParseError,
@@ -19,7 +19,7 @@ from .targeting import targeting
 T = typing.TypeVar("T")
 
 # Type map for each resolve method
-_TYPE_MAP: typing.Dict[str, typing.Tuple[typing.Union[type, typing.Tuple[type, ...]], str]] = {
+_TYPE_MAP: dict[str, tuple[type | tuple[type, ...], str]] = {
     "boolean": ((bool,), "bool"),
     "string": ((str,), "str"),
     "integer": ((int,), "int"),
@@ -29,13 +29,9 @@ _TYPE_MAP: typing.Dict[str, typing.Tuple[typing.Union[type, typing.Tuple[type, .
 
 
 def _merge_metadata(
-    flag_metadata: typing.Optional[
-        typing.Mapping[str, typing.Union[float, int, str, bool]]
-    ],
-    flag_set_metadata: typing.Optional[
-        typing.Mapping[str, typing.Union[float, int, str, bool]]
-    ],
-) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
+    flag_metadata: Mapping[str, float | int | str | bool] | None,
+    flag_set_metadata: Mapping[str, float | int | str | bool] | None,
+) -> Mapping[str, float | int | str | bool]:
     metadata = {} if flag_set_metadata is None else dict(flag_set_metadata)
     if flag_metadata is not None:
         for key, value in flag_metadata.items():
@@ -46,7 +42,7 @@ def _merge_metadata(
 def _default_resolve(
     flag: Flag,
     default_value: T,
-    metadata: typing.Mapping[str, typing.Union[float, int, str, bool]],
+    metadata: Mapping[str, float | int | str | bool],
     reason: Reason,
 ) -> FlagResolutionDetails:
     variant, value = flag.default
@@ -76,32 +72,32 @@ class FlagdCore:
             data = json.loads(flag_configuration_json)
             self._flag_store.update(data)
 
-    def set_flags_and_get_changed_keys(self, flag_configuration_json: str) -> typing.List[str]:
+    def set_flags_and_get_changed_keys(self, flag_configuration_json: str) -> list[str]:
         with self._lock:
             data = json.loads(flag_configuration_json)
             return self._flag_store.update(data)
 
-    def get_flag_set_metadata(self) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
+    def get_flag_set_metadata(self) -> Mapping[str, float | int | str | bool]:
         with self._lock:
             return dict(self._flag_store.flag_set_metadata)
 
     def resolve_boolean_value(
-        self, flag_key: str, default_value: bool, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: bool, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(flag_key, default_value, ctx, "boolean")
 
     def resolve_string_value(
-        self, flag_key: str, default_value: str, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: str, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[str]:
         return self._resolve(flag_key, default_value, ctx, "string")
 
     def resolve_integer_value(
-        self, flag_key: str, default_value: int, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: int, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[int]:
         return self._resolve(flag_key, default_value, ctx, "integer")
 
     def resolve_float_value(
-        self, flag_key: str, default_value: float, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: float, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[float]:
         result = self._resolve(flag_key, default_value, ctx, "float")
         if isinstance(result.value, int):
@@ -111,28 +107,28 @@ class FlagdCore:
     def resolve_object_value(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]
-        ],
-        ctx: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        ctx: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         return self._resolve(flag_key, default_value, ctx, "object")
 
     def _resolve(
         self,
         key: str,
         default_value: T,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
-        flag_type: typing.Optional[str] = None,
+        evaluation_context: EvaluationContext | None = None,
+        flag_type: str | None = None,
     ) -> FlagResolutionDetails[T]:
         with self._lock:
             flag = self._flag_store.get_flag(key)
             if not flag:
-                raise FlagNotFoundError(f"Flag with key {key} not present in flag store.")
+                raise FlagNotFoundError(
+                    f"Flag with key {key} not present in flag store."
+                )
 
-            metadata = _merge_metadata(flag.metadata, self._flag_store.flag_set_metadata)
+            metadata = _merge_metadata(
+                flag.metadata, self._flag_store.flag_set_metadata
+            )
 
             if flag.state == "DISABLED":
                 return FlagResolutionDetails(
@@ -147,7 +143,9 @@ class FlagdCore:
             try:
                 variant = targeting(flag.key, flag.targeting, evaluation_context)
                 if variant is None:
-                    result = _default_resolve(flag, default_value, metadata, Reason.DEFAULT)
+                    result = _default_resolve(
+                        flag, default_value, metadata, Reason.DEFAULT
+                    )
                     self._check_type(result, flag_type)
                     return result
 
@@ -166,7 +164,9 @@ class FlagdCore:
 
             variant, value = flag.get_variant(variant)
             if value is None:
-                raise GeneralError(f"Resolved variant {variant} not in variants config.")
+                raise GeneralError(
+                    f"Resolved variant {variant} not in variants config."
+                )
 
             result = FlagResolutionDetails(
                 value,
@@ -180,14 +180,14 @@ class FlagdCore:
     @staticmethod
     def _check_type(
         result: FlagResolutionDetails,
-        flag_type: typing.Optional[str],
+        flag_type: str | None,
     ) -> None:
         """Validate the resolved value type matches the expected flag type."""
         if flag_type is None:
             return
         # Skip type check when value is the caller's default (no variant resolved)
         # This happens for DEFAULT reason with no variant, or DISABLED flags
-        if result.reason in (Reason.DISABLED,):
+        if result.reason == Reason.DISABLED:
             return
         if result.reason == Reason.DEFAULT and result.variant is None:
             return
@@ -200,7 +200,11 @@ class FlagdCore:
         value = result.value
 
         # For boolean type, reject int (since bool is subclass of int in Python)
-        if flag_type == "boolean" and isinstance(value, int) and not isinstance(value, bool):
+        if (
+            flag_type == "boolean"
+            and isinstance(value, int)
+            and not isinstance(value, bool)
+        ):
             raise TypeMismatchError(
                 f"Expected type {type_name} but got {type(value).__name__}"
             )

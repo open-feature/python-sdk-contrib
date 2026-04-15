@@ -1,12 +1,11 @@
-import json
-import re
 import typing
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from openfeature.exception import ParseError
 
 
-def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> None:
+def _validate_metadata(key: str, value: float | int | str | bool) -> None:
     if key is None:
         raise ParseError("Metadata key must be set")
     elif not isinstance(key, str):
@@ -25,12 +24,10 @@ def _validate_metadata(key: str, value: typing.Union[float, int, str, bool]) -> 
 class Flag:
     key: str
     state: str
-    variants: typing.Mapping[str, typing.Any]
-    default_variant: typing.Optional[typing.Union[bool, str]] = None
-    targeting: typing.Optional[dict] = None
-    metadata: typing.Optional[
-        typing.Mapping[str, typing.Union[float, int, str, bool]]
-    ] = None
+    variants: Mapping[str, typing.Any]
+    default_variant: bool | str | None = None
+    targeting: dict | None = None
+    metadata: Mapping[str, float | int | str | bool] | None = None
 
     def __post_init__(self) -> None:
         if not self.state or not (self.state == "ENABLED" or self.state == "DISABLED"):
@@ -67,12 +64,12 @@ class Flag:
             raise ParseError from err
 
     @property
-    def default(self) -> tuple[typing.Optional[str], typing.Any]:
+    def default(self) -> tuple[str | None, typing.Any]:
         return self.get_variant(self.default_variant)
 
     def get_variant(
-        self, variant_key: typing.Union[str, bool, None]
-    ) -> tuple[typing.Optional[str], typing.Any]:
+        self, variant_key: str | bool | None
+    ) -> tuple[str | None, typing.Any]:
         if isinstance(variant_key, bool):
             variant_key = str(variant_key).lower()
 

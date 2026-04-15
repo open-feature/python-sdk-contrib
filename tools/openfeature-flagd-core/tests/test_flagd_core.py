@@ -2,11 +2,10 @@ import json
 
 import pytest
 
+from openfeature.contrib.tools.flagd.core import FlagdCore
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import FlagNotFoundError, TypeMismatchError
 from openfeature.flag_evaluation import Reason
-
-from openfeature.contrib.tools.flagd.core import FlagdCore
 
 TEST_FLAGS = json.dumps(
     {
@@ -394,14 +393,10 @@ class TestEvaluators:
                             "state": "ENABLED",
                             "variants": {"hi": "hello", "bye": "goodbye"},
                             "defaultVariant": "bye",
-                            "targeting": {
-                                "if": [{"$ref": "is_admin"}, "hi", "bye"]
-                            },
+                            "targeting": {"if": [{"$ref": "is_admin"}, "hi", "bye"]},
                         }
                     },
-                    "$evaluators": {
-                        "is_admin": {"==": [{"var": "role"}, "admin"]}
-                    },
+                    "$evaluators": {"is_admin": {"==": [{"var": "role"}, "admin"]}},
                 }
             )
         )

@@ -112,7 +112,9 @@ def ends_with(data: dict, *args: JsonLogicArg) -> bool | None:
 
 
 def string_comp(
-    comparator: typing.Callable[[str, str], bool], data: dict, *args: JsonLogicArg
+    comparator: typing.Callable[[str, str], bool],
+    data: dict,
+    *args: JsonLogicArg,
 ) -> bool | None:
     if not args:
         logger.error("No arguments provided to string_comp operator.")

@@ -1,6 +1,6 @@
 import json
 import re
-import typing
+from collections.abc import Mapping
 
 from openfeature.exception import ParseError
 
@@ -9,19 +9,17 @@ from .flag import Flag, _validate_metadata
 
 class FlagStore:
     def __init__(self) -> None:
-        self.flags: typing.Mapping[str, Flag] = {}
-        self.flag_set_metadata: typing.Mapping[
-            str, typing.Union[float, int, str, bool]
-        ] = {}
+        self.flags: Mapping[str, Flag] = {}
+        self.flag_set_metadata: Mapping[str, float | int | str | bool] = {}
 
-    def get_flag(self, key: str) -> typing.Optional[Flag]:
+    def get_flag(self, key: str) -> Flag | None:
         return self.flags.get(key)
 
-    def update(self, flags_data: dict) -> typing.List[str]:
+    def update(self, flags_data: dict) -> list[str]:
         """Update flags and return list of changed flag keys."""
         flags = flags_data.get("flags", {})
         metadata = flags_data.get("metadata", {})
-        evaluators: typing.Optional[dict] = flags_data.get("$evaluators")
+        evaluators: dict | None = flags_data.get("$evaluators")
         if evaluators:
             transposed = json.dumps(flags)
             for name, rule in evaluators.items():
@@ -43,9 +41,11 @@ class FlagStore:
 
         # Determine changed keys
         changed_keys = list(new_keys.symmetric_difference(old_keys))
-        for key in new_keys.intersection(old_keys):
-            if new_flags[key] != self.flags.get(key):
-                changed_keys.append(key)
+        changed_keys.extend(
+            key
+            for key in new_keys.intersection(old_keys)
+            if new_flags[key] != self.flags.get(key)
+        )
 
         self.flags = new_flags
         self.flag_set_metadata = metadata

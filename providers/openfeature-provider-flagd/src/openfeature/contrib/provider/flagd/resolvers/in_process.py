@@ -32,9 +32,7 @@ class _FlagStoreAdapter:
         changed_keys = self.evaluator.set_flags_and_get_changed_keys(json_str)
         metadata = self.evaluator.get_flag_set_metadata()
         self.emit_provider_configuration_changed(
-            ProviderEventDetails(
-                flags_changed=changed_keys, metadata=dict(metadata)
-            )
+            ProviderEventDetails(flags_changed=changed_keys, metadata=dict(metadata))
         )
 
 
@@ -87,7 +85,9 @@ class InProcessResolver:
         default_value: bool,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
-        return self.evaluator.resolve_boolean_value(key, default_value, evaluation_context)
+        return self.evaluator.resolve_boolean_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_string_details(
         self,
@@ -95,7 +95,9 @@ class InProcessResolver:
         default_value: str,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
-        return self.evaluator.resolve_string_value(key, default_value, evaluation_context)
+        return self.evaluator.resolve_string_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_float_details(
         self,
@@ -103,7 +105,9 @@ class InProcessResolver:
         default_value: float,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
-        return self.evaluator.resolve_float_value(key, default_value, evaluation_context)
+        return self.evaluator.resolve_float_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_integer_details(
         self,
@@ -111,7 +115,9 @@ class InProcessResolver:
         default_value: int,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
-        return self.evaluator.resolve_integer_value(key, default_value, evaluation_context)
+        return self.evaluator.resolve_integer_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_object_details(
         self,
@@ -122,4 +128,6 @@ class InProcessResolver:
     ) -> FlagResolutionDetails[
         typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
-        return self.evaluator.resolve_object_value(key, default_value, evaluation_context)
+        return self.evaluator.resolve_object_value(
+            key, default_value, evaluation_context
+        )

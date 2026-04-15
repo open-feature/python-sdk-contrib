@@ -1,9 +1,8 @@
-import typing
+from collections.abc import Mapping, Sequence
 
+from openfeature.contrib.tools.flagd.api import Evaluator, FlagStoreError
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
-
-from openfeature.contrib.tools.flagd.api import Evaluator, FlagStoreException
 
 
 class MockEvaluator:
@@ -12,38 +11,38 @@ class MockEvaluator:
     def set_flags(self, flag_configuration_json: str) -> None:
         pass
 
-    def set_flags_and_get_changed_keys(self, flag_configuration_json: str) -> typing.List[str]:
+    def set_flags_and_get_changed_keys(self, flag_configuration_json: str) -> list[str]:
         return []
 
-    def get_flag_set_metadata(self) -> typing.Mapping[str, typing.Union[float, int, str, bool]]:
+    def get_flag_set_metadata(self) -> Mapping[str, float | int | str | bool]:
         return {}
 
     def resolve_boolean_value(
-        self, flag_key: str, default_value: bool, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: bool, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[bool]:
         return FlagResolutionDetails(value=default_value)
 
     def resolve_string_value(
-        self, flag_key: str, default_value: str, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: str, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[str]:
         return FlagResolutionDetails(value=default_value)
 
     def resolve_integer_value(
-        self, flag_key: str, default_value: int, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: int, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[int]:
         return FlagResolutionDetails(value=default_value)
 
     def resolve_float_value(
-        self, flag_key: str, default_value: float, ctx: typing.Optional[EvaluationContext] = None
+        self, flag_key: str, default_value: float, ctx: EvaluationContext | None = None
     ) -> FlagResolutionDetails[float]:
         return FlagResolutionDetails(value=default_value)
 
     def resolve_object_value(
         self,
         flag_key: str,
-        default_value: typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]],
-        ctx: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[typing.Union[typing.Sequence[FlagValueType], typing.Mapping[str, FlagValueType]]]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        ctx: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         return FlagResolutionDetails(value=default_value)
 
 
@@ -100,8 +99,8 @@ def test_mock_evaluator_resolve_object_value() -> None:
     assert result.value == {"key": "value"}
 
 
-def test_flag_store_exception() -> None:
-    """Verify FlagStoreException can be raised and caught."""
-    with_message = FlagStoreException("something went wrong")
+def test_flag_store_error() -> None:
+    """Verify FlagStoreError can be raised and caught."""
+    with_message = FlagStoreError("something went wrong")
     assert str(with_message) == "something went wrong"
     assert isinstance(with_message, Exception)
