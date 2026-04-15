@@ -25,7 +25,7 @@ class FlagStore(_CoreFlagStore):
         super().__init__()
         self._emit_provider_configuration_changed = emit_provider_configuration_changed
 
-    def update(self, flags_data: dict) -> None:
+    def update(self, flags_data: dict) -> list[str]:
         changed_keys = super().update(flags_data)
         if self._emit_provider_configuration_changed is not None:
             self._emit_provider_configuration_changed(
@@ -34,3 +34,4 @@ class FlagStore(_CoreFlagStore):
                     metadata=dict(self.flag_set_metadata),
                 )
             )
+        return changed_keys
