@@ -31,7 +31,6 @@ dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "mypy>=1.18.0,<2.0.0",
   "poethepoet>=0.37.0",
-  "openfeature-flagd-core",
 ]
 
 [tool.uv.sources]

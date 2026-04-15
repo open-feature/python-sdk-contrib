@@ -1549,7 +1549,6 @@ dependencies = [
 dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "mypy" },
-    { name = "openfeature-flagd-core" },
     { name = "poethepoet" },
 ]
 
@@ -1565,7 +1564,6 @@ requires-dist = [
 dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
-    { name = "openfeature-flagd-core", editable = "tools/openfeature-flagd-core" },
     { name = "poethepoet", specifier = ">=0.37.0" },
 ]
 
