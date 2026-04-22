@@ -1,0 +1,63 @@
+[build-system]
+requires = ["uv_build~=0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "openfeature-flagd-api"
+version = "0.1.0"
+description = "OpenFeature flagd evaluator API definition"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = []
+dependencies = [
+    "openfeature-sdk>=0.8.2",
+]
+requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+[dependency-groups]
+dev = [
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "mypy>=1.18.0,<2.0.0",
+  "poethepoet>=0.37.0",
+  "pytest>=9.0.0,<10.0.0",
+]
+
+[tool.uv.build-backend]
+module-name = "openfeature"
+module-root = "src"
+namespace = true
+
+[tool.mypy]
+mypy_path = "src"
+files = "src"
+python_version = "3.10"
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+allow_redefinition_new = true
+fixed_format_cache = true
+pretty = true
+strict = true
+disallow_any_generics = false
+
+[tool.coverage.run]
+omit = ["tests/**"]
+
+[tool.poe.tasks]
+test = "pytest tests"
+test-cov = "coverage run -m pytest tests"
+cov-report = "coverage xml"
+cov = [
+    "test-cov",
+    "cov-report"
+]
+mypy = "mypy"

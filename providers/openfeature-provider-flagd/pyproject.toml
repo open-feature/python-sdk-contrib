@@ -18,11 +18,9 @@ classifiers = [
 keywords = []
 dependencies = [
   "openfeature-sdk>=0.8.2",
+  "openfeature-flagd-core",
   "grpcio>=1.80.0",
   "protobuf>=6.30.0,<7.0.0",
-  "mmh3>=5.0.0,<6.0.0",
-  "panzi-json-logic>=1.0.1",
-  "semver>=3,<4",
   "pyyaml>=6.0.1",
   "cachebox>=5.1.0,<6.0.0",
 ]
@@ -108,6 +106,9 @@ module = [
     "openfeature.schemas.*"
 ]
 warn_unused_ignores = false
+
+[tool.uv.sources]
+openfeature-flagd-core = { workspace = true }
 
 [tool.pytest]
 strict = true

@@ -1,33 +1,39 @@
+import json
 import typing
 
-from openfeature.contrib.provider.flagd.resolvers.process.connector.file_watcher import (
-    FileWatcher,
-)
+from openfeature.contrib.tools.flagd.core import FlagdCore
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
-from openfeature.exception import FlagNotFoundError, GeneralError, ParseError
-from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
 
 from ..config import Config
 from .process.connector import FlagStateConnector
+from .process.connector.file_watcher import FileWatcher
 from .process.connector.grpc_watcher import GrpcWatcher
-from .process.flags import Flag, FlagStore
-from .process.targeting import targeting
 
 T = typing.TypeVar("T")
 
 
-def _merge_metadata(
-    flag_metadata: typing.Mapping[str, float | int | str | bool] | None,
-    flag_set_metadata: typing.Mapping[str, float | int | str | bool] | None,
-) -> typing.Mapping[str, float | int | str | bool]:
-    metadata = {} if flag_set_metadata is None else dict(flag_set_metadata)
+class _FlagStoreAdapter:
+    """Bridges FlagdCore with connectors that expect a FlagStore-like update() interface."""
 
-    if flag_metadata is not None:
-        for key, value in flag_metadata.items():
-            metadata[key] = value
+    def __init__(
+        self,
+        evaluator: FlagdCore,
+        emit_provider_configuration_changed: typing.Callable[
+            [ProviderEventDetails], None
+        ],
+    ):
+        self.evaluator = evaluator
+        self.emit_provider_configuration_changed = emit_provider_configuration_changed
 
-    return metadata
+    def update(self, flags_data: dict) -> None:
+        json_str = json.dumps(flags_data)
+        changed_keys = self.evaluator.set_flags_and_get_changed_keys(json_str)
+        metadata = self.evaluator.get_flag_set_metadata()
+        self.emit_provider_configuration_changed(
+            ProviderEventDetails(flags_changed=changed_keys, metadata=dict(metadata))
+        )
 
 
 class InProcessResolver:
@@ -42,15 +48,25 @@ class InProcessResolver:
         ],
     ):
         self.config = config
-        self.flag_store = FlagStore(emit_provider_configuration_changed)
+        self.evaluator = FlagdCore()
+
+        # Adapter lets connectors push flag data to FlagdCore via the
+        # same .update(dict) interface they used with the old FlagStore.
+        flag_store_adapter = _FlagStoreAdapter(
+            self.evaluator, emit_provider_configuration_changed
+        )
+
         self.connector: FlagStateConnector = (
             FileWatcher(
-                self.config, self.flag_store, emit_provider_ready, emit_provider_error
+                self.config,
+                flag_store_adapter,  # type: ignore[arg-type]
+                emit_provider_ready,
+                emit_provider_error,
             )
             if self.config.offline_flag_source_path
             else GrpcWatcher(
                 self.config,
-                self.flag_store,
+                flag_store_adapter,  # type: ignore[arg-type]
                 emit_provider_ready,
                 emit_provider_error,
                 emit_provider_stale,
@@ -69,7 +85,9 @@ class InProcessResolver:
         default_value: bool,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
-        return self._resolve(key, default_value, evaluation_context)
+        return self.evaluator.resolve_boolean_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_string_details(
         self,
@@ -77,7 +95,9 @@ class InProcessResolver:
         default_value: str,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
-        return self._resolve(key, default_value, evaluation_context)
+        return self.evaluator.resolve_string_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_float_details(
         self,
@@ -85,10 +105,9 @@ class InProcessResolver:
         default_value: float,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
-        result = self._resolve(key, default_value, evaluation_context)
-        if isinstance(result.value, int):
-            result.value = float(result.value)
-        return result
+        return self.evaluator.resolve_float_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_integer_details(
         self,
@@ -96,7 +115,9 @@ class InProcessResolver:
         default_value: int,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
-        return self._resolve(key, default_value, evaluation_context)
+        return self.evaluator.resolve_integer_value(
+            key, default_value, evaluation_context
+        )
 
     def resolve_object_details(
         self,
@@ -107,75 +128,6 @@ class InProcessResolver:
     ) -> FlagResolutionDetails[
         typing.Sequence[FlagValueType] | typing.Mapping[str, FlagValueType]
     ]:
-        return self._resolve(key, default_value, evaluation_context)
-
-    def _resolve(
-        self,
-        key: str,
-        default_value: T,
-        evaluation_context: EvaluationContext | None = None,
-    ) -> FlagResolutionDetails[T]:
-        flag = self.flag_store.get_flag(key)
-        if not flag:
-            raise FlagNotFoundError(f"Flag with key {key} not present in flag store.")
-
-        metadata = _merge_metadata(flag.metadata, self.flag_store.flag_set_metadata)
-
-        if flag.state == "DISABLED":
-            return FlagResolutionDetails(
-                default_value, flag_metadata=metadata, reason=Reason.DISABLED
-            )
-
-        if not flag.targeting:
-            return _default_resolve(flag, metadata, Reason.STATIC, default_value)
-
-        try:
-            variant = targeting(flag.key, flag.targeting, evaluation_context)
-            if variant is None:
-                return _default_resolve(flag, metadata, Reason.DEFAULT, default_value)
-
-            # convert to string to support shorthand (boolean in python is with capital T hence the special case)
-            if isinstance(variant, bool):
-                variant = str(variant).lower()
-            elif not isinstance(variant, str):
-                variant = str(variant)
-
-            if variant not in flag.variants:
-                raise GeneralError(
-                    f"Resolved variant {variant} not in variants config."
-                )
-
-        except ReferenceError:
-            raise ParseError(f"Invalid targeting {targeting}") from ReferenceError
-
-        variant, value = flag.get_variant(variant)
-        if value is None:
-            raise GeneralError(f"Resolved variant {variant} not in variants config.")
-
-        return FlagResolutionDetails(
-            value,
-            variant=variant,
-            reason=Reason.TARGETING_MATCH,
-            flag_metadata=metadata,
+        return self.evaluator.resolve_object_value(
+            key, default_value, evaluation_context
         )
-
-
-def _default_resolve(
-    flag: Flag,
-    metadata: typing.Mapping[str, float | int | str | bool],
-    reason: Reason,
-    default_value: typing.Any = None,
-) -> FlagResolutionDetails:
-    variant, value = flag.default
-    if variant is None:
-        return FlagResolutionDetails(
-            default_value,
-            variant=variant,
-            reason=Reason.DEFAULT,
-            flag_metadata=metadata,
-        )
-    if variant not in flag.variants:
-        raise GeneralError(f"Resolved variant {variant} not in variants config.")
-    return FlagResolutionDetails(
-        value, variant=variant, flag_metadata=metadata, reason=reason
-    )
