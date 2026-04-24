@@ -8,5 +8,5 @@
   "providers/openfeature-provider-unleash": "0.1.2",
   "tools/openfeature-flagd-api": "0.1.0",
   "tools/openfeature-flagd-core": "0.1.0",
-  "tools/openfeature-flagd-api-testkit": "0.1.0"
+  "tools/openfeature-flagd-api-testkit": "0.1.1"
 }

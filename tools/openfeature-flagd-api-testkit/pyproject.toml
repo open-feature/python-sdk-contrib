@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openfeature-flagd-api-testkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "OpenFeature flagd evaluator API compliance test suite"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
