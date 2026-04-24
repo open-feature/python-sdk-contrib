@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-ofrep/v0.2.0...openfeature-provider-ofrep/v0.3.0) (2026-04-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364))
+* graceful fallback to code default when no default variant ([#347](https://github.com/open-feature/python-sdk-contrib/issues/347))
+
+### chore
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364)) ([0ecd1d4](https://github.com/open-feature/python-sdk-contrib/commit/0ecd1d4c41e96f90b019a76ce9c3b1f70f2a23a4))
+
+
+### 🐛 Bug Fixes
+
+* **ofrep:** handle 401, 403, 404 and 5xx errors explicitly and add tests ([#346](https://github.com/open-feature/python-sdk-contrib/issues/346)) ([7e18bc1](https://github.com/open-feature/python-sdk-contrib/commit/7e18bc120ee1a310c28c96aac5b608941889d756))
+* replace project.scripts with poethepoet ([#335](https://github.com/open-feature/python-sdk-contrib/issues/335)) ([61add22](https://github.com/open-feature/python-sdk-contrib/commit/61add22b975140ccd39b618bf70efeeecbdc25c3))
+
+
+### ✨ New Features
+
+* graceful fallback to code default when no default variant ([#347](https://github.com/open-feature/python-sdk-contrib/issues/347)) ([36db67d](https://github.com/open-feature/python-sdk-contrib/commit/36db67de59732463a372c056525d6453d8a51a75))
+
 ## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-ofrep/v0.1.1...openfeature-provider-ofrep/v0.2.0) (2025-09-25)
 
 
