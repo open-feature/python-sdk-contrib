@@ -31,7 +31,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
 [dependency-groups]
 dev = [
-  "asserts>=0.13.0,<0.14.0",
+  "asserts>=0.14.0,<0.15.0",
   "coverage[toml]>=7.10.0,<8.0.0",
   "grpcio-health-checking>=1.80.0,<2.0.0",
   "mypy>=1.18.0,<2.0.0",
