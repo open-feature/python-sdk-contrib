@@ -176,4 +176,10 @@ def parse_version(arg: typing.Any) -> semver.Version:
     if version.startswith(("v", "V")):
         version = version[1:]
 
+    # Pad partial versions (e.g. "1" → "1.0.0", "1.2" → "1.2.0")
+    numeric_part = version.split("-")[0].split("+")[0]
+    dot_count = numeric_part.count(".")
+    if dot_count < 2:
+        version = version + ".0" * (2 - dot_count)
+
     return semver.Version.parse(version)
