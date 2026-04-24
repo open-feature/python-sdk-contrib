@@ -180,6 +180,6 @@ def normalize_version(arg: typing.Any) -> semver.Version:
     numeric_part = version.split("-")[0].split("+")[0]
     dot_count = numeric_part.count(".")
     if dot_count < 2:
-        version = version + ".0" * (2 - dot_count)
+        version = numeric_part + ".0" * (2 - dot_count) + version[len(numeric_part) :]
 
     return semver.Version.parse(version)
