@@ -66,7 +66,7 @@ class TestStartsWith:
 
     def test_starts_with_non_string(self) -> None:
         result = starts_with({}, 123, "abc")
-        assert result is False
+        assert result is None
 
 
 class TestEndsWith:
@@ -77,6 +77,10 @@ class TestEndsWith:
     def test_ends_with_false(self) -> None:
         result = ends_with({}, "hello world", "hello")
         assert result is False
+
+    def test_ends_with_non_string(self) -> None:
+        result = ends_with({}, 123, "abc")
+        assert result is None
 
 
 class TestSemVer:
