@@ -16,7 +16,7 @@ classifiers = [
 ]
 keywords = []
 dependencies = [
-    "openfeature-flagd-api",
+    "openfeature-flagd-api>=1.0.0,<2",
     "openfeature-sdk>=0.8.2",
     "mmh3>=5.0.0,<6.0.0",
     "panzi-json-logic>=1.0.1",

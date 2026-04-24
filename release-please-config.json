@@ -73,6 +73,7 @@
     },
     "tools/openfeature-flagd-api": {
       "package-name": "openfeature-flagd-api",
+      "release-as": "1.0.0",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "versioning": "default",
@@ -82,6 +83,7 @@
     },
     "tools/openfeature-flagd-core": {
       "package-name": "openfeature-flagd-core",
+      "release-as": "1.0.0",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "versioning": "default",
