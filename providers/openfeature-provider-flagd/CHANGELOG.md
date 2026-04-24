@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.4.0...openfeature-provider-flagd/v0.4.1) (2026-04-24)
+
+
+### ✨ New Features
+
+* **flagd:** extract evaluator into api, core, and testkit packages ([#377](https://github.com/open-feature/python-sdk-contrib/issues/377)) ([1995534](https://github.com/open-feature/python-sdk-contrib/commit/1995534c2545b8c65d2944e3e52ce19a552b4815))
+
 ## [0.4.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.3.0...openfeature-provider-flagd/v0.4.0) (2026-04-01)
 
 
