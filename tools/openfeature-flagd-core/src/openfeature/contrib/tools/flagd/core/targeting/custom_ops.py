@@ -125,10 +125,10 @@ def string_comp(
     arg1, arg2 = args
     if not isinstance(arg1, str):
         logger.debug(f"incorrect argument for first argument, expected string: {arg1}")
-        return False
+        return None
     if not isinstance(arg2, str):
         logger.debug(f"incorrect argument for second argument, expected string: {arg2}")
-        return False
+        return None
 
     return comparator(arg1, arg2)
 
@@ -144,8 +144,8 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> bool | None:  # noqa: C901
     arg1, op, arg2 = args
 
     try:
-        v1 = parse_version(arg1)
-        v2 = parse_version(arg2)
+        v1 = normalize_version(arg1)
+        v2 = normalize_version(arg2)
     except ValueError as e:
         logger.exception(e)
         return None
@@ -171,7 +171,7 @@ def sem_ver(data: dict, *args: JsonLogicArg) -> bool | None:  # noqa: C901
         return None
 
 
-def parse_version(arg: typing.Any) -> semver.Version:
+def normalize_version(arg: typing.Any) -> semver.Version:
     version = str(arg)
     if version.startswith(("v", "V")):
         version = version[1:]

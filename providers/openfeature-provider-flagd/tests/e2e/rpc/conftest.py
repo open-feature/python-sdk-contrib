@@ -12,6 +12,8 @@ feature_list = [
     "~deprecated",
     "~fractional-v1",
     "~operator-errors",
+    "~semver-v-prefix",
+    "~fractional-single-entry",
 ]
 
 
