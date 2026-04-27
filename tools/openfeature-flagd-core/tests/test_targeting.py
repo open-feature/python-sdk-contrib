@@ -117,8 +117,11 @@ class TestSemVer:
     def test_v_prefix(self) -> None:
         assert sem_ver({}, "v2.0.0", "=", "2.0.0") is True
 
-    def test_partial_version(self) -> None:
+    def test_partial_major_version(self) -> None:
         assert sem_ver({}, "2", "=", "2.0.0") is True
+
+    def test_partial_minor_version(self) -> None:
+        assert sem_ver({}, "v1.2", "=", "1.2.0") is True
 
     def test_invalid_version(self) -> None:
         result = sem_ver({}, "not-a-version", "=", "1.0.0")
