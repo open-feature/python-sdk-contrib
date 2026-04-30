@@ -7,6 +7,6 @@
   "providers/openfeature-provider-env-var": "0.1.1",
   "providers/openfeature-provider-unleash": "0.1.2",
   "tools/openfeature-flagd-api": "1.0.0",
-  "tools/openfeature-flagd-core": "0.1.0",
+  "tools/openfeature-flagd-core": "1.0.0",
   "tools/openfeature-flagd-api-testkit": "0.1.0"
 }
