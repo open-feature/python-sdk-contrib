@@ -15,7 +15,6 @@ feature_list = {
     "~contextEnrichment",
     "~deprecated",
     "~fractional-v1",
-    "~operator-errors",
 }
 
 

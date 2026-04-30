@@ -11,12 +11,7 @@ feature_list = [
     "~metadata",
     "~deprecated",
     "~fractional-v1",
-    "~operator-errors",
-    "~semver-v-prefix",
-    "~fractional-single-entry",
-    "~semver-numeric-context",
 ]
-# TODO remove last 4 tags when adjusted flagd is released
 
 
 def pytest_collection_modifyitems(config, items):
