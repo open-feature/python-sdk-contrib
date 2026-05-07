@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "openfeature-flagd-api"
-version = "0.1.0"
+version = "1.0.0"
 description = "OpenFeature flagd evaluator API definition"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
