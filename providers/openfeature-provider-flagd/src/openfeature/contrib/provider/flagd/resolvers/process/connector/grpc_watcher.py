@@ -44,7 +44,7 @@ class GrpcWatcher(FlagStateConnector):
         self.channel = self._generate_channel(config)
         self.stub = sync_pb2_grpc.FlagSyncServiceStub(self.channel)
         self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
-        self.retry_backoff_max_seconds = config.retry_backoff_ms * 0.001
+        self.retry_backoff_max_seconds = config.retry_backoff_max_ms * 0.001
         self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
@@ -56,6 +56,7 @@ class GrpcWatcher(FlagStateConnector):
 
         self.connected = False
         self._is_fatal = False
+        self._shutdown_event = threading.Event()
         self.thread: threading.Thread | None = None
         self.timer: threading.Timer | None = None
 
@@ -129,6 +130,7 @@ class GrpcWatcher(FlagStateConnector):
 
     def connect(self) -> None:
         self.active = True
+        self._shutdown_event.clear()
 
         # Run monitoring in a separate thread
         self.monitor_thread = threading.Thread(
@@ -199,6 +201,7 @@ class GrpcWatcher(FlagStateConnector):
 
     def shutdown(self) -> None:
         self.active = False
+        self._shutdown_event.set()
         self.channel.close()
 
     def _create_request_args(self) -> dict:
@@ -283,6 +286,9 @@ class GrpcWatcher(FlagStateConnector):
             return True
         return False
 
+    def _wait_before_reconnect(self) -> None:
+        self._shutdown_event.wait(self.retry_backoff_max_seconds)
+
     def listen(self) -> None:
         call_args = self.generate_grpc_call_args()
         request_args = self._create_request_args()
@@ -295,7 +301,7 @@ class GrpcWatcher(FlagStateConnector):
                 for flag_rsp in self.stub.SyncFlags(request, **call_args):
                     if self._handle_flag_response(flag_rsp, context_values_response):
                         return
-            except grpc.RpcError as e:  # noqa: PERF203
+            except grpc.RpcError as e:
                 if self._handle_rpc_error(e):
                     return
             except json.JSONDecodeError:
@@ -304,6 +310,8 @@ class GrpcWatcher(FlagStateConnector):
                 )
             except ParseError:
                 logger.exception("Could not parse flag data using flagd syntax")
+            if self.active:
+                self._wait_before_reconnect()
 
     def generate_grpc_call_args(self) -> GrpcMultiCallableArgs:
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}

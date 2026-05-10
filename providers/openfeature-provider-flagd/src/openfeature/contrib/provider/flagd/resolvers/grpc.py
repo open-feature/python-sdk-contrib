@@ -65,10 +65,12 @@ class GrpcResolver:
         logger.debug(self.config.fatal_status_codes)
 
         self.retry_grace_period = config.retry_grace_period
+        self.retry_backoff_max_seconds = config.retry_backoff_max_ms * 0.001
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
         self.deadline = config.deadline_ms * 0.001
         self.connected = False
         self._is_fatal = False
+        self._shutdown_event = threading.Event()
         self.channel = self._generate_channel(config)
         self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
 
@@ -135,6 +137,7 @@ class GrpcResolver:
 
     def shutdown(self) -> None:
         self.active = False
+        self._shutdown_event.set()
         self.channel.unsubscribe(self._state_change_callback)
         self.channel.close()
         if self.timer and self.timer.is_alive():
@@ -145,6 +148,7 @@ class GrpcResolver:
 
     def connect(self) -> None:
         self.active = True
+        self._shutdown_event.clear()
 
         # Run monitoring in a separate thread
         self.monitor_thread = threading.Thread(
@@ -215,6 +219,37 @@ class GrpcResolver:
             )
         )
 
+    def _wait_before_reconnect(self) -> None:
+        self._shutdown_event.wait(self.retry_backoff_max_seconds)
+
+    def _handle_rpc_error(self, e: grpc.RpcError) -> bool:
+        # although it seems like this error log is not interesting, without it, the retry is not working as expected
+        logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+        if e.code().name in self.config.fatal_status_codes:
+            self._is_fatal = True
+            self.active = False
+            self.emit_provider_error(
+                ProviderEventDetails(
+                    message=f"Fatal gRPC status code: {e.code()}",
+                    error_code=ErrorCode.PROVIDER_FATAL,
+                )
+            )
+            return True
+        return False
+
+    def _handle_event_stream_message(
+        self, message: evaluation_pb2.EventStreamResponse
+    ) -> None:
+        if message.type == "provider_ready":
+            self.emit_provider_ready(
+                ProviderEventDetails(message="gRPC sync connection established")
+            )
+            self.connected = True
+        elif message.type == "configuration_change":
+            msg_dict = MessageToDict(message)
+            data = msg_dict.get("data", {})
+            self.handle_changed_flags(data)
+
     def listen(self) -> None:
         logger.debug("gRPC starting listener thread")
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
@@ -227,38 +262,20 @@ class GrpcResolver:
             try:
                 logger.debug("Setting up gRPC sync flags connection")
                 for message in self.stub.EventStream(request, **call_args):
-                    if message.type == "provider_ready":
-                        self.emit_provider_ready(
-                            ProviderEventDetails(
-                                message="gRPC sync connection established"
-                            )
-                        )
-                        self.connected = True
-                    elif message.type == "configuration_change":
-                        msg_dict = MessageToDict(message)
-                        data = msg_dict.get("data", {})
-                        self.handle_changed_flags(data)
+                    self._handle_event_stream_message(message)
 
                     if not self.active:
                         logger.info("Terminating gRPC sync thread")
                         return
-            except grpc.RpcError as e:  # noqa: PERF203
-                # although it seems like this error log is not interesting, without it, the retry is not working as expected
-                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
-                if e.code().name in self.config.fatal_status_codes:
-                    self._is_fatal = True
-                    self.active = False
-                    self.emit_provider_error(
-                        ProviderEventDetails(
-                            message=f"Fatal gRPC status code: {e.code()}",
-                            error_code=ErrorCode.PROVIDER_FATAL,
-                        )
-                    )
+            except grpc.RpcError as e:
+                if self._handle_rpc_error(e):
                     return
             except ParseError:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
                 )
+            if self.active:
+                self._wait_before_reconnect()
 
     def handle_changed_flags(self, data: typing.Any) -> None:
         changed_flags = list(data.get("flags", {}).keys())
