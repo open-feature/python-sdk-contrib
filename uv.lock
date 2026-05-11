@@ -20,7 +20,6 @@ members = [
     "openfeature-provider-unleash",
     "openfeature-python-contrib",
 ]
-constraints = [{ name = "mako", specifier = ">=1.3.12" }]
 
 [[package]]
 name = "aioboto3"
