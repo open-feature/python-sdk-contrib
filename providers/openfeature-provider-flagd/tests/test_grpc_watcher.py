@@ -3,6 +3,7 @@ import time
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
+import grpc
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct
 from grpc import Channel
@@ -18,6 +19,14 @@ from openfeature.schemas.protobuf.flagd.sync.v1.sync_pb2 import (
     SyncFlagsResponse,
 )
 from openfeature.schemas.protobuf.flagd.sync.v1.sync_pb2_grpc import FlagSyncServiceStub
+
+
+class FakeRpcError(grpc.RpcError):
+    def code(self):
+        return grpc.StatusCode.UNAVAILABLE
+
+    def details(self):
+        return "stream unavailable"
 
 
 class TestGrpcWatcher(unittest.TestCase):
@@ -36,6 +45,7 @@ class TestGrpcWatcher(unittest.TestCase):
         config.host = "localhost"
         config.port = 5000
         config.sync_metadata_disabled = False
+        config.fatal_status_codes = []
 
         flag_store = Mock(spec=FlagStore)
         flag_store.update.return_value = None
@@ -132,6 +142,33 @@ class TestGrpcWatcher(unittest.TestCase):
             self.provider_details.message, "gRPC sync connection established"
         )
         self.assertEqual(self.context, {})
+
+    def test_uses_max_retry_backoff_for_application_level_reconnect_delay(self):
+        self.assertEqual(self.grpc_watcher.retry_backoff_max_seconds, 5)
+
+    def test_listen_backs_off_after_rpc_stream_error(self):
+        self.mock_stub.SyncFlags = Mock(side_effect=FakeRpcError())
+
+        with patch.object(
+            self.grpc_watcher,
+            "_wait_before_reconnect",
+            side_effect=lambda: setattr(self.grpc_watcher, "active", False),
+        ) as wait_before_reconnect:
+            self.grpc_watcher.listen()
+
+        wait_before_reconnect.assert_called_once()
+
+    def test_listen_backs_off_after_stream_completion(self):
+        self.mock_stub.SyncFlags = Mock(return_value=iter([]))
+
+        with patch.object(
+            self.grpc_watcher,
+            "_wait_before_reconnect",
+            side_effect=lambda: setattr(self.grpc_watcher, "active", False),
+        ) as wait_before_reconnect:
+            self.grpc_watcher.listen()
+
+        wait_before_reconnect.assert_called_once()
 
     def test_selector_passed_via_both_metadata_and_body(self):
         """Test that selector is passed via both gRPC metadata header and request body for backward compatibility"""
