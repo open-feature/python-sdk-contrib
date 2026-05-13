@@ -166,17 +166,20 @@ class Config:
             else resolver
         )
 
-        default_port = (
-            DEFAULT_PORT_RPC
-            if self.resolver is ResolverType.RPC
-            else DEFAULT_PORT_IN_PROCESS
-        )
-
-        self.port: int = (
-            int(env_or_default(ENV_VAR_PORT, default_port, cast=int))
-            if port is None
-            else port
-        )
+        # Port configuration with FLAGD_SYNC_PORT support for in-process mode
+        if port is None:
+            is_rpc = self.resolver is ResolverType.RPC
+            # Use FLAGD_SYNC_PORT for in-process/file if set, otherwise fallback to FLAGD_PORT
+            use_sync = not is_rpc and os.environ.get(ENV_VAR_SYNC_PORT)
+            self.port = int(
+                env_or_default(
+                    ENV_VAR_SYNC_PORT if use_sync else ENV_VAR_PORT,
+                    DEFAULT_PORT_RPC if is_rpc else DEFAULT_PORT_IN_PROCESS,
+                    cast=int,
+                )
+            )
+        else:
+            self.port = port
 
         self.port = (
             int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
