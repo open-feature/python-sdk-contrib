@@ -81,7 +81,7 @@ def env_or_default(
 
 @dataclasses.dataclass
 class Config:
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0915
         self,
         host: str | None = None,
         port: int | None = None,
@@ -181,13 +181,14 @@ class Config:
         else:
             self.port = port
 
-        self.port = (
-            int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
-            if sync_port is None and port is None
-            else sync_port
-            if sync_port is not None
-            else self.port
-        )
+        if sync_port is not None:
+            self.port = sync_port
+        elif (
+            port is None
+            and self.resolver is not ResolverType.RPC
+            and os.environ.get(ENV_VAR_SYNC_PORT) is not None
+        ):
+            self.port = int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
 
         self.offline_flag_source_path = (
             env_or_default(
