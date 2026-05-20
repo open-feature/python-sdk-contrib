@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "openfeature-provider-ofrep"
-version = "0.2.0"
+version = "0.3.0"
 description = "OpenFeature provider for the OpenFeature Remote Evaluation Protocol (OFREP)"
 readme = "README.md"
 authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
