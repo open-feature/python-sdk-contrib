@@ -73,6 +73,11 @@ class GrpcResolver:
         self._is_fatal = False
         self.channel = self._generate_channel(config)
         self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
+        self.selector_metadata: tuple[tuple[str, str], ...] | None = (
+            ((FLAGD_SELECTOR_HEADER, self.config.selector),)
+            if self.config.selector
+            else None
+        )
 
         self.thread: threading.Thread | None = None
         self.timer: threading.Timer | None = None
@@ -217,13 +222,17 @@ class GrpcResolver:
             )
         )
 
-    def listen(self) -> None:
-        logger.debug("gRPC starting listener thread")
+    def _stream_call_args(self) -> GrpcMultiCallableArgs:
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
         if self.streamline_deadline_seconds > 0:
             call_args["timeout"] = self.streamline_deadline_seconds
-        if self.config.selector:
-            call_args["metadata"] = ((FLAGD_SELECTOR_HEADER, self.config.selector),)
+        if self.selector_metadata is not None:
+            call_args["metadata"] = self.selector_metadata
+        return call_args
+
+    def listen(self) -> None:
+        logger.debug("gRPC starting listener thread")
+        call_args = self._stream_call_args()
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream
@@ -381,8 +390,8 @@ class GrpcResolver:
             "timeout": self.deadline,
             "wait_for_ready": True,
         }
-        if self.config.selector:
-            call_args["metadata"] = ((FLAGD_SELECTOR_HEADER, self.config.selector),)
+        if self.selector_metadata is not None:
+            call_args["metadata"] = self.selector_metadata
         try:
             request: Message
             if flag_type == FlagType.BOOLEAN:
