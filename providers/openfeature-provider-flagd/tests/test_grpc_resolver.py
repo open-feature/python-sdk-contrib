@@ -1,3 +1,4 @@
+from contextlib import suppress
 from unittest.mock import MagicMock, Mock
 
 from openfeature.contrib.provider.flagd.config import Config
@@ -57,10 +58,8 @@ def test_event_stream_includes_selector_metadata_when_configured():
     resolver.stub = mock_stub
     resolver.active = True
 
-    try:
+    with suppress(Exception):
         resolver.listen()
-    except Exception:
-        pass
 
     kwargs = mock_stub.EventStream.call_args.kwargs
     assert kwargs.get("metadata") == ((FLAGD_SELECTOR_HEADER, "test-selector"),)
@@ -73,10 +72,8 @@ def test_event_stream_omits_metadata_when_no_selector():
     resolver.stub = mock_stub
     resolver.active = True
 
-    try:
+    with suppress(Exception):
         resolver.listen()
-    except Exception:
-        pass
 
     kwargs = mock_stub.EventStream.call_args.kwargs
     assert "metadata" not in kwargs
