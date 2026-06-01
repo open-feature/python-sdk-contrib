@@ -32,6 +32,8 @@ from ..config import CacheType, Config
 from ..flag_type import FlagType
 from .types import GrpcMultiCallableArgs
 
+FLAGD_SELECTOR_HEADER = "flagd-selector"
+
 if typing.TYPE_CHECKING:
     from google.protobuf.message import Message
 
@@ -220,6 +222,8 @@ class GrpcResolver:
         call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
         if self.streamline_deadline_seconds > 0:
             call_args["timeout"] = self.streamline_deadline_seconds
+        if self.config.selector:
+            call_args["metadata"] = ((FLAGD_SELECTOR_HEADER, self.config.selector),)
         request = evaluation_pb2.EventStreamRequest()
 
         # defining a never ending loop to recreate the stream
@@ -377,6 +381,8 @@ class GrpcResolver:
             "timeout": self.deadline,
             "wait_for_ready": True,
         }
+        if self.config.selector:
+            call_args["metadata"] = ((FLAGD_SELECTOR_HEADER, self.config.selector),)
         try:
             request: Message
             if flag_type == FlagType.BOOLEAN:
