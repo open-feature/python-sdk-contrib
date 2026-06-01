@@ -410,7 +410,6 @@ class GrpcResolver:
                 )
                 response = self.stub.ResolveObject(request, **call_args)
                 # DISABLED responses omit the value field entirely; fall back to default_value
-                # here so the substitution below (or the caller) gets a sane mapping.
                 value = MessageToDict(response, preserving_proto_field_name=True).get(
                     "value", default_value
                 )
