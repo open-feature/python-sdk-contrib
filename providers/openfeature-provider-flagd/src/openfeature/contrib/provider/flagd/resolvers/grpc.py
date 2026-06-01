@@ -409,9 +409,11 @@ class GrpcResolver:
                     flag_key=flag_key, context=context
                 )
                 response = self.stub.ResolveObject(request, **call_args)
-                value = MessageToDict(response, preserving_proto_field_name=True)[
-                    "value"
-                ]
+                # DISABLED responses omit the value field entirely; fall back to default_value
+                # here so the substitution below (or the caller) gets a sane mapping.
+                value = MessageToDict(response, preserving_proto_field_name=True).get(
+                    "value", default_value
+                )
             elif flag_type == FlagType.FLOAT:
                 request = evaluation_pb2.ResolveFloatRequest(
                     flag_key=flag_key, context=context
