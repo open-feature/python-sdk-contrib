@@ -443,8 +443,9 @@ class GrpcResolver:
             raise GeneralError(message) from e
 
         # When no default variant is configured, the server returns an empty/zero proto
-        # value with reason=DEFAULT. In that case, return the caller's code default value.
-        if response.reason == Reason.DEFAULT and not response.variant:
+        # value with reason=DEFAULT. For DISABLED flags the server omits the variant too.
+        # In both cases, return the caller's code default value.
+        if response.reason in (Reason.DEFAULT, Reason.DISABLED) and not response.variant:
             value = default_value
 
         # Got a valid flag and valid type. Return it.
