@@ -74,8 +74,8 @@ class GrpcResolver:
         self.channel = self._generate_channel(config)
         self.stub = evaluation_pb2_grpc.ServiceStub(self.channel)
         self.selector_metadata: tuple[tuple[str, str], ...] | None = (
-            ((FLAGD_SELECTOR_HEADER, self.config.selector),)
-            if self.config.selector
+            ((FLAGD_SELECTOR_HEADER, config.selector),)
+            if config.selector
             else None
         )
 
