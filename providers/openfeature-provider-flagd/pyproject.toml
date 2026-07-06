@@ -50,6 +50,12 @@ dependencies = [
     "protobuf~=6.0",
     "hatch-protobuf",
     "mypy-protobuf~=3.0",
+    # Pin grpcio-tools to the same version as the runtime `grpcio` dependency
+    # above. hatch-protobuf otherwise resolves grpcio-tools unpinned in an
+    # isolated build environment, so newer grpcio-tools releases can generate
+    # gRPC stubs that are incompatible with the pinned runtime grpcio,
+    # breaking mypy/import at build time.
+    "grpcio-tools==1.81.1",
 ]
 proto_paths = [
   ".",
