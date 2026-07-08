@@ -1886,7 +1886,7 @@ requires-dist = [
     { name = "grpcio", specifier = ">=1.81.0" },
     { name = "openfeature-flagd-core", editable = "tools/openfeature-flagd-core" },
     { name = "openfeature-sdk", specifier = ">=0.8.2" },
-    { name = "protobuf", specifier = ">=6.30.0,<8.0.0" },
+    { name = "protobuf", specifier = ">=7.0.0,<8.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
 ]
 
@@ -1894,14 +1894,14 @@ requires-dist = [
 dev = [
     { name = "asserts", specifier = ">=0.14.0,<0.15.0" },
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
-    { name = "grpcio-health-checking", specifier = ">=1.80.0,<2.0.0" },
+    { name = "grpcio-health-checking", specifier = ">=1.82.0,<2.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
     { name = "poethepoet", specifier = ">=0.37.0" },
     { name = "pytest", specifier = ">=9.0.0,<10.0.0" },
     { name = "pytest-bdd", specifier = ">=8.1.0,<9.0.0" },
     { name = "testcontainers", specifier = ">=4.12.0,<5.0.0" },
     { name = "types-grpcio", specifier = ">=1.0.0,<2.0.0" },
-    { name = "types-protobuf", specifier = ">=6.30.0,<8.0.0" },
+    { name = "types-protobuf", specifier = ">=7.0.0,<8.0.0" },
     { name = "types-pyyaml", specifier = ">=6.0.0,<7.0.0" },
 ]
 

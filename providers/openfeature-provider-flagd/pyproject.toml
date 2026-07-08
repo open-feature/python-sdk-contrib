@@ -20,7 +20,7 @@ dependencies = [
   "openfeature-sdk>=0.8.2",
   "openfeature-flagd-core>=1.0.0,<2",
   "grpcio>=1.81.0",
-  "protobuf>=6.30.0,<8.0.0",
+  "protobuf>=7.0.0,<8.0.0",
   "pyyaml>=6.0.1",
   "cachebox>=5.1.0,<6.0.0",
 ]
@@ -33,19 +33,23 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 dev = [
   "asserts>=0.14.0,<0.15.0",
   "coverage[toml]>=7.10.0,<8.0.0",
-  "grpcio-health-checking>=1.80.0,<2.0.0",
+  "grpcio-health-checking>=1.82.0,<2.0.0",
   "mypy>=1.18.0,<2.0.0",
   "poethepoet>=0.37.0",
   "pytest>=9.0.0,<10.0.0",
   "pytest-bdd>=8.1.0,<9.0.0",
   "testcontainers>=4.12.0,<5.0.0",
   "types-grpcio>=1.0.0,<2.0.0",
-  "types-protobuf>=6.30.0,<8.0.0",
+  "types-protobuf>=7.0.0,<8.0.0",
   "types-pyyaml>=6.0.0,<7.0.0",
 ]
 
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
+# This build-time environment is isolated from the runtime dependency set above.
+# It must stay on protobuf 6.x because hatch-protobuf depends on grpcio-tools,
+# which only supports protobuf>=7.0 in pre-releases (e.g. 1.82.0rc2) as of writing.
+# Generated stubs remain compatible with the protobuf>=7.0.0 runtime requirement.
 dependencies = [
     "protobuf~=6.0",
     "hatch-protobuf",
