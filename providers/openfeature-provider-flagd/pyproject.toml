@@ -46,10 +46,6 @@ dev = [
 
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
-# This build-time environment is isolated from the runtime dependency set above.
-# It must stay on protobuf 6.x because hatch-protobuf depends on grpcio-tools,
-# which only supports protobuf>=7.0 in pre-releases (e.g. 1.82.0rc2) as of writing.
-# Generated stubs remain compatible with the protobuf>=7.0.0 runtime requirement.
 dependencies = [
     "protobuf~=6.0",
     "hatch-protobuf",
