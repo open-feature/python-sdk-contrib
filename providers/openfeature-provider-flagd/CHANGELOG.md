@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.5.0...openfeature-provider-flagd/v0.5.1) (2026-07-09)
+
+
+### 🐛 Bug Fixes
+
+* **flagd:** use FLAGD_SYNC_PORT for in-process provider with backwards compatibility ([#345](https://github.com/open-feature/python-sdk-contrib/issues/345)) ([47a8b8a](https://github.com/open-feature/python-sdk-contrib/commit/47a8b8ac55ea8f1831f31aa08a2ccf7c2d7eaa89))
+
 ## [0.5.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.4.1...openfeature-provider-flagd/v0.5.0) (2026-06-02)
 
 
