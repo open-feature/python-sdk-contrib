@@ -166,8 +166,11 @@ class Config:
             else resolver
         )
 
-        # Port configuration with FLAGD_SYNC_PORT support for in-process mode
-        if port is None:
+        if sync_port is not None:
+            self.port = sync_port
+        elif port is not None:
+            self.port = port
+        else:
             is_rpc = self.resolver is ResolverType.RPC
             # Use FLAGD_SYNC_PORT for in-process/file if set, otherwise fallback to FLAGD_PORT
             use_sync = not is_rpc and os.environ.get(ENV_VAR_SYNC_PORT)
@@ -178,17 +181,6 @@ class Config:
                     cast=int,
                 )
             )
-        else:
-            self.port = port
-
-        if sync_port is not None:
-            self.port = sync_port
-        elif (
-            port is None
-            and self.resolver is not ResolverType.RPC
-            and os.environ.get(ENV_VAR_SYNC_PORT) is not None
-        ):
-            self.port = int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
 
         self.offline_flag_source_path = (
             env_or_default(
