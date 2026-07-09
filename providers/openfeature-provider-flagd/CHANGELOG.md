@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.4.1...openfeature-provider-flagd/v0.5.0) (2026-06-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* DISABLED is a successful evaluation (still defaults) ([#395](https://github.com/open-feature/python-sdk-contrib/issues/395))
+
+### ✨ New Features
+
+* DISABLED is a successful evaluation (still defaults) ([#395](https://github.com/open-feature/python-sdk-contrib/issues/395)) ([e7d1d34](https://github.com/open-feature/python-sdk-contrib/commit/e7d1d34a0c51fed768fc4276427df3cae094b16f))
+* make use of flagd-selector header in RPC mode ([#396](https://github.com/open-feature/python-sdk-contrib/issues/396)) ([e1c3c6a](https://github.com/open-feature/python-sdk-contrib/commit/e1c3c6ae6482624e7851be4cfc645ed45d6eaedd))
+
 ## [0.4.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.4.0...openfeature-provider-flagd/v0.4.1) (2026-04-30)
 
 
