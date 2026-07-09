@@ -81,7 +81,7 @@ def env_or_default(
 
 @dataclasses.dataclass
 class Config:
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0915
         self,
         host: str | None = None,
         port: int | None = None,
@@ -166,25 +166,21 @@ class Config:
             else resolver
         )
 
-        default_port = (
-            DEFAULT_PORT_RPC
-            if self.resolver is ResolverType.RPC
-            else DEFAULT_PORT_IN_PROCESS
-        )
-
-        self.port: int = (
-            int(env_or_default(ENV_VAR_PORT, default_port, cast=int))
-            if port is None
-            else port
-        )
-
-        self.port = (
-            int(env_or_default(ENV_VAR_SYNC_PORT, self.port, cast=int))
-            if sync_port is None and port is None
-            else sync_port
-            if sync_port is not None
-            else self.port
-        )
+        if sync_port is not None:
+            self.port = sync_port
+        elif port is not None:
+            self.port = port
+        else:
+            is_rpc = self.resolver is ResolverType.RPC
+            # Use FLAGD_SYNC_PORT for in-process/file if set, otherwise fallback to FLAGD_PORT
+            use_sync = not is_rpc and os.environ.get(ENV_VAR_SYNC_PORT)
+            self.port = int(
+                env_or_default(
+                    ENV_VAR_SYNC_PORT if use_sync else ENV_VAR_PORT,
+                    DEFAULT_PORT_RPC if is_rpc else DEFAULT_PORT_IN_PROCESS,
+                    cast=int,
+                )
+            )
 
         self.offline_flag_source_path = (
             env_or_default(
