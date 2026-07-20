@@ -55,7 +55,7 @@ dependencies = [
     # isolated build environment, so newer grpcio-tools releases can generate
     # gRPC stubs that are incompatible with the pinned runtime grpcio,
     # breaking mypy/import at build time.
-    "grpcio-tools==1.81.1",
+    "grpcio-tools==1.82.1",
 ]
 proto_paths = [
   ".",
