@@ -47,7 +47,11 @@ dev = [
 [tool.hatch.build.hooks.protobuf]
 generate_pyi = false
 dependencies = [
-    "protobuf~=6.0",
+    # protobuf here used to stay pinned to ~=6.0 because grpcio-tools only
+    # supported protobuf 7 in pre-releases (see #400). grpcio-tools >=1.82
+    # now requires protobuf>=7.35.1,<8.0.0, so this is aligned with the
+    # runtime `protobuf` dependency above instead.
+    "protobuf>=7.0.0,<8.0.0",
     "hatch-protobuf",
     "mypy-protobuf~=3.0",
     # Pin grpcio-tools to the same version as the runtime `grpcio` dependency
