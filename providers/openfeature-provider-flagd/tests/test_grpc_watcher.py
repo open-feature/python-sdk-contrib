@@ -36,6 +36,7 @@ class TestGrpcWatcher(unittest.TestCase):
         config.host = "localhost"
         config.port = 5000
         config.sync_metadata_disabled = False
+        config.sync_metadata = ()
 
         flag_store = Mock(spec=FlagStore)
         flag_store.update.return_value = None
@@ -160,3 +161,41 @@ class TestGrpcWatcher(unittest.TestCase):
         self.assertIn("metadata", kwargs)
         metadata = kwargs["metadata"]
         self.assertEqual(metadata, (("flagd-selector", "test-selector"),))
+
+    def test_custom_sync_metadata_appended(self):
+        """User-configured sync_metadata headers are sent on the SyncFlags call."""
+        self.grpc_watcher.selector = "test-selector"
+        self.grpc_watcher.config.sync_metadata = (
+            ("x-envoy-upstream-rq-timeout-ms", "0"),
+        )
+        mock_stream = iter(
+            [SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}')]
+        )
+        self.mock_stub.SyncFlags = Mock(return_value=mock_stream)
+
+        self.run_listen_and_shutdown_after()
+
+        metadata = self.mock_stub.SyncFlags.call_args.kwargs["metadata"]
+        self.assertEqual(
+            metadata,
+            (
+                ("flagd-selector", "test-selector"),
+                ("x-envoy-upstream-rq-timeout-ms", "0"),
+            ),
+        )
+
+    def test_custom_sync_metadata_without_selector(self):
+        """sync_metadata is sent even when no selector is configured."""
+        self.grpc_watcher.selector = None
+        self.grpc_watcher.config.sync_metadata = (
+            ("x-envoy-upstream-rq-timeout-ms", "0"),
+        )
+        mock_stream = iter(
+            [SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}')]
+        )
+        self.mock_stub.SyncFlags = Mock(return_value=mock_stream)
+
+        self.run_listen_and_shutdown_after()
+
+        metadata = self.mock_stub.SyncFlags.call_args.kwargs["metadata"]
+        self.assertEqual(metadata, (("x-envoy-upstream-rq-timeout-ms", "0"),))

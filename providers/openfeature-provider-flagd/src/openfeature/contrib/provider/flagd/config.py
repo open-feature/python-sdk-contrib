@@ -105,6 +105,7 @@ class Config:
         channel_credentials: grpc.ChannelCredentials | None = None,
         sync_metadata_disabled: bool | None = None,
         fatal_status_codes: list[str] | None = None,
+        sync_metadata: typing.Sequence[tuple[str, str]] | None = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -278,3 +279,11 @@ class Config:
         # Disabling will prevent static context from flagd being used in evaluations.
         # GetMetadata and this option will be removed.
         self.sync_metadata_disabled = sync_metadata_disabled
+
+        # Additional gRPC metadata headers sent on every in-process SyncFlags call.
+        # Useful for injecting infrastructure-specific headers, e.g. disabling a
+        # proxy/mesh request timeout on the long-lived sync stream. These are merged
+        # with any headers the provider sets itself (such as ``flagd-selector``).
+        self.sync_metadata: tuple[tuple[str, str], ...] = (
+            tuple(sync_metadata) if sync_metadata is not None else ()
+        )
