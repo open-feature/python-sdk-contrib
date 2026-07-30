@@ -66,6 +66,7 @@ class FlagdProvider(AbstractProvider):
         channel_credentials: grpc.ChannelCredentials | None = None,
         sync_metadata_disabled: bool | None = None,
         fatal_status_codes: list[str] | None = None,
+        sync_metadata: typing.Sequence[tuple[str, str]] | None = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -83,6 +84,9 @@ class FlagdProvider(AbstractProvider):
         :param stream_deadline_ms: the maximum time to wait before a request times out
         :param keep_alive_time: the number of milliseconds to keep alive
         :param resolver_type: the type of resolver to use
+        :param sync_metadata: additional gRPC metadata headers (key-value tuples) sent on
+                              every in-process SyncFlags call, e.g. to disable a proxy/mesh
+                              request timeout on the long-lived sync stream
         """
         if deadline_ms is None and timeout is not None:
             deadline_ms = timeout * 1000
@@ -112,6 +116,7 @@ class FlagdProvider(AbstractProvider):
             default_authority=default_authority,
             channel_credentials=channel_credentials,
             sync_metadata_disabled=sync_metadata_disabled,
+            sync_metadata=sync_metadata,
             fatal_status_codes=fatal_status_codes,
         )
         self.enriched_context: dict = {}

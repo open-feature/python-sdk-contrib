@@ -212,17 +212,21 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
-    def _create_metadata(self) -> tuple[tuple[str, str]] | None:
+    def _create_metadata(self) -> tuple[tuple[str, str], ...] | None:
         """Create gRPC metadata headers for the request.
 
         Returns gRPC metadata as a tuples of tuples containing header key-value pairs.
         The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
         while also being included in the request body for backward compatibility with older flagd versions.
+        Any user-configured ``sync_metadata`` headers are appended, allowing callers to inject
+        infrastructure-specific headers (e.g. proxy/mesh timeout overrides) on the sync stream.
         """
-        if self.selector is None:
-            return None
+        metadata: tuple[tuple[str, str], ...] = ()
+        if self.selector is not None:
+            metadata += (("flagd-selector", self.selector),)
+        metadata += self.config.sync_metadata
 
-        return (("flagd-selector", self.selector),)
+        return metadata if metadata else None
 
     def _fetch_metadata(self) -> sync_pb2.GetMetadataResponse | None:
         if self.config.sync_metadata_disabled:
