@@ -270,8 +270,8 @@ class GrpcWatcher(FlagStateConnector):
 
     def _handle_rpc_error(self, e: grpc.RpcError) -> bool:
         """Handle a gRPC RpcError. Returns True if the stream loop should stop."""
-        logger.warning(f"SyncFlags stream error, {e.code()=} {e.details()=}")
         if e.code().name in self.config.fatal_status_codes:
+            logger.error(f"SyncFlags stream fatal error, {e.code()=} {e.details()=}")
             self._is_fatal = True
             self.active = False
             self.emit_provider_error(
@@ -281,6 +281,10 @@ class GrpcWatcher(FlagStateConnector):
                 )
             )
             return True
+        # non-fatal errors just reconnect; real loss surfaces as a STALE event
+        logger.debug(
+            f"SyncFlags stream error, reconnecting, {e.code()=} {e.details()=}"
+        )
         return False
 
     def listen(self) -> None:
