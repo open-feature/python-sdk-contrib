@@ -43,7 +43,6 @@ class GrpcWatcher(FlagStateConnector):
 
         self.channel = self._generate_channel(config)
         self.stub = sync_pb2_grpc.FlagSyncServiceStub(self.channel)
-        self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
         self.retry_backoff_max_seconds = config.retry_backoff_max_ms * 0.001
         self.retry_grace_period = config.retry_grace_period
         self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
@@ -273,21 +272,22 @@ class GrpcWatcher(FlagStateConnector):
 
     def _handle_rpc_error(self, e: grpc.RpcError) -> bool:
         """Handle a gRPC RpcError. Returns True if the stream loop should stop."""
-        if e.code().name in self.config.fatal_status_codes:
-            logger.error(f"SyncFlags stream fatal error, {e.code()=} {e.details()=}")
+        # code() blocks until final status, finalizing the dead RPC before reconnect; keep it, do not inline into logging only
+        # https://grpc.github.io/grpc/python/grpc.html#grpc.Call.code
+        code = e.code()
+        if code.name in self.config.fatal_status_codes:
+            logger.error(f"SyncFlags stream fatal error, {code=} {e.details()=}")
             self._is_fatal = True
             self.active = False
             self.emit_provider_error(
                 ProviderEventDetails(
-                    message=f"Fatal gRPC status code: {e.code()}",
+                    message=f"Fatal gRPC status code: {code}",
                     error_code=ErrorCode.PROVIDER_FATAL,
                 )
             )
             return True
-        # non-fatal errors just reconnect; real loss surfaces as a STALE event
-        logger.debug(
-            f"SyncFlags stream error, reconnecting, {e.code()=} {e.details()=}"
-        )
+        # non-fatal errors just reconnect; real loss surfaces as a STALE, and eventually, ERROR event
+        logger.debug(f"SyncFlags stream error, reconnecting, {code=} {e.details()=}")
         return False
 
     def _wait_before_reconnect(self) -> None:

@@ -236,18 +236,22 @@ class GrpcResolver:
         self._shutdown_event.wait(self.retry_backoff_max_seconds)
 
     def _handle_rpc_error(self, e: grpc.RpcError) -> bool:
-        # although it seems like this error log is not interesting, without it, the retry is not working as expected
-        logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
-        if e.code().name in self.config.fatal_status_codes:
+        # code() blocks until final status, finalizing the dead RPC before reconnect; keep it, do not inline into logging only
+        # https://grpc.github.io/grpc/python/grpc.html#grpc.Call.code
+        code = e.code()
+        if code.name in self.config.fatal_status_codes:
+            logger.error(f"EventStream fatal error, {code=} {e.details()=}")
             self._is_fatal = True
             self.active = False
             self.emit_provider_error(
                 ProviderEventDetails(
-                    message=f"Fatal gRPC status code: {e.code()}",
+                    message=f"Fatal gRPC status code: {code}",
                     error_code=ErrorCode.PROVIDER_FATAL,
                 )
             )
             return True
+        # non-fatal errors just reconnect; real loss surfaces as a STALE, and eventually, ERROR event
+        logger.debug(f"EventStream error, reconnecting, {code=} {e.details()=}")
         return False
 
     def _handle_event_stream_message(
