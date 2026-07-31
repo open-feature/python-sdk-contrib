@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.5.1...openfeature-provider-flagd/v0.5.2) (2026-07-31)
+
+
+### 🐛 Bug Fixes
+
+* **flagd:** back off before stream reconnect ([#391](https://github.com/open-feature/python-sdk-contrib/issues/391)) ([bf71fbd](https://github.com/open-feature/python-sdk-contrib/commit/bf71fbdd3e45d50deae05bd1c3718a885cf13b3b))
+* **flagd:** log expected sync-stream recycles at debug, not warning ([#405](https://github.com/open-feature/python-sdk-contrib/issues/405)) ([62e251d](https://github.com/open-feature/python-sdk-contrib/commit/62e251db3a26888518adee67b7c059d7e239983a))
+* log spam for non-fatal stream errors ([62e251d](https://github.com/open-feature/python-sdk-contrib/commit/62e251db3a26888518adee67b7c059d7e239983a))
+
 ## [0.5.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.5.0...openfeature-provider-flagd/v0.5.1) (2026-07-09)
 
 
