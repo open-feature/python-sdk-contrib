@@ -9,5 +9,17 @@
   },
   "lockFileMaintenance": {
     "enabled": true
-  }
+  },
+  "packageRules": [
+    {
+      "description": "Keep grpcio runtime, grpcio-tools build pin, and grpc extras in lockstep so generated stubs stay compatible with the runtime grpcio floor",
+      "matchPackageNames": [
+        "grpcio",
+        "grpcio-tools",
+        "grpcio-health-checking",
+        "types-grpcio"
+      ],
+      "groupName": "grpc packages"
+    }
+  ]
 }
