@@ -56,7 +56,8 @@ def get_default_options_for_provider(
         "deadline_ms": 1000,
         "stream_deadline_ms": 0,
         "retry_backoff_ms": 1000,
-        "retry_grace_period": 3,
+        "retry_backoff_max_ms": 1000,
+        "retry_grace_period": 2,
         "port": container.get_port(resolver_type),
     }
     wait: bool = True
