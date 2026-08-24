@@ -31,7 +31,11 @@ from pathlib import Path
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import Capability, TckConfig
+from openfeature.contrib.tools.provider_tck import (
+    Capability,
+    TckConfig,
+    features_path,
+)
 from openfeature.contrib.tools.provider_tck.emitter import classify_phase
 from openfeature.contrib.tools.provider_tck.report import (
     REPORT_DIR_ENV,
@@ -52,6 +56,14 @@ SUITE_NAME = "report/fixture"
 SUITE_FILE = "report-fixture.json"
 
 UNKNOWN_KEY_SCENARIO = "An unknown flag key returns the code default"
+
+# The type-mismatch matrix: eleven Examples rows under one scenario name, one of
+# which the Python SDK fails. It is the case the example field exists for.
+MISMATCH_SCENARIO = "Requesting the wrong type returns the code default"
+
+# The row that fails, spelled as the feature file spells it -- strings, because
+# Gherkin has no types and "1" is not 1.
+DEVIATING_ROW = {"key": "boolean-flag", "requested": "Integer", "default": "1"}
 
 _SUITE_MODULE = '''\
 """A one-fixture adoption, generated so the report can be checked end to end."""
@@ -74,16 +86,17 @@ def tck_config():
         name="{name}",
         control=control,
         new_provider=control.new_provider,
-        capabilities={{
-            Capability.EVENTS,
-            Capability.OBJECT,
-            Capability.STRICT_NUMERIC_TYPING,
-        }},
+        capabilities={capabilities},
     )
 
 
 scenarios(features_path())
 '''
+
+CAPABILITIES = (
+    "{Capability.EVENTS, Capability.OBJECT, Capability.STRICT_NUMERIC_TYPING}"
+)
+"""What the main generated suite declares: enough to produce all four outcomes."""
 
 # One scenario skipped outright and one known deviation marked xfail, so the run
 # produces all four outcomes and finishes green while the document does not.
@@ -155,6 +168,47 @@ def _identity(*tags: str) -> ScenarioIdentity:
     return ScenarioIdentity(feature="events", name="a scenario", tags=tags)
 
 
+def _identity_of(scenario: dict[str, typing.Any]) -> tuple[typing.Any, ...]:
+    """What identifies one entry: feature, name and the Examples row together."""
+    example = scenario.get("example") or {}
+    return (scenario["feature"], scenario["name"], tuple(sorted(example.items())))
+
+
+def _examples_from_the_feature_file(feature: str, outline: str) -> list[dict[str, str]]:
+    """Read an outline's Examples tables straight out of the Gherkin.
+
+    Hand-read rather than taken from pytest-bdd's parser, because the parser is
+    what produced the values under test: asking it what it should have said would
+    check nothing. It is a small reader for a small shape -- the tables in these
+    files are plain pipe-delimited rows -- and it exists so that "the report says
+    what the table said" is checked against the table.
+    """
+    source = Path(features_path()) / f"{feature}.feature"
+    lines = source.read_text(encoding="utf-8").splitlines()
+    rows: list[dict[str, str]] = []
+    headers: list[str] = []
+    inside = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(("Scenario:", "Scenario Outline:")):
+            inside = stripped.split(":", 1)[1].strip() == outline
+            headers = []
+        elif not inside:
+            continue
+        elif stripped.startswith("Examples"):
+            headers = []
+        elif stripped.startswith("|"):
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            if headers:
+                rows.append(dict(zip(headers, cells, strict=True)))
+            else:
+                headers = cells
+
+    assert rows, f"no Examples rows found for {outline!r} in {feature}.feature"
+    return rows
+
+
 def _phase(outcome: str, when: str = "call", **extra: typing.Any) -> PhaseOutcome:
     return PhaseOutcome(when=when, outcome=outcome, **extra)
 
@@ -175,23 +229,32 @@ def _pytest(
     )
 
 
-def _write_suite(directory: Path) -> Path:
+def _write_suite(
+    directory: Path,
+    name: str = SUITE_NAME,
+    capabilities: str = CAPABILITIES,
+    deviations: bool = True,
+) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "test_suite.py").write_text(
-        _SUITE_MODULE.format(name=SUITE_NAME), encoding="utf-8"
+        _SUITE_MODULE.format(name=name, capabilities=capabilities), encoding="utf-8"
     )
-    (directory / "conftest.py").write_text(_CONFTEST_MODULE, encoding="utf-8")
+    if deviations:
+        (directory / "conftest.py").write_text(_CONFTEST_MODULE, encoding="utf-8")
     return directory
 
 
-@pytest.fixture(scope="module")
-def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
-    """One real run of the generated suite, with a report asked for."""
-    directory = _write_suite(tmp_path_factory.mktemp("suite"))
+def _run_suite(
+    tmp_path_factory: pytest.TempPathFactory,
+    file_name: str = SUITE_FILE,
+    **suite: typing.Any,
+) -> Run:
+    """Run one generated suite in a subprocess and read the report it wrote."""
+    directory = _write_suite(tmp_path_factory.mktemp("suite"), **suite)
     reports = tmp_path_factory.mktemp("reports")
     result = _pytest(str(directory), report_dir=reports)
 
-    path = reports / SUITE_FILE
+    path = reports / file_name
     assert path.exists(), (
         f"no report at {path}; pytest exited {result.returncode}\n"
         f"{result.stdout}\n{result.stderr}"
@@ -200,6 +263,29 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
         directory=directory,
         result=result,
         document=json.loads(path.read_text(encoding="utf-8")),
+    )
+
+
+@pytest.fixture(scope="module")
+def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
+    """One real run of the generated suite, with a report asked for."""
+    return _run_suite(tmp_path_factory)
+
+
+@pytest.fixture(scope="module")
+def narrow_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
+    """A run of a suite that leaves the capability gating an outline undeclared.
+
+    ``@object`` is left undeclared so that a whole Scenario Outline is skipped
+    by the capability gate, which is the case that has to keep saying which row it
+    skipped.
+    """
+    return _run_suite(
+        tmp_path_factory,
+        file_name="narrow.json",
+        name="narrow",
+        capabilities="{Capability.STRICT_NUMERIC_TYPING}",
+        deviations=False,
     )
 
 
@@ -225,15 +311,21 @@ def test_a_capability_skip_is_never_reported_as_passed(run: Run) -> None:
 def test_every_collected_scenario_appears_exactly_once(run: Run) -> None:
     """The property that makes the rule above checkable rather than promised.
 
+    An entry is identified by feature, name **and example** together. Feature and
+    name alone are shared by every row of a Scenario Outline, so keying on them
+    would let eleven rows of the type-mismatch matrix collapse into one and this
+    test would not notice -- which is the ambiguity the example field exists to
+    remove.
+
     Counted against pytest's own collection rather than against a number written
     down here, so that adding a scenario to the specification cannot leave this
     passing while the report loses one.
     """
-    names = [(s["feature"], s["name"]) for s in run.scenarios]
-    assert len(names) == len(set(names)), "a scenario is reported twice"
+    identities = [_identity_of(s) for s in run.scenarios]
+    assert len(identities) == len(set(identities)), "a scenario is reported twice"
 
     collected = _pytest("--collect-only", str(run.directory))
-    assert len(names) == sum(
+    assert len(identities) == sum(
         1 for line in collected.stdout.splitlines() if "::test_" in line
     )
 
@@ -273,6 +365,78 @@ def test_a_scenario_skipped_for_another_reason_is_not_a_missing_capability(
     assert len(matching) == 1
     assert matching[0]["outcome"] == Outcome.NOT_APPLICABLE.value
     assert "deliberately not run here" in matching[0]["reason"]
+
+
+# -- which row of an outline -------------------------------------------------
+
+
+def test_an_outline_row_is_named_by_its_example_not_by_its_name(run: Run) -> None:
+    """The eleven rows of the type-mismatch matrix are told apart, and only here.
+
+    All eleven share one scenario name, which is the feature file's name and must
+    stay that way: it is what a report from Go or JavaScript carries for the same
+    row, and qualifying it with this runner's id for the row -- which an earlier
+    version of this emitter did -- makes the three disagree about a scenario they
+    all ran.
+    """
+    rows = [s for s in run.scenarios if s["name"] == MISMATCH_SCENARIO]
+    expected = _examples_from_the_feature_file("errors", MISMATCH_SCENARIO)
+    assert len(rows) == len(expected) == 11
+
+    for row in rows:
+        assert row["name"] == MISMATCH_SCENARIO, "the name carries a runner's id"
+
+    observed = [row["example"] for row in rows]
+    assert len(observed) == len({tuple(sorted(e.items())) for e in observed})
+    assert sorted(map(sorted, (e.items() for e in observed))) == sorted(
+        map(sorted, (e.items() for e in expected))
+    )
+
+
+def test_an_example_says_what_the_table_said(run: Run) -> None:
+    """Verbatim strings, because Gherkin has no types.
+
+    A ``1`` in a table is the two-character cell the feature file contains, and a
+    report that emitted it as a number would be saying something the table did
+    not -- and would not validate, since the schema types the values as strings.
+    """
+    rows = [s for s in run.scenarios if s["name"] == MISMATCH_SCENARIO]
+    for row in rows:
+        assert all(isinstance(value, str) for value in row["example"].values()), row
+
+    failed = [row for row in rows if row["outcome"] == Outcome.FAILED.value]
+    assert len(failed) == 1
+    assert failed[0]["example"] == DEVIATING_ROW
+
+
+def test_a_scenario_that_is_not_an_outline_has_no_example(run: Run) -> None:
+    """Omitted rather than empty: there is no row, so there is nothing to say."""
+    plain = [s for s in run.scenarios if s["name"] == UNKNOWN_KEY_SCENARIO]
+    assert len(plain) == 1
+    assert "example" not in plain[0]
+
+
+def test_a_capability_skipped_outline_row_still_carries_its_example(
+    narrow_run: Run,
+) -> None:
+    """A skipped row is exactly as ambiguous as a failed one.
+
+    Identity is established at collection, from the node alone, so it does not
+    depend on the scenario having run -- which is what lets a row the capability
+    gate stopped before its first step be told apart from its siblings just as
+    well as one that failed.
+    """
+    outline = "Requesting a structured flag as a scalar returns the code default"
+    expected = _examples_from_the_feature_file("errors", outline)
+    rows = [s for s in narrow_run.scenarios if s["name"] == outline]
+    assert len(rows) == len(expected)
+
+    for row in rows:
+        assert row["outcome"] == Outcome.NOT_DECLARED.value, row
+        assert row.get("example"), f"a skipped outline row must say which row: {row}"
+    assert sorted(map(sorted, (row["example"].items() for row in rows))) == sorted(
+        map(sorted, (e.items() for e in expected))
+    )
 
 
 # -- identity ----------------------------------------------------------------
