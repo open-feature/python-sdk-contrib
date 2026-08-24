@@ -274,17 +274,20 @@ def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
 
 @pytest.fixture(scope="module")
 def narrow_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
-    """A run of a suite that leaves the capability gating an outline undeclared.
+    """A run of a suite that declares one capability the suite never tests.
 
-    ``@object`` is left undeclared so that a whole Scenario Outline is skipped
+    ``@targeting`` is reserved -- it is in the vocabulary and no scenario carries
+    it. ``@object`` is left undeclared so that a whole Scenario Outline is skipped
     by the capability gate, which is the case that has to keep saying which row it
-    skipped.
+    skipped. ``@strict-numeric-typing`` is declared and does have a scenario, so
+    the omission of ``@targeting`` is specific rather than a general failure to
+    report capabilities.
     """
     return _run_suite(
         tmp_path_factory,
         file_name="narrow.json",
         name="narrow",
-        capabilities="{Capability.STRICT_NUMERIC_TYPING}",
+        capabilities="{Capability.STRICT_NUMERIC_TYPING, Capability.TARGETING}",
         deviations=False,
     )
 
@@ -510,7 +513,9 @@ def test_a_failure_is_not_revised_away_by_a_later_phase() -> None:
 
 
 def test_an_undeclared_capability_is_reported_with_a_reason() -> None:
-    document = SuiteReport(config=_config()).build()
+    suite = SuiteReport(config=_config())
+    suite.set_outcome("node", _identity("@events"), Outcome.PASSED)
+    document = suite.build()
     assert document["capabilities"]["@events"] == {"state": Outcome.PASSED.value}
     stale = document["capabilities"]["@stale"]
     assert stale["state"] == Outcome.NOT_DECLARED.value
@@ -518,9 +523,56 @@ def test_an_undeclared_capability_is_reported_with_a_reason() -> None:
 
 
 def test_a_capability_whose_scenario_failed_is_not_reported_as_passed() -> None:
-    suite = SuiteReport(config=_config())
-    suite.set_outcome("node", _identity("@events"), Outcome.FAILED, "boom")
-    assert suite.build()["capabilities"]["@events"]["state"] == Outcome.FAILED.value
+    """And says how much failed, because the schema requires a reason.
+
+    Reached by driving the builder directly: every self-test suite that runs end
+    to end passes, so nothing else gets near this branch -- and an entry without a
+    reason would be rejected by the schema at exactly the moment the report
+    matters most, when a provider is failing.
+    """
+    suite = SuiteReport(config=_config(capabilities={Capability.EVENTS}))
+    suite.set_outcome("failed", _identity("@events"), Outcome.FAILED, "boom")
+    suite.set_outcome("passed", _identity("@events"), Outcome.PASSED)
+
+    events = suite.build()["capabilities"]["@events"]
+    assert events["state"] == Outcome.FAILED.value
+    assert "1 of 2" in events["reason"], events
+
+
+def test_every_capability_the_report_mentions_can_explain_itself(run: Run) -> None:
+    """The rule the schema enforces, checked here so a change fails in this package."""
+    for tag, result in run.document["capabilities"].items():
+        if result["state"] != Outcome.PASSED.value:
+            assert result.get("reason"), f"{tag} is {result['state']} with no reason"
+
+
+def test_a_capability_no_scenario_exercises_is_not_reported_as_passed(
+    narrow_run: Run,
+) -> None:
+    """The vacuous pass the capability vocabulary exists to eliminate.
+
+    ``@targeting`` is declared by this suite and carried by no scenario, because
+    asserting that an evaluation context reached the backend needs an echo
+    operation the control API does not have. The suite asked no question, so it
+    has no answer: the tag is absent rather than green, and a consumer sees the
+    absence rather than a pass it cannot rely on.
+    """
+    capabilities = narrow_run.document["capabilities"]
+    exercised = {tag for s in narrow_run.scenarios for tag in s.get("tags", ())}
+
+    assert Capability.TARGETING.tag not in exercised, "the premise has changed"
+    assert Capability.TARGETING.tag not in capabilities, capabilities.get(
+        Capability.TARGETING.tag
+    )
+
+    # Specific rather than a general failure to report: the other declared
+    # capability is exercised, and is still reported.
+    numeric = Capability.STRICT_NUMERIC_TYPING.tag
+    assert numeric in exercised
+    assert capabilities[numeric]["state"] == Outcome.PASSED.value
+    # And an undeclared capability is still reported, with its reason, whether or
+    # not any scenario carries it: that is a fact about the provider.
+    assert capabilities[Capability.OBJECT.tag]["state"] == Outcome.NOT_DECLARED.value
 
 
 def test_the_provider_name_falls_back_to_the_suite_name() -> None:
