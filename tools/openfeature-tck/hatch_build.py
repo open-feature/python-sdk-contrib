@@ -18,7 +18,14 @@ from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 # the single definition of what gets copied where -- would not be importable.
 sys.path.insert(0, str(Path(__file__).parent))
 
-from hatch_build_sync import FILES, PACKAGE_REL, SPEC_ASSETS, TREES, sync
+from hatch_build_sync import (
+    FILES,
+    PACKAGE_REL,
+    REVISION_FILE,
+    SPEC_ASSETS,
+    TREES,
+    sync,
+)
 
 
 class SpecAssetsCopyHook(BuildHookInterface):
@@ -26,7 +33,13 @@ class SpecAssetsCopyHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict) -> None:
         root = Path(self.root)
-        copies = [root / PACKAGE_REL / dest for _, dest in TREES + FILES]
+        # The generated revision file travels with the assets it describes. It
+        # has to be built here rather than read at run time, because the
+        # submodule that knows the answer is not in the wheel and a conformance
+        # report has to name the revision it ran against.
+        copies = [root / PACKAGE_REL / dest for _, dest in TREES + FILES] + [
+            root / PACKAGE_REL / REVISION_FILE
+        ]
 
         # Building from a checkout: refresh from the submodule, so what ships is
         # always the revision the pin names. Building from an sdist: there is no

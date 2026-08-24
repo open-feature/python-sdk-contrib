@@ -5,3 +5,6 @@
 src/openfeature/contrib/tools/tck/gherkin/
 src/openfeature/contrib/tools/tck/flag_data/
 src/openfeature/contrib/tools/tck/control-api.yaml
+# Generated alongside them, from the submodule pin, so a conformance report can
+# name the spec revision it ran against.
+src/openfeature/contrib/tools/tck/spec_revision.json
