@@ -17,9 +17,9 @@ members = [
     "openfeature-provider-flagd",
     "openfeature-provider-flipt",
     "openfeature-provider-ofrep",
+    "openfeature-tck",
     "openfeature-provider-unleash",
     "openfeature-python-contrib",
-    "openfeature-tck",
 ]
 
 [[package]]
@@ -1991,6 +1991,37 @@ dev = [
 ]
 
 [[package]]
+name = "openfeature-tck"
+version = "0.1.0"
+source = { editable = "tools/openfeature-tck" }
+dependencies = [
+    { name = "openfeature-sdk" },
+    { name = "pytest" },
+    { name = "pytest-bdd" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "mypy" },
+    { name = "poethepoet" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openfeature-sdk", specifier = ">=0.10.0" },
+    { name = "pytest", specifier = ">=8.4.0" },
+    { name = "pytest-bdd", specifier = ">=8.1.0,<9.0.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
+    { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
+    { name = "poethepoet", specifier = ">=0.37.0" },
+]
+
+[[package]]
 name = "openfeature-provider-unleash"
 version = "0.1.2"
 source = { editable = "providers/openfeature-provider-unleash" }
@@ -2043,8 +2074,8 @@ dependencies = [
     { name = "openfeature-provider-flagd" },
     { name = "openfeature-provider-flipt" },
     { name = "openfeature-provider-ofrep" },
-    { name = "openfeature-provider-unleash" },
     { name = "openfeature-tck" },
+    { name = "openfeature-provider-unleash" },
 ]
 
 [package.dev-dependencies]
@@ -2065,8 +2096,8 @@ requires-dist = [
     { name = "openfeature-provider-flagd", editable = "providers/openfeature-provider-flagd" },
     { name = "openfeature-provider-flipt", editable = "providers/openfeature-provider-flipt" },
     { name = "openfeature-provider-ofrep", editable = "providers/openfeature-provider-ofrep" },
-    { name = "openfeature-provider-unleash", editable = "providers/openfeature-provider-unleash" },
     { name = "openfeature-tck", editable = "tools/openfeature-tck" },
+    { name = "openfeature-provider-unleash", editable = "providers/openfeature-provider-unleash" },
 ]
 
 [package.metadata.requires-dev]
@@ -2083,46 +2114,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/24/30/cfc684b7d8314398d476ae8ed515c10db99c4d7f950989db464b4ded12ce/openfeature_sdk-0.10.0.tar.gz", hash = "sha256:938c2540bdea4da3b01ef507517ee636f223a35abaaca845c5587e594151b052", size = 33516, upload-time = "2026-06-01T19:45:35.136Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/da/44/8a4f5225e930ff0d999fd43f5d743a4babeb6c7e76dddc00f0e118878ef3/openfeature_sdk-0.10.0-py3-none-any.whl", hash = "sha256:75497ea75d73f684eef509a25f79ad6386368862e050af80ab70a44ae49b33e4", size = 38941, upload-time = "2026-06-01T19:45:33.011Z" },
-]
-
-[[package]]
-name = "openfeature-tck"
-version = "0.1.0"
-source = { editable = "tools/openfeature-tck" }
-dependencies = [
-    { name = "openfeature-sdk" },
-    { name = "pytest" },
-    { name = "pytest-bdd" },
-]
-
-[package.optional-dependencies]
-compose = [
-    { name = "testcontainers" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "coverage", extra = ["toml"] },
-    { name = "mypy" },
-    { name = "poethepoet" },
-    { name = "testcontainers" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "openfeature-sdk", specifier = ">=0.10.0" },
-    { name = "pytest", specifier = ">=8.4.0" },
-    { name = "pytest-bdd", specifier = ">=8.1.0,<9.0.0" },
-    { name = "testcontainers", marker = "extra == 'compose'", specifier = ">=4.12.0,<5.0.0" },
-]
-provides-extras = ["compose"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
-    { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
-    { name = "poethepoet", specifier = ">=0.37.0" },
-    { name = "testcontainers", specifier = ">=4.12.0,<5.0.0" },
 ]
 
 [[package]]

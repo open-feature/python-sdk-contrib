@@ -120,6 +120,7 @@ from .provider import (
     canonical_flag_set,
     canonical_flags_json,
 )
+from .report import REPORT_DIR_ENV, SCHEMA_VERSION, Outcome
 from .state import TckState
 
 __all__ = [
@@ -131,7 +132,9 @@ __all__ = [
     "DEFAULT_STARTUP_TIMEOUT",
     "EXTENSIONS_DIRECTORY",
     "INEXPRESSIBLE_CAPABILITIES",
+    "REPORT_DIR_ENV",
     "RESERVED_CAPABILITIES",
+    "SCHEMA_VERSION",
     "BackendControl",
     "BackendEndpoint",
     "Capability",
@@ -143,6 +146,7 @@ __all__ = [
     "HttpControl",
     "InProcessControl",
     "KnownDeviation",
+    "Outcome",
     "RunningBackend",
     "TckConfig",
     "TckState",
