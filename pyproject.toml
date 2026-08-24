@@ -60,7 +60,10 @@ exclude = [
     ".venv",
     "__pycache__",
     "venv",
-    "providers/openfeature-provider-flagd/src/openfeature/schemas/**"
+    "providers/openfeature-provider-flagd/src/openfeature/schemas/**",
+    # Submodules of other repositories: not ours to lint or format.
+    "providers/openfeature-provider-flagd/openfeature/spec/**",
+    "tools/openfeature-provider-tck/spec/**",
 ]
 
 [tool.ruff.lint]
