@@ -47,7 +47,7 @@ packages = ["src/openfeature"]
 
 [tool.mypy]
 mypy_path = "src"
-files = "src"
+files = ["src", "tests"]
 python_version = "3.10"
 namespace_packages = true
 explicit_package_bases = true
