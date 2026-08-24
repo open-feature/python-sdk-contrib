@@ -120,6 +120,7 @@ full set surfaces gaps; widening towards it hides them.
 """
 
 _BY_MARKER: dict[str, Capability] = {c.value: c for c in Capability}
+_BY_TAG: dict[str, Capability] = {c.tag: c for c in Capability}
 
 
 def capability_for_marker(name: str) -> Capability | None:
@@ -129,3 +130,14 @@ def capability_for_marker(name: str) -> Capability | None:
     the canonical feature files carry organisational tags freely.
     """
     return _BY_MARKER.get(name)
+
+
+def capability_for_tag(tag: str) -> Capability | None:
+    """Map a Gherkin tag, leading at-sign included, onto the capability it gates.
+
+    The tag form rather than the marker form because that is what the
+    conformance report carries: the report records a scenario's tags as the
+    feature files spell them, and deciding whether a failure counts against a
+    capability means reading them back.
+    """
+    return _BY_TAG.get(tag)

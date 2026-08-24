@@ -218,6 +218,72 @@ is recorded by the pin and nowhere else, so the two cannot drift apart unnoticed
 
 This mirrors what `openfeature-flagd-api-testkit` already does for the flagd test harness.
 
+## Conformance reports
+
+Set `PROVIDER_TCK_REPORT_DIR` and each suite writes a machine-readable record of its run to
+`<dir>/<name>.json`, conforming to the [report schema][report-schema] in the specification.
+
+```console
+$ PROVIDER_TCK_REPORT_DIR=./reports pytest
+provider-tck [in-memory]: report written to reports/in-memory.json (1 failed, 5 not-declared, 23 passed)
+
+$ jq '.scenarios | group_by(.outcome) | map({(.[0].outcome): length}) | add' reports/in-memory.json
+{
+  "failed": 1,
+  "not-declared": 5,
+  "passed": 23
+}
+```
+
+It is an environment variable rather than a `TckConfig` field so that emitting a report is a property
+of the *run* and not of the code: CI sets it, a developer running the suite locally does not, and no
+adopter changes a line to publish one. Unset means no report, which is not an error. Several suites
+in one pytest session each write their own file, so flagd's two resolvers would not collide.
+
+### Why every scenario is listed
+
+Appendix F requires that a scenario skipped for an undeclared capability is reported as skipped
+**with the reason** and never as passed. A consumer cannot check that against a summary line, so the
+report records the outcome of *every* scenario individually — and is required to be complete, because
+a document that quietly dropped what it skipped would satisfy the letter of the rule and still
+mislead whoever read it.
+
+Which also means the report is not a transcription of pytest's summary. The run above finishes green:
+the one scenario the Python SDK cannot satisfy is marked `xfail` (finding 1), so pytest counts it as
+expected and exits zero. The provider still did not satisfy it, and the document says `failed` with
+the reason — an expected failure is a recorded deviation, not an excused one.
+
+Four outcomes rather than two, because "did not run" is not one thing:
+
+| Outcome | Means |
+| --- | --- |
+| `passed` | the scenario ran and passed |
+| `failed` | the scenario ran and failed, including a known deviation marked `xfail` |
+| `not-declared` | skipped because the provider did not declare a capability the scenario is tagged with |
+| `not-applicable` | skipped for any other reason — a marker an adopter applied, a step calling `pytest.skip` |
+
+### What identifies a report
+
+`tck.specRevision` and `tck.assetsTree` come from `spec_revision.json`, which `hatch_build_sync.py`
+generates from the submodule alongside the copied assets. It has to be captured at build time: the
+submodule is not in the wheel, so an installed copy has nothing left to ask. A build that cannot
+reach git — an unpacked sdist, say — warns and records `unknown` rather than inventing a commit.
+
+The tree hash is carried as well as the commit because it identifies the assets alone. It is
+unchanged by unrelated edits elsewhere in the specification, so two runs that executed identical
+assets report the same value even when pinned to different commits — and it is checkable, since
+`git rev-parse <specRevision>:specification/assets/provider-tck` must reproduce it.
+
+`provider.name` is what the provider reports through its own metadata, not `TckConfig.name`.
+`TckConfig.name` is chosen to read well in a failure message — `flagd-rpc` — which makes it the
+*configuration*, and it is reported as such. One provider with two materially different modes
+produces two reports that are not interchangeable.
+
+`backend.controlApi` is read off an optional `control_api` property on your `BackendControl`,
+returning `"http"` or `"in-process"`. It is not a member of the protocol: adding one would make every
+existing control incomplete for the sake of one string, and a control that stays quiet simply omits
+the field.
+
 ## The self-tests
 
 | Suite | Subject | Why |
@@ -225,12 +291,15 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_in_memory_conformance` | the SDK's `InMemoryProvider` | reference adoption for a backend-less provider |
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
 | `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
+| `test_report` | the conformance report | checks the two properties a consumer is entitled to assume |
 
 ```
-54 passed, 9 skipped, 2 xfailed
+78 passed, 9 skipped, 2 xfailed
 ```
 
-No Docker, no network, under a second.
+No Docker and no network. The conformance suites take under a second; `test_report` takes most of a
+minute, because the properties it checks are properties of a whole pytest session and it runs four of
+them in subprocesses to check them.
 
 Neither in-memory suite declares `@lifecycle`, so the three lifecycle scenarios are skipped in both.
 That is the point: with no backend to reach, they would pass without testing anything — which is
@@ -242,7 +311,14 @@ what they did while the feature was gated on `@events`.
   cannot assert one *reached* the backend. That needs an echo operation on the control API.
 - **No HTTP control client yet.** It arrives with the first containerised adopter.
 - **Caching, hooks and flag metadata** are not covered.
+- **A report cannot name a Scenario Outline row portably.** Every row of an outline shares one
+  scenario name, and the report schema has nowhere to put the row, so several entries would be
+  indistinguishable — including, here, one that differs in outcome from its siblings. This
+  implementation qualifies the name with pytest's example id (`... [boolean-flag-Integer-1]`), which
+  is unambiguous but is not what another language would produce for the same row. Raised on
+  [open-feature/spec#424](https://github.com/open-feature/spec/issues/424).
 
+[report-schema]: https://github.com/open-feature/spec/blob/main/specification/assets/provider-tck/report/conformance-report.schema.json
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
 [spec]: https://github.com/open-feature/spec

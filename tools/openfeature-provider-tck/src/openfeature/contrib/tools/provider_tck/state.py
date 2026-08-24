@@ -93,6 +93,13 @@ class TckState:
 
     config: TckConfig
     client: OpenFeatureClient | None = None
+    provider_name: str | None = None
+    """What the provider called itself through its own metadata.
+
+    Observed rather than configured, because it is what the conformance report
+    identifies the provider by: ``TckConfig.name`` is chosen to read well in a
+    failure message, which makes it the *configuration* rather than the provider.
+    """
     flag_key: str | None = None
     flag_type: FlagType | None = None
     default_value: typing.Any = None

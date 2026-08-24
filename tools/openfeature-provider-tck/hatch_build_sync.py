@@ -10,11 +10,16 @@ the two cannot drift apart unnoticed. An *adopter* installing the wheel still
 needs no submodule: the copies are inside the distribution.
 """
 
+import json
 import shutil
+import subprocess
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-SPEC_ASSETS = (ROOT / "spec/specification/assets/provider-tck").resolve()
+SPEC_ROOT = (ROOT / "spec").resolve()
+ASSETS_PATH_IN_SPEC = "specification/assets/provider-tck"
+SPEC_ASSETS = (SPEC_ROOT / ASSETS_PATH_IN_SPEC).resolve()
 PACKAGE_REL = Path("src/openfeature/contrib/tools/provider_tck")
 DEST_BASE = ROOT / PACKAGE_REL
 
@@ -27,6 +32,27 @@ DO_NOT_EDIT = (
 # (source directory or file, destination) relative to SPEC_ASSETS / DEST_BASE.
 TREES = [("gherkin", "features"), ("flags", "flag_data")]
 FILES = [("openapi/control-api.yaml", "control-api.yaml")]
+
+REVISION_FILE = "spec_revision.json"
+"""Which revision of the specification the copied assets came from.
+
+Recorded at build time because the answer is only available at build time: the
+submodule that holds it is not in the wheel, and a conformance report that cannot
+name the revision it ran against cannot be compared with another. It is generated
+by the same command that copies the assets, which is what keeps the two from
+disagreeing.
+
+Not committed, for the same reason the assets are not: the submodule pin is the
+single record of which revision this package targets.
+"""
+
+UNKNOWN_REVISION = "unknown"
+"""Seven characters, the minimum the report schema accepts.
+
+A build that cannot reach git says it does not know rather than inventing a
+commit, and still produces a document that validates. Which happens for real:
+building from a source tarball has no ``.git`` to ask.
+"""
 
 
 def sync() -> None:
@@ -50,6 +76,50 @@ def sync() -> None:
         if dest.exists():
             dest.unlink()
         shutil.copy2(SPEC_ASSETS / src_name, dest)
+
+    write_revision()
+
+
+def write_revision() -> None:
+    """Record the spec commit and the asset tree these copies came from.
+
+    The tree hash is carried as well as the commit because it identifies the
+    assets alone: it does not change when an unrelated part of the specification
+    does, so two runs that executed identical assets report the same value even
+    when pinned to different commits. It is also checkable rather than merely
+    asserted, since ``git rev-parse <commit>:specification/assets/provider-tck``
+    must reproduce it.
+    """
+    commit = _git("rev-parse", "HEAD") or UNKNOWN_REVISION
+    tree = _git("rev-parse", f"HEAD:{ASSETS_PATH_IN_SPEC}") or ""
+    (DEST_BASE / REVISION_FILE).write_text(
+        json.dumps({"specRevision": commit, "assetsTree": tree}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _git(*args: str) -> str:
+    """Run git inside the submodule, returning its output or an empty string.
+
+    A build must not hard-fail because git is absent or the checkout is not a
+    repository -- both are ordinary when building from an unpacked sdist. The
+    failure is reported as a warning and the identity degrades to ``unknown``,
+    which is legible in the resulting report rather than silently wrong.
+    """
+    command = ["git", "-C", str(SPEC_ROOT), *args]
+    try:
+        completed = subprocess.run(  # noqa: S603
+            command, capture_output=True, check=True, text=True
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        warnings.warn(
+            f"could not determine the spec revision ({' '.join(command)}: {error}); "
+            f"conformance reports from this build will not name the revision they "
+            f"ran against",
+            stacklevel=2,
+        )
+        return ""
+    return completed.stdout.strip()
 
 
 if __name__ == "__main__":

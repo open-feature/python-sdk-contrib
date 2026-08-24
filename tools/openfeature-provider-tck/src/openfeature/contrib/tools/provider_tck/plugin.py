@@ -17,6 +17,7 @@ from openfeature import api
 
 from .capability import Capability, capability_for_marker
 from .config import TckConfig
+from .emitter import ReportEmitter, bind_scenario, observe_provider_name
 from .state import TckState
 
 # The step modules are registered as plugins in their own right, not merely
@@ -32,22 +33,33 @@ pytest_plugins = [
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register the capability tags as markers.
+    """Register the capability tags as markers, and the report emitter.
 
     pytest-bdd turns every Gherkin tag into a marker with
     ``getattr(pytest.mark, tag)`` without registering it, which raises
     ``PytestUnknownMarkWarning`` for each one -- noise at best, and a hard
     failure in a project configured with ``-W error``.
+
+    The emitter is registered unconditionally even though it writes nothing
+    unless :data:`~.report.REPORT_DIR_ENV` is set. Accumulating the outcomes
+    costs a dictionary entry per scenario, and deciding at the end of the session
+    rather than at the start is one fewer way for a run to discover too late that
+    it was not recording.
     """
     for capability in Capability:
         config.addinivalue_line(
             "markers",
             f"{capability.value}: OpenFeature provider TCK capability {capability.tag}",
         )
+    config.pluginmanager.register(
+        ReportEmitter(config), "openfeature-provider-tck-report"
+    )
 
 
 @pytest.fixture
-def tck_state(tck_config: TckConfig) -> typing.Iterator[TckState]:
+def tck_state(
+    request: pytest.FixtureRequest, tck_config: TckConfig
+) -> typing.Iterator[TckState]:
     """Per-scenario state, carried between step definitions."""
     # Resetting here rather than in an autouse fixture ties the reset to the
     # scenarios that actually use the TCK, and guarantees it happens after the
@@ -56,11 +68,22 @@ def tck_state(tck_config: TckConfig) -> typing.Iterator[TckState]:
     tck_config.control.prepare_scenario()
     state = TckState(config=tck_config)
     yield state
+    # The provider is identified in the report by what it called itself, and the
+    # only thing that ever holds an instance is the scenario that made one.
+    observe_provider_name(request.config, tck_config, state.provider_name)
     state.teardown()
 
 
 @pytest.fixture(autouse=True)
-def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
+def _tck_report_binding(request: pytest.FixtureRequest) -> None:
+    """Attribute this scenario to its suite before anything can skip it."""
+    bind_scenario(request)
+
+
+@pytest.fixture(autouse=True)
+def _tck_capability_gate(
+    request: pytest.FixtureRequest, _tck_report_binding: None
+) -> None:
     """Skip a scenario whose capability the provider did not declare.
 
     ``pytest.skip`` here reports the scenario as skipped **with the reason**,
@@ -75,6 +98,11 @@ def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
 
     Checking markers first also means the gate costs nothing, and instantiates
     nothing, for tests that are not TCK scenarios.
+
+    ``_tck_report_binding`` is requested rather than left to autouse ordering so
+    that the scenario has reached its suite before this fixture can skip it. A
+    scenario skipped here is exactly the one the conformance report must account
+    for, and one that never reached a suite could not be reported at all.
     """
     gated = [
         capability

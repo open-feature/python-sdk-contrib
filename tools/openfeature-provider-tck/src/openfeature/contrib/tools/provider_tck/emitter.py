@@ -1,0 +1,297 @@
+"""The pytest half of the conformance report: turning a run into the document.
+
+Kept apart from :mod:`report`, which knows what a report *is* and nothing about
+pytest. Everything here is translation -- a pytest node into a scenario, a
+:class:`pytest.TestReport` into an :class:`~.report.Outcome`, the end of a
+session into a file on disk.
+
+The translation that matters is the one for skips. pytest reports a skip
+honestly, unlike some runners, but "skipped" alone does not distinguish a
+capability the provider never declared from a scenario the run had some other
+reason not to execute, and the report format does. So the decision is made
+against the scenario's own tags and the suite's declared capabilities rather than
+against the wording of a skip message.
+"""
+
+from __future__ import annotations
+
+import os
+import typing
+from pathlib import Path
+
+import pytest
+
+from .config import TckConfig
+from .report import (
+    REPORT_DIR_ENV,
+    Outcome,
+    PhaseOutcome,
+    ReportCollector,
+    ScenarioIdentity,
+    normalise_tags,
+    report_file_name,
+    write_report,
+)
+
+__all__ = ["COLLECTOR_KEY", "ReportEmitter", "classify_phase", "scenario_identity"]
+
+COLLECTOR_KEY = pytest.StashKey[ReportCollector]()
+"""Where the session's collector lives, so a fixture can reach it from a request."""
+
+_MAX_REASON = 500
+"""How much of a failure message the report carries.
+
+A reason is for a person reading a comparison page, not for debugging: whoever
+ran the suite has the traceback. Whole tracebacks in a published document also
+leak local paths.
+"""
+
+
+def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
+    """Describe a pytest node as a Gherkin scenario, or return ``None``.
+
+    ``__scenario__`` is what pytest-bdd hangs on the function it generates, so
+    its presence is also the test for "is this a TCK scenario at all" -- and it
+    is readable at collection, without running a single fixture, which is what
+    lets a scenario skipped before its first step still be accounted for.
+    """
+    scenario = getattr(getattr(node, "function", None), "__scenario__", None)
+    if scenario is None:
+        return None
+
+    feature = getattr(scenario, "feature", None)
+    tags: set[str] = set(getattr(scenario, "tags", None) or ())
+    tags |= set(getattr(feature, "tags", None) or ())
+    rule = getattr(scenario, "rule", None)
+    if rule is not None:
+        tags |= set(getattr(rule, "tags", None) or ())
+
+    return ScenarioIdentity(
+        feature=Path(str(getattr(feature, "filename", ""))).stem,
+        name=_scenario_name(node, str(getattr(scenario, "name", ""))),
+        tags=normalise_tags(tags),
+    )
+
+
+def _scenario_name(node: pytest.Item, name: str) -> str:
+    """Qualify a Scenario Outline's name with the example row that ran.
+
+    Every row of an outline shares one scenario name, so a report using the name
+    alone would carry several entries a consumer cannot tell apart -- and in this
+    suite one row of an outline genuinely differs in outcome from its siblings.
+    The schema has nowhere to put the row, so it goes in the name, in the form
+    pytest already uses to select one: ``... [boolean-flag-Integer-1]``.
+    """
+    example_id = getattr(getattr(node, "callspec", None), "id", "")
+    return f"{name} [{example_id}]" if example_id else name
+
+
+def _group_of(node: pytest.Item) -> str:
+    """Which module a scenario was generated into.
+
+    pytest-bdd's ``scenarios()`` injects its tests into the module that called
+    it, and a module resolves one ``tck_config``, so the module is what says
+    which suite a scenario belongs to. Two modules sharing a ``tck_config`` from
+    a conftest are two groups pointing at one suite, which is exactly right.
+    """
+    return node.nodeid.partition("::")[0]
+
+
+class ReportEmitter:
+    """Collects outcomes for the session and writes one report per suite.
+
+    A plugin object rather than module-level hook functions because
+    ``pytest_runtest_logreport`` is handed a report and nothing else: the state
+    it has to reach has to come from somewhere, and an instance is a less
+    surprising somewhere than a module global.
+    """
+
+    def __init__(self, config: pytest.Config) -> None:
+        self.collector = ReportCollector()
+        config.stash[COLLECTOR_KEY] = self.collector
+
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
+        """Enumerate every TCK scenario the session collected.
+
+        At collection rather than as each runs, so that the document accounts for
+        scenarios that never got as far as running a fixture.
+        """
+        for item in items:
+            identity = scenario_identity(item)
+            if identity is not None:
+                self.collector.collect(item.nodeid, _group_of(item), identity)
+
+    def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
+        self.collector.observe(report.nodeid, _phase_outcome(report))
+
+    def pytest_sessionfinish(self, session: pytest.Session) -> None:
+        directory = os.environ.get(REPORT_DIR_ENV, "").strip()
+        if not directory:
+            return
+        self.write(session, Path(directory))
+
+    def write(self, session: pytest.Session, directory: Path) -> None:
+        """Write every suite's report, failing the session if one cannot be written.
+
+        A run that asked for a report and silently did not get one is how a
+        publishing pipeline ends up serving a stale result forever, so both a
+        write failure and an incomplete document are loud and change the exit
+        status rather than being logged and forgotten.
+        """
+        for problem in self.collector.resolve(classify_phase):
+            self._fail(session, f"provider-tck: {problem}")
+
+        written: dict[str, str] = {}
+        for suite in self.collector.suites:
+            name = suite.config.name
+            file_name = report_file_name(name)
+            if written.get(file_name, name) != name:
+                self._fail(
+                    session,
+                    f"provider-tck: suites {written[file_name]!r} and {name!r} both "
+                    f"write {file_name}; give them names that do not collide",
+                )
+                continue
+            written[file_name] = name
+
+            try:
+                path = write_report(directory, name, suite.build())
+            except OSError as error:
+                self._fail(
+                    session,
+                    f"provider-tck [{name}]: could not write the conformance report "
+                    f"to {directory}: {error}",
+                )
+                continue
+            counts = ", ".join(
+                f"{count} {outcome}"
+                for outcome, count in sorted(suite.counts().items())
+            )
+            self._say(
+                session, f"provider-tck [{name}]: report written to {path} ({counts})"
+            )
+
+    def _say(self, session: pytest.Session, message: str) -> None:
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+        if reporter is not None:
+            reporter.write_line(message)
+
+    def _fail(self, session: pytest.Session, message: str) -> None:
+        self._say(session, message)
+        session.exitstatus = pytest.ExitCode.INTERNAL_ERROR
+
+
+def _phase_outcome(report: pytest.TestReport) -> PhaseOutcome:
+    """Reduce a pytest phase report to what the conformance report needs."""
+    xfail_reason: str | None = getattr(report, "wasxfail", None)
+    message = _skip_reason(report) if report.skipped else _failure_reason(report)
+    return PhaseOutcome(
+        when=report.when or "",
+        outcome=report.outcome,
+        xfail_reason=xfail_reason,
+        message=message,
+        duration=report.duration,
+    )
+
+
+def classify_phase(
+    phase: PhaseOutcome, identity: ScenarioIdentity, config: TckConfig
+) -> tuple[Outcome, str] | None:
+    """Map one phase onto an outcome, or onto nothing.
+
+    Nothing is the answer for a setup or teardown that simply worked: it says
+    nothing about the scenario, and letting it speak would overwrite what the
+    call phase already established.
+    """
+    if phase.outcome == "skipped" and phase.xfail_reason is not None:
+        # An expected failure is still a failure. The provider did not satisfy
+        # the scenario, and a report calling it anything else would hide exactly
+        # the deviation the marker was added to keep visible.
+        return Outcome.FAILED, _reason(f"expected failure: {phase.xfail_reason}")
+    if phase.outcome == "failed":
+        return Outcome.FAILED, phase.message or "failed"
+    if phase.outcome == "skipped":
+        return _skipped(phase, identity, config)
+    if phase.when == "call":
+        return Outcome.PASSED, ""
+    return None
+
+
+def _skipped(
+    phase: PhaseOutcome, identity: ScenarioIdentity, config: TckConfig
+) -> tuple[Outcome, str]:
+    """Tell a capability skip apart from every other kind.
+
+    Decided from the scenario's tags and the suite's declared capabilities rather
+    than from the skip message, because the message is prose and the distinction
+    is not. Anything else that skipped a scenario -- a marker an adopter applied,
+    a step calling ``pytest.skip`` -- is reported as not applicable: it did not
+    run, and not because a capability was left undeclared.
+    """
+    undeclared = [
+        capability.tag
+        for capability in identity.capabilities()
+        if not config.declares(capability)
+    ]
+    if undeclared:
+        return Outcome.NOT_DECLARED, phase.message or (
+            f"provider does not declare {' '.join(undeclared)}"
+        )
+    return Outcome.NOT_APPLICABLE, phase.message or "skipped"
+
+
+def _skip_reason(report: pytest.TestReport) -> str:
+    longrepr = report.longrepr
+    if isinstance(longrepr, tuple) and len(longrepr) == 3:
+        return _reason(str(longrepr[2]).removeprefix("Skipped: "))
+    return _reason(str(longrepr)) if longrepr else ""
+
+
+def _failure_reason(report: pytest.TestReport) -> str:
+    message = getattr(getattr(report.longrepr, "reprcrash", None), "message", "")
+    if not message:
+        message = str(report.longrepr) if report.longrepr else ""
+    return _reason(message)
+
+
+def _reason(message: str) -> str:
+    collapsed = " ".join(message.split())
+    if len(collapsed) <= _MAX_REASON:
+        return collapsed
+    return collapsed[: _MAX_REASON - 1].rstrip() + "…"
+
+
+def observe_provider_name(
+    config: pytest.Config, tck_config: TckConfig, provider_name: str | None
+) -> None:
+    """Record what the provider called itself, for the suite the run is in.
+
+    The provider's own metadata name rather than the suite name, because the two
+    answer different questions: the suite name is chosen to read well in a
+    failure message, which makes it the configuration and it is reported as one.
+    """
+    collector: ReportCollector | None = config.stash.get(COLLECTOR_KEY, None)
+    if collector is not None and provider_name:
+        collector.suite_for(tck_config).observe_provider_name(provider_name)
+
+
+def bind_scenario(request: pytest.FixtureRequest) -> None:
+    """Tell the collector which suite this scenario's module is testing.
+
+    Called from an autouse fixture that the capability gate depends on, so that a
+    scenario the gate stops has still contributed its suite. Only one scenario of
+    a module has to get this far, but the gate skips whole capabilities at a
+    time, and a module all of whose scenarios were skipped would otherwise have
+    no report to be written to.
+    """
+    collector: ReportCollector | None = request.config.stash.get(COLLECTOR_KEY, None)
+    if collector is None or scenario_identity(request.node) is None:
+        # Checked before asking for the config so that a test which is not a TCK
+        # scenario instantiates nothing, which is the same bargain the capability
+        # gate makes.
+        return
+    try:
+        tck_config = typing.cast(TckConfig, request.getfixturevalue("tck_config"))
+    except pytest.FixtureLookupError:
+        return
+    collector.bind(request.node.nodeid, tck_config)

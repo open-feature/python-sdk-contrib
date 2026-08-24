@@ -62,15 +62,19 @@ from .provider import (
     ControllableInMemoryProvider,
     canonical_flag_set,
 )
+from .report import REPORT_DIR_ENV, SCHEMA_VERSION, Outcome
 
 __all__ = [
     "ALL_CAPABILITIES",
     "CHANGING_FLAG_KEY",
+    "REPORT_DIR_ENV",
+    "SCHEMA_VERSION",
     "BackendControl",
     "Capability",
     "ConnectionControl",
     "ControllableInMemoryProvider",
     "InProcessControl",
+    "Outcome",
     "TckConfig",
     "UnsupportedControlError",
     "canonical_flag_set",

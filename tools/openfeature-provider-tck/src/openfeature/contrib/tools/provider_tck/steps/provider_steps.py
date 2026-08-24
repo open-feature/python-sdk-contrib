@@ -30,6 +30,7 @@ def a_stable_provider(tck_state: TckState) -> None:
     if provider is None:
         msg = "TckConfig.new_provider returned None"
         raise AssertionError(msg)
+    _observe_metadata_name(tck_state, provider)
 
     try:
         _set_provider_within(provider, config.domain, config.ready_timeout)
@@ -79,6 +80,7 @@ def an_unavailable_provider(tck_state: TckState) -> None:
     if provider is None:
         msg = "TckConfig.new_unavailable_provider returned None"
         raise AssertionError(msg)
+    _observe_metadata_name(tck_state, provider)
 
     # A raising initialize is already converted to PROVIDER_ERROR by the SDK's
     # registry, so this is belt and braces: a provider that raises anyway must
@@ -88,6 +90,21 @@ def an_unavailable_provider(tck_state: TckState) -> None:
         api.set_provider(provider, config.domain)
 
     tck_state.client = api.get_client(config.domain)
+
+
+def _observe_metadata_name(tck_state: TckState, provider: FeatureProvider) -> None:
+    """Note what the provider calls itself, for the conformance report.
+
+    Before registration rather than after, so that a provider which fails to
+    initialise -- the ``@unavailable`` case, and any genuine failure -- is still
+    identified in the report by its own name. Metadata is a pure accessor by
+    contract, but a provider that raises from it must not take the scenario down
+    with it: the name is for a report, and no scenario asserts on it.
+    """
+    with contextlib.suppress(Exception):
+        name = provider.get_metadata().name
+        if name:
+            tck_state.provider_name = name
 
 
 def _set_provider_within(
