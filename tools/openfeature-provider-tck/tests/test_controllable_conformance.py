@@ -33,6 +33,11 @@ def tck_config() -> TckConfig:
     connection to lose, and ``InProcessControl`` does not implement
     ``ConnectionControl``. ``CONFIGURATION_CHANGE`` is what this suite adds over
     the plain in-memory one, and it is the whole point of it.
+
+    ``LIFECYCLE`` stays undeclared for the same reason as in
+    ``test_in_memory_conformance``: there is no backend to reach during
+    initialisation, so the readiness scenario would pass here without testing
+    anything. It did exactly that while the feature was gated on ``@events``.
     """
     control = InProcessControl()
     return TckConfig(

@@ -25,6 +25,27 @@ class Capability(str, Enum):
     Scenarios with no capability tag are mandatory and always run.
     """
 
+    LIFECYCLE = "lifecycle"
+    """Provider reaches its backend during initialisation, observably and promptly.
+
+    Deliberately separate from :attr:`EVENTS`, because the two are independent in
+    both directions.
+
+    An SDK dispatches ``PROVIDER_READY`` around ``initialize`` for *any*
+    provider, so a provider that declares ``EVENTS`` passes the readiness
+    scenario without demonstrating anything -- a ``NoOpProvider`` passes it
+    identically. Gating on ``EVENTS`` therefore made the scenario vacuous for
+    exactly the providers that declared it.
+
+    Conversely a stateless provider -- one that resolves every flag with a fresh
+    request and holds nothing between them -- has a real initialisation to
+    verify while having no event stream of its own to declare ``EVENTS`` for.
+    Gating on ``EVENTS`` shut it out of a scenario it should be held to.
+
+    Declare it if initialisation actually contacts the backend and its outcome,
+    success or failure, is observable to the application.
+    """
+
     EVENTS = "events"
     """Provider emits lifecycle events at all, at minimum ``PROVIDER_READY``."""
 
