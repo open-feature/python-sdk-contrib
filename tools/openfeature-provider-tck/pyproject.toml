@@ -42,8 +42,25 @@ dev = [
   "poethepoet>=0.37.0",
 ]
 
+[tool.hatch.build.targets.sdist]
+# The conformance assets are gitignored copies of the spec submodule; the build
+# hook force-includes them so an sdist builds into a wheel without a submodule.
+force-include = {}
+# Which is why the submodule itself has no business in the sdist: it is the whole
+# spec repository, and only the copies of the four assets are needed downstream.
+exclude = ["/spec"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/openfeature"]
+# Ship the conformance assets even though they are gitignored: an adopter
+# installing this package must need no submodule of their own.
+artifacts = [
+    "src/openfeature/contrib/tools/provider_tck/features/",
+    "src/openfeature/contrib/tools/provider_tck/flag_data/",
+    "src/openfeature/contrib/tools/provider_tck/control-api.yaml",
+]
+
+[tool.hatch.build.hooks.custom]
 
 [tool.mypy]
 mypy_path = "src"
@@ -62,8 +79,9 @@ disallow_any_generics = false
 omit = ["tests/**"]
 
 [tool.poe.tasks]
-test = "pytest tests"
-test-cov = "coverage run -m pytest tests"
+sync-spec-assets = "python hatch_build_sync.py"
+test = ["sync-spec-assets", {cmd = "pytest tests"}]
+test-cov = ["sync-spec-assets", {cmd = "coverage run -m pytest tests"}]
 cov-report = "coverage xml"
 cov = ["test-cov", "cov-report"]
 mypy = "mypy"

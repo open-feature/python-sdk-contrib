@@ -7,3 +7,6 @@
 [submodule "providers/openfeature-provider-flagd/openfeature/test-harness"]
 	path = providers/openfeature-provider-flagd/openfeature/test-harness
 	url = https://github.com/open-feature/flagd-testbed.git
+[submodule "tools/openfeature-provider-tck/spec"]
+	path = tools/openfeature-provider-tck/spec
+	url = https://github.com/open-feature/spec
