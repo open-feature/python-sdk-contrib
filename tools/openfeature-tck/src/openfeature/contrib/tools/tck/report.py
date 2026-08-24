@@ -129,6 +129,13 @@ class ScenarioIdentity:
     feature: str
     name: str
     tags: tuple[str, ...]
+    example: tuple[tuple[str, str], ...] = ()
+    """The Examples row, as header/cell pairs, for a scenario from an outline.
+
+    Pairs rather than a mapping so that this stays hashable and ordered: the
+    order is the feature file's column order, and the report carries it through
+    rather than imposing one of its own.
+    """
 
     def capabilities(self) -> tuple[Capability, ...]:
         """The capabilities this scenario's tags gate it behind."""
@@ -146,6 +153,10 @@ class ScenarioRecord:
     name: str
     tags: tuple[str, ...]
     outcome: Outcome
+    example: tuple[tuple[str, str], ...] = ()
+    """The Examples row this entry came from; empty for a scenario that is not
+    an outline, in which case the field is omitted rather than emitted empty."""
+
     reason: str = ""
     duration_ms: float = 0.0
 
@@ -155,6 +166,8 @@ class ScenarioRecord:
             "name": self.name,
             "outcome": self.outcome.value,
         }
+        if self.example:
+            document["example"] = dict(self.example)
         if self.tags:
             document["tags"] = list(self.tags)
         if self.reason:
@@ -217,6 +230,7 @@ class SuiteReport:
                 name=identity.name,
                 tags=identity.tags,
                 outcome=outcome,
+                example=identity.example,
                 reason=reason,
             )
             return
@@ -229,7 +243,12 @@ class SuiteReport:
     def sorted_records(self) -> list[ScenarioRecord]:
         for node_id, record in self.records.items():
             record.duration_ms = self.durations.get(node_id, 0.0)
-        return sorted(self.records.values(), key=lambda r: (r.feature, r.name))
+        # Sorted by the whole identity, example included, so that two rows of one
+        # outline come out in a stable order rather than in whichever order the
+        # dictionary happened to be filled.
+        return sorted(
+            self.records.values(), key=lambda r: (r.feature, r.name, r.example)
+        )
 
     def counts(self) -> dict[str, int]:
         """Outcome tallies, for a log line and for the tests that check them."""

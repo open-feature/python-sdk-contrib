@@ -38,6 +38,15 @@ __all__ = ["COLLECTOR_KEY", "ReportEmitter", "classify_phase", "scenario_identit
 COLLECTOR_KEY = pytest.StashKey[ReportCollector]()
 """Where the session's collector lives, so a fixture can reach it from a request."""
 
+_EXAMPLE_PARAM = "_pytest_bdd_example"
+"""The parameter pytest-bdd renders a Scenario Outline over.
+
+An implementation detail of pytest-bdd, named here rather than spelled inline so
+that a version bump that renames it fails in one place. The alternative -- asking
+the scenario template for its examples -- would have to work out which row *this*
+node is, which is the question the callspec already answers.
+"""
+
 _MAX_REASON = 500
 """How much of a failure message the report carries.
 
@@ -68,22 +77,43 @@ def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
 
     return ScenarioIdentity(
         feature=Path(str(getattr(feature, "filename", ""))).stem,
-        name=_scenario_name(node, str(getattr(scenario, "name", ""))),
+        name=str(getattr(scenario, "name", "")),
+        example=_example_of(node),
         tags=normalise_tags(tags),
     )
 
 
-def _scenario_name(node: pytest.Item, name: str) -> str:
-    """Qualify a Scenario Outline's name with the example row that ran.
+def _example_of(node: pytest.Item) -> tuple[tuple[str, str], ...]:
+    """The Examples row this node came from, keyed by column header.
 
-    Every row of an outline shares one scenario name, so a report using the name
-    alone would carry several entries a consumer cannot tell apart -- and in this
-    suite one row of an outline genuinely differs in outcome from its siblings.
-    The schema has nowhere to put the row, so it goes in the name, in the form
-    pytest already uses to select one: ``... [boolean-flag-Integer-1]``.
+    Every row of a Scenario Outline shares one scenario name, so the row is what
+    tells eleven otherwise identical entries apart -- and in this suite one row
+    of the type-mismatch matrix genuinely differs in outcome from its ten
+    siblings. The row goes in its own field rather than into a mangled name
+    because the parameters *are* the identity and they come from the feature
+    file, whereas a name format would be a rule about this runner: pytest-bdd's
+    own id for the row above is ``boolean-flag-Integer-1``, which no other
+    language's runner has any reason to reproduce.
+
+    pytest-bdd renders an outline by parametrizing the generated test over one
+    dict per row, keyed by the Examples column header, and pytest hangs it on the
+    node's callspec. A scenario that is not an outline is not parametrized and
+    has no callspec at all, which is why the empty tuple -- and therefore an
+    omitted field -- is the answer for one.
+
+    Values are passed through as the parser produced them: Gherkin cells are
+    strings, and the report says what the table said rather than guessing that
+    ``1`` was meant as a number.
     """
-    example_id = getattr(getattr(node, "callspec", None), "id", "")
-    return f"{name} [{example_id}]" if example_id else name
+    params = getattr(getattr(node, "callspec", None), "params", None)
+    if not isinstance(params, dict):
+        return ()
+    row = params.get(_EXAMPLE_PARAM)
+    if not isinstance(row, dict):
+        return ()
+    # Column order, as the feature file wrote it, because dicts preserve
+    # insertion order and pytest-bdd builds this one from the header row.
+    return tuple((str(header), str(cell)) for header, cell in row.items())
 
 
 def _group_of(node: pytest.Item) -> str:
