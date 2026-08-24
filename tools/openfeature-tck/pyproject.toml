@@ -69,6 +69,10 @@ artifacts = [
     "src/openfeature/contrib/tools/tck/gherkin/",
     "src/openfeature/contrib/tools/tck/flag_data/",
     "src/openfeature/contrib/tools/tck/control-api.yaml",
+    # Which spec revision those assets came from, generated beside them. The
+    # submodule is not in the wheel, so a conformance report emitted by an
+    # installed copy has no other way to name the revision it ran against.
+    "src/openfeature/contrib/tools/tck/spec_revision.json",
 ]
 
 [tool.hatch.build.hooks.custom]
