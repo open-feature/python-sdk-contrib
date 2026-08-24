@@ -74,6 +74,7 @@ def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
     rule = getattr(scenario, "rule", None)
     if rule is not None:
         tags |= set(getattr(rule, "tags", None) or ())
+    tags |= _examples_tags(node, scenario)
 
     return ScenarioIdentity(
         feature=Path(str(getattr(feature, "filename", ""))).stem,
@@ -81,6 +82,35 @@ def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
         example=_example_of(node),
         tags=normalise_tags(tags),
     )
+
+
+def _examples_tags(node: pytest.Item, scenario: object) -> set[str]:
+    """The tags of the Examples block *this row* came from.
+
+    Gherkin allows an Examples block to carry its own tags, so two rows of one
+    Scenario Outline can differ in which capability gates them. Those tags are not
+    on the scenario, the feature or the rule, so a report built from those three
+    alone would show a row the capability gate skipped as carrying no capability
+    at all -- and it would then be classified ``not-applicable`` rather than
+    ``not-declared``, which is precisely the distinction Appendix F asks a report
+    to keep. It would also not count towards the capability rollup.
+
+    Resolved by intersecting the tags the scenario's Examples blocks declare with
+    the markers pytest actually put on this node: pytest-bdd attaches an Examples
+    block's tags as marks on that block's parameter sets, so the intersection
+    names this row's blocks without having to work out which block a row came
+    from, and admits nothing that is not a Gherkin tag of this scenario.
+
+    No canonical feature file uses per-Examples tags today, so this is latent --
+    but it is latent in the direction of under-reporting a skip, which is the one
+    failure mode the format exists to rule out.
+    """
+    declared: set[str] = set()
+    for examples in getattr(scenario, "examples", None) or ():
+        declared |= set(getattr(examples, "tags", None) or ())
+    if not declared:
+        return set()
+    return declared & {marker.name for marker in node.iter_markers()}
 
 
 def _example_of(node: pytest.Item) -> tuple[tuple[str, str], ...]:
