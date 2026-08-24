@@ -87,6 +87,7 @@ SKIPPED provider does not declare capability @stale.
 
 | Capability | Tag | Meaning |
 | --- | --- | --- |
+| `Capability.LIFECYCLE` | `@lifecycle` | reaches its backend during initialisation, observably and promptly |
 | `Capability.EVENTS` | `@events` | emits lifecycle events at all |
 | `Capability.STALE` | `@stale` | enters `STALE` and emits `PROVIDER_STALE` on backend loss |
 | `Capability.CONFIGURATION_CHANGE` | `@configuration-change` | detects configuration changes and emits `PROVIDER_CONFIGURATION_CHANGED` |
@@ -95,6 +96,13 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.STRICT_NUMERIC_TYPING` | `@strict-numeric-typing` | does not coerce between integer and float |
 | `Capability.TARGETING` | `@targeting` | reserved; no scenarios yet |
 | `Capability.CACHING` | `@caching` | reserved; no scenarios yet |
+
+`@lifecycle` and `@events` are deliberately separate, and the split matters in both directions. An
+SDK dispatches `PROVIDER_READY` around `initialize` for *any* provider, so a provider declaring only
+`@events` passes the readiness scenario without demonstrating anything — a `NoOpProvider` passes it
+identically. Meanwhile a stateless provider has a real initialisation to verify but no event stream
+of its own to declare `@events` for, and gating on `@events` shut it out of a scenario it should be
+held to.
 
 Untagged scenarios are mandatory and always run. `capabilities` defaults to everything — narrow it
 rather than widening it: start from the default, run the suite, and remove only what your provider
@@ -205,10 +213,14 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
 
 ```
-56 passed, 7 skipped, 2 xfailed
+54 passed, 9 skipped, 2 xfailed
 ```
 
 No Docker, no network, under a second.
+
+Neither in-memory suite declares `@lifecycle`, so the three lifecycle scenarios are skipped in both.
+That is the point: with no backend to reach, they would pass without testing anything — which is
+what they did while the feature was gated on `@events`.
 
 ## Known gaps
 
