@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import contextlib
 
 from pytest_bdd import given, parsers
 
 from openfeature import api
+from openfeature.provider import FeatureProvider
 
 from ..state import TckState
 
@@ -30,7 +32,14 @@ def a_stable_provider(tck_state: TckState) -> None:
         raise AssertionError(msg)
 
     try:
-        api.set_provider(provider, config.domain)
+        _set_provider_within(provider, config.domain, config.ready_timeout)
+    except TimeoutError:
+        msg = (
+            f"the provider did not become ready within {config.ready_timeout}s. The backend "
+            f"is up and seeded at this point, so either initialisation is genuinely hanging "
+            f"or TckConfig.ready_timeout is too short"
+        )
+        raise AssertionError(msg) from None
     except Exception as exc:
         msg = (
             f"registering the provider raised {exc!r}. The backend is up and seeded "
@@ -79,3 +88,27 @@ def an_unavailable_provider(tck_state: TckState) -> None:
         api.set_provider(provider, config.domain)
 
     tck_state.client = api.get_client(config.domain)
+
+
+def _set_provider_within(
+    provider: FeatureProvider, domain: str, timeout: float
+) -> None:
+    """Register a provider, giving up if initialisation has not returned in time.
+
+    ``api.set_provider`` initialises synchronously and has no timeout of its own, so a
+    provider that hangs while connecting would hang the whole session with no useful
+    message. Running it on a worker thread bounds it.
+
+    The worker is deliberately not cancelled on timeout -- Python cannot interrupt a
+    thread blocked in a socket call -- so it is left to finish or die with the process.
+    That is acceptable here because a timeout already means the scenario is failing.
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(api.set_provider, provider, domain)
+        try:
+            future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError from None
+        finally:
+            # Do not block __exit__ on a worker that is still stuck.
+            pool.shutdown(wait=False)
