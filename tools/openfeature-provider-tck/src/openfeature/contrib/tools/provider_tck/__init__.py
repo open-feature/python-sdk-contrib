@@ -81,13 +81,22 @@ __all__ = [
 
 # NOTE ON THE SOURCE OF TRUTH
 #
-# The files under features/ and flag_data/ are NOT owned by this repository.
-# They are copies of the language-agnostic conformance artifacts defined in
-# open-feature/spec under specification/assets/provider-tck/. They are vendored
-# here so adopting this TCK never requires a git submodule of your own. Changes
-# belong in open-feature/spec first and are copied here -- editing them locally
-# forks the definition of conformance, which is the one thing this suite exists
-# to prevent. See https://github.com/open-feature/spec/issues/417.
+# The files under features/ and flag_data/, and control-api.yaml, are NOT owned
+# by this repository and are NOT committed to it. They are copies of the
+# language-agnostic conformance artifacts defined in open-feature/spec under
+# specification/assets/provider-tck/, which reaches this package as a git
+# submodule at tools/openfeature-provider-tck/spec and is copied in at build
+# time by hatch_build.py. The copies are gitignored, so the only record of which
+# spec revision this package targets is the submodule pin, and the two cannot
+# drift apart unnoticed.
+#
+# They are copied into the distribution, so an adopter installing this package
+# needs no submodule of their own; only a contributor to this package does.
+#
+# Changes belong in open-feature/spec first, followed by a bump of the submodule
+# pin -- editing the copies locally forks the definition of conformance, which is
+# the one thing this suite exists to prevent.
+# See https://github.com/open-feature/spec/issues/417.
 
 _PACKAGE = "openfeature.contrib.tools.provider_tck"
 
