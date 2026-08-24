@@ -92,7 +92,11 @@ def values_equal(expected: typing.Any, actual: typing.Any) -> bool:
     # rule would make True == 1 and quietly satisfy the scenario that exists to
     # catch exactly that confusion.
     if isinstance(expected, bool) or isinstance(actual, bool):
-        return isinstance(expected, bool) and isinstance(actual, bool) and expected == actual
+        return (
+            isinstance(expected, bool)
+            and isinstance(actual, bool)
+            and expected == actual
+        )
 
     expected_number = _as_number(expected)
     if expected_number is not None:
