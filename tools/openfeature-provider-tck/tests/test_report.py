@@ -116,6 +116,64 @@ def pytest_collection_modifyitems(items):
 """
 
 
+# A Scenario Outline whose second Examples block carries a tag of its own, which
+# no canonical feature file does yet. Written here so that the one case where two
+# rows of an outline are gated differently is covered.
+_TAGGED_FEATURE = """\
+Feature: Per-Examples tags
+
+  Background:
+    Given a stable provider
+
+  Scenario Outline: Requesting the wrong type returns the code default
+    Given a <requested>-flag with key "<key>" and a default value "<default>"
+    When the flag was evaluated with details
+    Then the resolved details value should be "<default>"
+    And the reason should be "ERROR"
+    And the error-code should be "TYPE_MISMATCH"
+    And no exception should have been thrown
+
+    Examples: ungated
+      | key         | requested | default |
+      | string-flag | Boolean   | false   |
+      | string-flag | Integer   | 1       |
+
+    @object
+    Examples: gated behind a capability this suite does not declare
+      | key         | requested | default |
+      | string-flag | Float     | 0.1     |
+"""
+
+_TAGGED_SUITE = '''\
+"""A suite over the feature file beside it, which tags one Examples block."""
+
+import pathlib
+
+import pytest
+from pytest_bdd import scenarios
+
+from openfeature.contrib.tools.provider_tck import (
+    Capability,
+    InProcessControl,
+    TckConfig,
+)
+
+
+@pytest.fixture(scope="session")
+def tck_config():
+    control = InProcessControl()
+    return TckConfig(
+        name="per-examples",
+        control=control,
+        new_provider=control.new_provider,
+        capabilities={Capability.EVENTS},
+    )
+
+
+scenarios(str(pathlib.Path(__file__).parent))
+'''
+
+
 @dataclasses.dataclass(frozen=True)
 class Run:
     """One subprocess run of the generated suite."""
@@ -439,6 +497,46 @@ def test_a_capability_skipped_outline_row_still_carries_its_example(
         assert row.get("example"), f"a skipped outline row must say which row: {row}"
     assert sorted(map(sorted, (row["example"].items() for row in rows))) == sorted(
         map(sorted, (e.items() for e in expected))
+    )
+
+
+def test_a_row_gated_by_its_examples_block_is_a_capability_skip(
+    tmp_path: Path,
+) -> None:
+    """Gherkin lets one Examples block of an outline carry its own tags.
+
+    Two rows of one Scenario Outline can therefore differ in which capability
+    gates them. Those tags are on neither the scenario, the feature nor the rule,
+    and a report that read only those three would show the skipped row as
+    carrying no capability -- reporting a capability skip as ``not-applicable``,
+    which is exactly the distinction Appendix F asks a report to keep, and
+    leaving the capability out of the rollup.
+
+    No canonical feature file does this yet, so the feature file is written here.
+    """
+    directory = tmp_path / "suite"
+    directory.mkdir(parents=True)
+    (directory / "tagged.feature").write_text(_TAGGED_FEATURE, encoding="utf-8")
+    (directory / "test_tagged.py").write_text(_TAGGED_SUITE, encoding="utf-8")
+
+    reports = tmp_path / "reports"
+    result = _pytest(str(directory), report_dir=reports)
+    path = reports / "per-examples.json"
+    assert path.exists(), f"pytest exited {result.returncode}\n{result.stdout}"
+
+    document = json.loads(path.read_text(encoding="utf-8"))
+    by_row = {row["example"]["requested"]: row for row in document["scenarios"]}
+    # Every row is still reported: nothing about gating one row of an outline may
+    # drop its siblings from the document.
+    assert set(by_row) == {"Boolean", "Integer", "Float"}, document["scenarios"]
+    assert by_row["Boolean"]["outcome"] == Outcome.PASSED.value
+    assert by_row["Integer"]["outcome"] == Outcome.PASSED.value
+
+    gated = by_row["Float"]
+    assert gated["outcome"] == Outcome.NOT_DECLARED.value, gated
+    assert gated["tags"] == [Capability.OBJECT.tag], gated
+    assert document["capabilities"][Capability.OBJECT.tag]["state"] == (
+        Outcome.NOT_DECLARED.value
     )
 
 
