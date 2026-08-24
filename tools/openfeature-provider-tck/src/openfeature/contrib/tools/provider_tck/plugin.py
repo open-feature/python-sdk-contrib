@@ -30,6 +30,7 @@ pytest_plugins = [
     "openfeature.contrib.tools.provider_tck.steps.event_steps",
 ]
 
+
 def pytest_configure(config: pytest.Config) -> None:
     """Register the capability tags as markers.
 
