@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass, field
 
 from openfeature.provider import FeatureProvider
@@ -79,8 +79,13 @@ class TckConfig:
     skipped with the reason reported.
     """
 
-    capabilities: frozenset[Capability] = field(default=ALL_CAPABILITIES)
+    capabilities: Collection[Capability] = field(default=ALL_CAPABILITIES)
     """Which optional parts of the provider contract this provider supports.
+
+    Typed as a ``Collection`` rather than a ``frozenset`` so that the obvious
+    thing to write -- a set literal, which is what the README shows -- is also
+    the correctly typed thing to write. It is normalised to a frozenset on
+    construction, so a list, a set or a generator all behave identically.
 
     Scenarios tagged with an undeclared capability are reported as skipped with
     the reason, never as passed. Defaults to everything; narrow it rather than
