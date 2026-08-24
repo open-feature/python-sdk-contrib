@@ -60,7 +60,8 @@ writing test infrastructure, that is a defect here rather than something for you
 
 pytest-bdd generates one test per scenario — and one per row of a Scenario Outline — so failures
 name a scenario and `-k` selects one as usual. The feature files and canonical flag set are packaged
-with the distribution, so **you need no git submodule**.
+inside the distribution, so **adopting this package needs no git submodule** — see
+[Where the assets come from](#where-the-assets-come-from).
 
 ### Timings
 
@@ -168,6 +169,33 @@ Only half the machinery is missing — `AbstractProvider` already supplies
 `emit_provider_configuration_changed` — which is why `ControllableInMemoryProvider` here is a small
 subclass rather than a reimplementation, and why it should port back to the SDK as a method.
 
+## Where the assets come from
+
+The Gherkin feature files, the canonical flag set and the control-API document are **not owned by
+this repository**. They are the language-agnostic conformance artifacts defined in
+[open-feature/spec][spec] under `specification/assets/provider-tck/`, and every language's TCK ships
+the same ones — which is the only reason a conformance claim means the same thing in Python as it
+does in Java.
+
+**Adopting this package needs no submodule.** The assets are copied into the wheel and the sdist at
+build time, so `pip install openfeature-provider-tck` gives you everything the suite runs on.
+
+**Contributing to this package does.** The spec is a git submodule at
+`tools/openfeature-provider-tck/spec`, and the copies under
+`src/openfeature/contrib/tools/provider_tck/` are gitignored and generated:
+
+```bash
+git submodule update --init tools/openfeature-provider-tck/spec
+poe test   # runs `poe sync-spec-assets` first
+```
+
+The copies carry a `DO-NOT-EDIT.txt` because editing them forks the definition of conformance, which
+is the one thing this suite exists to prevent. A change goes to [open-feature/spec][spec] first;
+then bump the submodule pin here. Committing no copies means the spec revision this package targets
+is recorded by the pin and nowhere else, so the two cannot drift apart unnoticed.
+
+This mirrors what `openfeature-flagd-api-testkit` already does for the flagd test harness.
+
 ## The self-tests
 
 | Suite | Subject | Why |
@@ -184,10 +212,6 @@ No Docker, no network, under a second.
 
 ## Known gaps
 
-- **The assets are vendored, not submoduled.** `features/` and `flag_data/` are copies of
-  `specification/assets/provider-tck/` in [open-feature/spec][spec]. Changes belong there and are
-  copied here; a follow-up will source them from a submodule at build time, as
-  `openfeature-flagd-api-testkit` already does for the flagd test harness.
 - **Evaluation context passthrough is unverifiable.** The scenarios build evaluation contexts but
   cannot assert one *reached* the backend. That needs an echo operation on the control API.
 - **No HTTP control client yet.** It arrives with the first containerised adopter.
