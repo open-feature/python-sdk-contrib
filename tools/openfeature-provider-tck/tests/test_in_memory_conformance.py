@@ -85,6 +85,14 @@ def tck_config() -> TckConfig:
       operation the control cannot perform.
     * ``TARGETING`` and ``CACHING`` -- omitted because no scenario carries their
       tags yet, so leaving them out skips nothing.
+    * ``LIFECYCLE`` -- omitted because there is no backend to reach. The
+      capability asserts that initialisation actually contacts a backend and
+      that the outcome is observable; this provider's ``initialize`` is a no-op
+      and the SDK dispatches ``PROVIDER_READY`` around it regardless, so the
+      readiness scenario would pass here without testing anything. It passed
+      vacuously while the feature was gated on ``EVENTS``, which is precisely
+      the failure mode the split of ``@lifecycle`` from ``@events`` exists to
+      end. A skip with a reason is the honest outcome.
     """
     return TckConfig(
         name="in-memory",
