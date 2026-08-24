@@ -316,15 +316,31 @@ class SuiteReport:
         not declare it -- in which case the reason says so, because "this
         provider does not support configuration-change events" is exactly what
         someone comparing providers came to find out.
+
+        A capability the provider declared and *no scenario carries* is omitted
+        rather than reported. ``@targeting`` is reserved: it exists in the
+        vocabulary but nothing tests it, because asserting that an evaluation
+        context reached the backend needs an echo operation the control API does
+        not have. Reporting it as passed would be a green result for a claim
+        nothing examined -- the vacuous pass the capability vocabulary exists to
+        eliminate, arriving through the report rather than through the suite.
+        Omitting beats inventing a fifth outcome: the four the schema allows are
+        about what the provider did, and "the suite does not test this" is a fact
+        about the suite.
         """
-        failed: set[Capability] = set()
+        # Counted rather than flagged, so that a failure can say how much of what
+        # failed, and so that "no scenario exercises this at all" is a case the
+        # rollup can see rather than one it silently reads as success.
+        exercised: dict[Capability, int] = {}
+        failed: dict[Capability, int] = {}
         for record in records:
-            if record.outcome is not Outcome.FAILED:
-                continue
             for tag in record.tags:
                 capability = capability_for_tag(tag)
-                if capability is not None:
-                    failed.add(capability)
+                if capability is None:
+                    continue
+                exercised[capability] = exercised.get(capability, 0) + 1
+                if record.outcome is Outcome.FAILED:
+                    failed[capability] = failed.get(capability, 0) + 1
 
         capabilities: dict[str, dict[str, typing.Any]] = {}
         for capability in Capability:
@@ -337,10 +353,16 @@ class SuiteReport:
                         f"contribute to this result"
                     ),
                 }
-            elif capability in failed:
+            elif not exercised.get(capability):
+                continue
+            elif failed.get(capability):
                 capabilities[capability.tag] = {
                     "state": Outcome.FAILED.value,
-                    "reason": f"at least one {capability.tag} scenario failed",
+                    "reason": (
+                        f"{failed[capability]} of {exercised[capability]} scenarios "
+                        f"carrying {capability.tag} failed; the per-scenario results "
+                        f"say which, and why"
+                    ),
                 }
             else:
                 capabilities[capability.tag] = {"state": Outcome.PASSED.value}
