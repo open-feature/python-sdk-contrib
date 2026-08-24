@@ -96,7 +96,9 @@ class ConnectionControl(typing.Protocol):
         """
 
 
-def unsupported_control(control: BackendControl, operation: str) -> UnsupportedControlError:
+def unsupported_control(
+    control: BackendControl, operation: str
+) -> UnsupportedControlError:
     """Build the error raised when a backend has no connection to control.
 
     The message names the fix, because the mistake it reports is always the same

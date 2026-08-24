@@ -88,7 +88,11 @@ def the_resolved_value_should_be(tck_state: TckState, expected: str) -> None:
     wanted = parse_value(flag_type, expected)
 
     if not values_equal(wanted, record.value):
-        detail = f" (the client also reported: {record.error_message})" if record.error_message else ""
+        detail = (
+            f" (the client also reported: {record.error_message})"
+            if record.error_message
+            else ""
+        )
         msg = (
             f"flag {tck_state.flag_key!r} resolved to {describe(record.value)}, "
             f"expected {describe(wanted)}{detail}"
@@ -187,9 +191,7 @@ def the_resolved_object_value_should_contain(
             raise AssertionError(msg)
         actual = record.value[key]
         if not values_equal(wanted, actual):
-            msg = (
-                f"object member {key!r} was {describe(actual)}, expected {describe(wanted)}"
-            )
+            msg = f"object member {key!r} was {describe(actual)}, expected {describe(wanted)}"
             raise AssertionError(msg)
 
 

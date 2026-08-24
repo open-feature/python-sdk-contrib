@@ -20,7 +20,9 @@ from __future__ import annotations
 import pytest
 
 # The Scenario Outline row that asks for boolean-flag as an Integer.
-_BOOL_AS_INT = "test_requesting_the_wrong_type_returns_the_code_default[boolean-flag-Integer-1]"
+_BOOL_AS_INT = (
+    "test_requesting_the_wrong_type_returns_the_code_default[boolean-flag-Integer-1]"
+)
 
 _REASON = (
     "python-sdk: a boolean satisfies an Integer request. The client type-checks with "
