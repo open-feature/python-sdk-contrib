@@ -99,6 +99,15 @@
       "extra-files": [
         "README.md"
       ]
+    },
+    "tools/openfeature-provider-tck": {
+      "package-name": "openfeature-provider-tck",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "versioning": "default",
+      "extra-files": [
+        "README.md"
+      ]
     }
   },
   "changelog-sections": [

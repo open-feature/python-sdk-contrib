@@ -16,6 +16,7 @@ dependencies = [
     "openfeature-flagd-api",
     "openfeature-flagd-core",
     "openfeature-flagd-api-testkit",
+    "openfeature-provider-tck",
 ]
 
 [dependency-groups]
@@ -43,6 +44,7 @@ openfeature-provider-unleash = { workspace = true }
 openfeature-flagd-api = { workspace = true }
 openfeature-flagd-core = { workspace = true }
 openfeature-flagd-api-testkit = { workspace = true }
+openfeature-provider-tck = { workspace = true }
 
 [tool.uv.workspace]
 members = [
