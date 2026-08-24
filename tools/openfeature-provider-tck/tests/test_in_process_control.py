@@ -75,7 +75,9 @@ def test_change_does_not_leak_into_the_next_scenario() -> None:
     baseline = _resolve_changing(first)
 
     control.change_flag()
-    assert _resolve_changing(first) != baseline, "precondition: change_flag had no effect"
+    assert _resolve_changing(first) != baseline, (
+        "precondition: change_flag had no effect"
+    )
 
     control.prepare_scenario()
 

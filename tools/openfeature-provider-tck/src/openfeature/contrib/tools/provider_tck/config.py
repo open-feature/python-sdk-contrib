@@ -118,7 +118,9 @@ class TckConfig:
                 "fits your provider"
             )
         if self.new_provider is None:
-            problems.append("new_provider is required: the TCK has nothing to test without it")
+            problems.append(
+                "new_provider is required: the TCK has nothing to test without it"
+            )
 
         # Normalise whatever iterable the caller passed into a frozenset, so a
         # set literal, a list or a generator all behave the same.
@@ -131,7 +133,10 @@ class TckConfig:
                 f"the Capability enum"
             )
 
-        if Capability.UNAVAILABLE_INIT in self.capabilities and self.new_unavailable_provider is None:
+        if (
+            Capability.UNAVAILABLE_INIT in self.capabilities
+            and self.new_unavailable_provider is None
+        ):
             problems.append(
                 "capabilities declares Capability.UNAVAILABLE_INIT but "
                 "new_unavailable_provider is None: the @unavailable scenarios need a "

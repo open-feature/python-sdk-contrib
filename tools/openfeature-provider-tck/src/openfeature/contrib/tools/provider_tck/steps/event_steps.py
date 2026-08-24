@@ -128,9 +128,7 @@ def the_flag_should_be_part_of_the_event_payload(tck_state: TckState) -> None:
             f"name {key!r}"
         )
     else:
-        msg = (
-            f"the configuration-change event named {changed}, expected it to include {key!r}"
-        )
+        msg = f"the configuration-change event named {changed}, expected it to include {key!r}"
     raise AssertionError(msg)
 
 

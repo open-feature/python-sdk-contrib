@@ -83,7 +83,10 @@ class ControllableInMemoryProvider(InMemoryProvider):
 def changing_flag(default_variant: str) -> InMemoryFlag[str]:
     return InMemoryFlag(
         default_variant=default_variant,
-        variants={_CHANGING_BASELINE: _CHANGING_BASELINE, _CHANGING_CHANGED: _CHANGING_CHANGED},
+        variants={
+            _CHANGING_BASELINE: _CHANGING_BASELINE,
+            _CHANGING_CHANGED: _CHANGING_CHANGED,
+        },
     )
 
 
