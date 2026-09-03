@@ -3,6 +3,7 @@ import typing
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import cbor2
 import mmh3
 import semver
 
@@ -20,30 +21,57 @@ class Fraction:
     weight: int = 1
 
 
-def _resolve_bucket_by(data: dict, args: tuple) -> tuple[str | None, tuple]:
-    if isinstance(args[0], str):
+def _resolve_bucket_by(data: dict, args: tuple) -> tuple[typing.Any, tuple]:
+    if not isinstance(args[0], (list, tuple)):
         return args[0], args[1:]
 
-    seed = data.get("$flagd", {}).get("flagKey", "")
     targeting_key = data.get("targetingKey")
-    if not targeting_key:
-        logger.error("No targetingKey provided for fractional shorthand syntax.")
+    if targeting_key is None or not isinstance(targeting_key, str) or not targeting_key:
+        logger.error(
+            "No valid string targetingKey provided for fractional shorthand syntax."
+        )
         return None, args
-    return seed + targeting_key, args
+
+    flag_key = data.get("$flagd", {}).get("flagKey", "")
+    return [flag_key, targeting_key], args
 
 
-def fractional(data: dict, *args: JsonLogicArg) -> str | float | int | bool | None:
+def normalize_numbers(data: typing.Any) -> typing.Any:
+    """
+    Recursively convert floats that have no fractional part into integers,
+    but only if they fit within the 64-bit signed or unsigned integer range [-2^63, 2^64 - 1].
+    This ensures consistency for integer representations while avoiding converting massive
+    floats into bignums, adhering to the flagd CBOR fractional specification.
+    """
+    if isinstance(data, dict):
+        return {k: normalize_numbers(v) for k, v in data.items()}
+    elif isinstance(data, (list, tuple)):
+        return [normalize_numbers(v) for v in data]
+    elif isinstance(data, float) and data.is_integer():
+        if -(2**63) <= data <= 2**64 - 1:
+            return int(data)
+    return data
+
+
+def fractional(data: dict, *args: typing.Any) -> str | float | int | bool | None:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
 
     bucket_by, args = _resolve_bucket_by(data, args)
 
-    if not bucket_by:
+    if bucket_by is None:
         logger.error("No hashKey value resolved")
         return None
 
-    hash_value = mmh3.hash(bucket_by, signed=False)
+    try:
+        bucket_by = normalize_numbers(bucket_by)
+        cbor_bytes = cbor2.dumps(bucket_by, canonical=True)
+    except Exception as e:
+        logger.error(f"Failed to encode bucket_by to CBOR: {e}")
+        return None
+
+    hash_value = mmh3.hash(cbor_bytes, signed=False)
 
     total_weight = 0
     fractions = []
@@ -59,6 +87,10 @@ def fractional(data: dict, *args: JsonLogicArg) -> str | float | int | bool | No
 
     if total_weight > MAX_WEIGHT_SUM:
         logger.error(f"Total fractional weight exceeds MaxInt32 ({MAX_WEIGHT_SUM:,}).")
+        return None
+
+    if total_weight <= 0:
+        logger.error("Total fractional weight must be greater than 0.")
         return None
 
     bucket = (hash_value * total_weight) >> 32
