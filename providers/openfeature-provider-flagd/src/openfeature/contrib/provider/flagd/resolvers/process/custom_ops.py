@@ -6,6 +6,7 @@ from openfeature.contrib.tools.flagd.core.targeting.custom_ops import (  # noqa:
     JsonPrimitive,
     ends_with,
     fractional,
+    normalize_numbers,
     normalize_version,
     sem_ver,
     starts_with,
