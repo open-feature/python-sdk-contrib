@@ -92,6 +92,9 @@ The default options can be defined in the FlagdProvider constructor.
 | max_cache_size           | FLAGD_MAX_CACHE_SIZE           | int                        | 1000                          | rpc                 |
 | retry_backoff_ms         | FLAGD_RETRY_BACKOFF_MS         | int                        | 1000                          | rpc                 |
 | offline_flag_source_path | FLAGD_OFFLINE_FLAG_SOURCE_PATH | str                        | null                          | in-process          |
+| sync_metadata_disabled   | -                              | bool                       | null                          | in-process          |
+| fatal_status_codes       | FLAGD_FATAL_STATUS_CODES       | sequence of gRPC status code names | empty                 | rpc & in-process    |
+| client_interceptors      | -                              | sequence of gRPC client interceptors | null                | rpc & in-process    |
 
 > [!NOTE]
 > The `selector` configuration is only used in **in-process** mode for filtering flag configurations. See [Selector Handling](#selector-handling-in-process-mode-only) for migration guidance.
@@ -105,6 +108,49 @@ The default options can be defined in the FlagdProvider constructor.
 
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
+
+### Custom gRPC interceptors
+
+`client_interceptors` are synchronous gRPC client interceptors applied to the channel in the order provided. Use them for infrastructure concerns such as custom headers or credentials. Flagd-specific options like `selector` stay first-class and do not need a custom interceptor.
+
+Metadata keys added by an interceptor must be valid lowercase gRPC metadata keys. If an interceptor adds `flagd-selector` while `selector` is set, the request contains duplicate keys. gRPC permits duplicate metadata keys.
+
+`grpc.aio` interceptors are not supported. Passing an object that does not implement one of the synchronous client interceptor interfaces raises `TypeError` when the provider creates its channel.
+Exceptions raised while opening a sync or event stream are logged and retried after `retry_backoff_max_ms`; a persistently failing interceptor prevents stream updates.
+
+```python
+import grpc
+from openfeature.contrib.provider.flagd import FlagdProvider
+from openfeature.contrib.provider.flagd.config import ResolverType
+
+
+class _ClientCallDetails(grpc.ClientCallDetails):
+    def __init__(self, details, metadata):
+        self.method = details.method
+        self.timeout = details.timeout
+        self.metadata = metadata
+        self.credentials = details.credentials
+        self.wait_for_ready = details.wait_for_ready
+        self.compression = details.compression
+
+
+class DisableEnvoyTimeout(grpc.UnaryStreamClientInterceptor):
+    def intercept_unary_stream(self, continuation, client_call_details, request):
+        metadata = list(client_call_details.metadata or [])
+        metadata.append(("x-envoy-upstream-rq-timeout-ms", "0"))
+        details = _ClientCallDetails(client_call_details, metadata)
+        return continuation(details, request)
+
+
+provider = FlagdProvider(
+    resolver_type=ResolverType.IN_PROCESS,
+    client_interceptors=[DisableEnvoyTimeout()],
+)
+```
+
+See also:
+- https://grpc.github.io/grpc/python/grpc.html#client-side-interceptor
+- https://grpc.github.io/grpc/python/grpc.html#grpc.intercept_channel
 
 ### Selector Handling (In-Process Mode Only)
 

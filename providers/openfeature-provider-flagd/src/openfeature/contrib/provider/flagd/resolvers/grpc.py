@@ -28,7 +28,7 @@ from openfeature.schemas.protobuf.flagd.evaluation.v2 import (
     evaluation_pb2_grpc,
 )
 
-from ..config import CacheType, Config
+from ..config import CacheType, Config, apply_client_interceptors
 from ..flag_type import FlagType
 from .types import GrpcMultiCallableArgs
 
@@ -135,7 +135,7 @@ class GrpcResolver:
                 options=options,
             )
 
-        return channel
+        return apply_client_interceptors(channel, config.client_interceptors)
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         self.connect()
@@ -289,6 +289,11 @@ class GrpcResolver:
                 logger.exception(
                     f"Could not parse flag data using flagd syntax: {message=}"
                 )
+            except Exception:
+                if self.active:
+                    logger.exception("Unexpected EventStream error, reconnecting")
+                else:
+                    logger.debug("EventStream ended during shutdown", exc_info=True)
             if self.active:
                 self._wait_before_reconnect()
 

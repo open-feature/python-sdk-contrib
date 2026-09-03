@@ -21,7 +21,7 @@ from openfeature.schemas.protobuf.flagd.sync.v1 import (
     sync_pb2_grpc,
 )
 
-from ....config import Config
+from ....config import Config, apply_client_interceptors
 from ...types import GrpcMultiCallableArgs
 from ..connector import FlagStateConnector
 from ..flags import FlagStore
@@ -122,7 +122,7 @@ class GrpcWatcher(FlagStateConnector):
                 options=options,
             )
 
-        return channel
+        return apply_client_interceptors(channel, config.client_interceptors)
 
     def initialize(self, context: EvaluationContext) -> None:
         self.connect()
@@ -214,21 +214,17 @@ class GrpcWatcher(FlagStateConnector):
 
         return request_args
 
-    def _create_metadata(self) -> tuple[tuple[str, str], ...] | None:
+    def _create_metadata(self) -> tuple[tuple[str, str]] | None:
         """Create gRPC metadata headers for the request.
 
         Returns gRPC metadata as a tuples of tuples containing header key-value pairs.
         The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
         while also being included in the request body for backward compatibility with older flagd versions.
-        Any user-configured ``sync_metadata`` headers are appended, allowing callers to inject
-        infrastructure-specific headers (e.g. proxy/mesh timeout overrides) on the sync stream.
         """
-        metadata: tuple[tuple[str, str], ...] = ()
-        if self.selector is not None:
-            metadata += (("flagd-selector", self.selector),)
-        metadata += self.config.sync_metadata
+        if self.selector is None:
+            return None
 
-        return metadata if metadata else None
+        return (("flagd-selector", self.selector),)
 
     def _fetch_metadata(self) -> sync_pb2.GetMetadataResponse | None:
         if self.config.sync_metadata_disabled:
@@ -297,7 +293,7 @@ class GrpcWatcher(FlagStateConnector):
     def _wait_before_reconnect(self) -> None:
         self._shutdown_event.wait(self.retry_backoff_max_seconds)
 
-    def listen(self) -> None:
+    def listen(self) -> None:  # noqa: C901
         call_args = self.generate_grpc_call_args()
         request_args = self._create_request_args()
 
@@ -318,6 +314,13 @@ class GrpcWatcher(FlagStateConnector):
                 )
             except ParseError:
                 logger.exception("Could not parse flag data using flagd syntax")
+            except Exception:
+                if self.active:
+                    logger.exception("Unexpected SyncFlags stream error, reconnecting")
+                else:
+                    logger.debug(
+                        "SyncFlags stream ended during shutdown", exc_info=True
+                    )
             if self.active:
                 self._wait_before_reconnect()
 

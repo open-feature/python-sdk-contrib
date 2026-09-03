@@ -1,5 +1,4 @@
 import unittest
-from contextlib import suppress
 from unittest.mock import MagicMock, Mock, patch
 
 import grpc
@@ -66,12 +65,16 @@ def test_unary_call_omits_metadata_when_no_selector():
 def test_event_stream_includes_selector_metadata_when_configured():
     resolver = _make_resolver("test-selector")
     mock_stub = MagicMock()
-    mock_stub.EventStream = Mock(side_effect=Exception("break loop"))
+
+    def stop_after_call(*args, **kwargs):
+        resolver.active = False
+        return iter(())
+
+    mock_stub.EventStream = Mock(side_effect=stop_after_call)
     resolver.stub = mock_stub
     resolver.active = True
 
-    with suppress(Exception):
-        resolver.listen()
+    resolver.listen()
 
     kwargs = mock_stub.EventStream.call_args.kwargs
     assert kwargs.get("metadata") == ((FLAGD_SELECTOR_HEADER, "test-selector"),)
@@ -80,12 +83,16 @@ def test_event_stream_includes_selector_metadata_when_configured():
 def test_event_stream_omits_metadata_when_no_selector():
     resolver = _make_resolver(None)
     mock_stub = MagicMock()
-    mock_stub.EventStream = Mock(side_effect=Exception("break loop"))
+
+    def stop_after_call(*args, **kwargs):
+        resolver.active = False
+        return iter(())
+
+    mock_stub.EventStream = Mock(side_effect=stop_after_call)
     resolver.stub = mock_stub
     resolver.active = True
 
-    with suppress(Exception):
-        resolver.listen()
+    resolver.listen()
 
     kwargs = mock_stub.EventStream.call_args.kwargs
     assert "metadata" not in kwargs
@@ -143,6 +150,73 @@ class TestGrpcResolver(unittest.TestCase):
             self.grpc_resolver.listen()
 
         wait_before_reconnect.assert_called_once()
+
+    def test_listen_backs_off_after_unexpected_error(self):
+        self.grpc_resolver.stub.EventStream = Mock(
+            side_effect=RuntimeError("interceptor failed")
+        )
+
+        with patch.object(
+            self.grpc_resolver,
+            "_wait_before_reconnect",
+            side_effect=lambda: setattr(self.grpc_resolver, "active", False),
+        ) as wait_before_reconnect:
+            self.grpc_resolver.listen()
+
+        wait_before_reconnect.assert_called_once()
+
+    def test_generate_channel_applies_client_interceptors(self):
+        interceptor = Mock(spec=grpc.UnaryUnaryClientInterceptor)
+        raw_channel = Mock(spec=Channel)
+        wrapped_channel = Mock(spec=Channel)
+        config = Config(
+            tls=False, cache=CacheType.DISABLED, client_interceptors=[interceptor]
+        )
+
+        with (
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.insecure_channel",
+                return_value=raw_channel,
+            ),
+            patch(
+                "openfeature.contrib.provider.flagd.config.grpc.intercept_channel",
+                return_value=wrapped_channel,
+            ) as intercept_channel,
+        ):
+            resolver = GrpcResolver(
+                config=config,
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+                emit_provider_configuration_changed=Mock(),
+            )
+
+        self.assertIs(resolver.channel, wrapped_channel)
+        intercept_channel.assert_called_once_with(raw_channel, interceptor)
+
+    def test_generate_channel_skips_intercept_channel_when_no_interceptors(self):
+        raw_channel = Mock(spec=Channel)
+        config = Config(tls=False, cache=CacheType.DISABLED)
+
+        with (
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.insecure_channel",
+                return_value=raw_channel,
+            ),
+            patch(
+                "openfeature.contrib.provider.flagd.config.grpc.intercept_channel",
+            ) as intercept_channel,
+        ):
+            resolver = GrpcResolver(
+                config=config,
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+                emit_provider_configuration_changed=Mock(),
+            )
+
+        self.assertIs(resolver.channel, raw_channel)
+        intercept_channel.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,3 +1,6 @@
+from unittest.mock import Mock
+
+import grpc
 import pytest
 
 # not sure if we still need this test, as this is also covered with gherkin tests.
@@ -44,24 +47,22 @@ def test_return_default_values_rpc():
     assert config.retry_backoff_ms == DEFAULT_RETRY_BACKOFF
     assert config.stream_deadline_ms == DEFAULT_STREAM_DEADLINE
     assert config.tls is DEFAULT_TLS
-    assert config.sync_metadata == ()
+    assert config.client_interceptors == ()
 
 
-def test_sync_metadata_passthrough():
-    metadata = [("x-envoy-upstream-rq-timeout-ms", "0")]
-    config = Config(resolver=ResolverType.IN_PROCESS, sync_metadata=metadata)
-    assert config.sync_metadata == (("x-envoy-upstream-rq-timeout-ms", "0"),)
+def test_client_interceptors_passthrough():
+    interceptor = Mock(spec=grpc.UnaryUnaryClientInterceptor)
+    config = Config(resolver=ResolverType.IN_PROCESS, client_interceptors=[interceptor])
+    assert config.client_interceptors == (interceptor,)
 
 
 def test_positional_fatal_status_codes_backwards_compatible():
-    # fatal_status_codes must stay the last positional parameter so callers that
-    # passed it positionally before sync_metadata was added keep working.
-    # It is the 22nd positional parameter (21 parameters precede it).
+    # fatal_status_codes stays ahead of client_interceptors so callers that
+    # passed it positionally keep working. It is the 22nd positional parameter.
     leading_args = [None] * 21
     config = Config(*leading_args, ["UNAVAILABLE", "DATA_LOSS"])
     assert config.fatal_status_codes == ["UNAVAILABLE", "DATA_LOSS"]
-    # The positional value must not leak into sync_metadata.
-    assert config.sync_metadata == ()
+    assert config.client_interceptors == ()
 
 
 def test_return_default_values_in_process():
