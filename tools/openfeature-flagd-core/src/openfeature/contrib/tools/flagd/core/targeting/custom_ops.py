@@ -47,9 +47,10 @@ def normalize_numbers(data: typing.Any) -> typing.Any:
         return {k: normalize_numbers(v) for k, v in data.items()}
     elif isinstance(data, (list, tuple)):
         return [normalize_numbers(v) for v in data]
-    elif isinstance(data, float) and data.is_integer():
-        if -(2**63) <= data <= 2**64 - 1:
-            return int(data)
+    elif (
+        isinstance(data, float) and data.is_integer() and -(2**63) <= data <= 2**64 - 1
+    ):
+        return int(data)
     return data
 
 
