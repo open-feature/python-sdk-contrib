@@ -238,6 +238,14 @@ class TestFractional:
         """Negative weights should be clamped to 0."""
         assert fractional({}, "user", ["a", -50], ["b", 100]) == "b"
 
+    def test_fractional_cbor_serialization_failure(self) -> None:
+        """If bucket_by cannot be serialized to CBOR, log error and return None."""
+
+        class Unserializable:
+            pass
+
+        assert fractional({}, Unserializable(), ["a", 50], ["b", 50]) is None
+
 
 class TestNormalizeNumbers:
     def test_float_to_int(self) -> None:
