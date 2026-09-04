@@ -94,6 +94,7 @@ The default options can be defined in the FlagdProvider constructor.
 | offline_flag_source_path | FLAGD_OFFLINE_FLAG_SOURCE_PATH | str                        | null                          | in-process          |
 | sync_metadata_disabled   | -                              | bool                       | null                          | in-process          |
 | fatal_status_codes       | FLAGD_FATAL_STATUS_CODES       | sequence of gRPC status code names | empty                 | rpc & in-process    |
+| channel_credentials      | -                              | `grpc.ChannelCredentials` (including mTLS) | null                | rpc & in-process    |
 | client_interceptors      | -                              | sequence of gRPC client interceptors | null                | rpc & in-process    |
 
 > [!NOTE]
@@ -108,6 +109,24 @@ The default options can be defined in the FlagdProvider constructor.
 
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
+
+### Mutual TLS
+
+Pass custom `grpc.ChannelCredentials` to `channel_credentials` when the flagd server requires mutual TLS (mTLS). The provider uses these credentials for both resolver types and gives them precedence over `tls` and `cert_path`.
+
+```python
+import grpc
+
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+credentials = grpc.ssl_channel_credentials(
+    root_certificates=ca_certificate,
+    private_key=client_private_key,
+    certificate_chain=client_certificate,
+)
+
+provider = FlagdProvider(channel_credentials=credentials)
+```
 
 ### Custom gRPC interceptors
 

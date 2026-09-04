@@ -194,6 +194,45 @@ class TestGrpcResolver(unittest.TestCase):
         self.assertIs(resolver.channel, wrapped_channel)
         intercept_channel.assert_called_once_with(raw_channel, interceptor)
 
+    def test_generate_channel_uses_custom_channel_credentials(self):
+        credentials = Mock(spec=grpc.ChannelCredentials)
+        interceptor = Mock(spec=grpc.UnaryUnaryClientInterceptor)
+        raw_channel = Mock(spec=Channel)
+        wrapped_channel = Mock(spec=Channel)
+        config = Config(
+            tls=False,
+            cache=CacheType.DISABLED,
+            channel_credentials=credentials,
+            client_interceptors=[interceptor],
+        )
+
+        with (
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.secure_channel",
+                return_value=raw_channel,
+            ) as secure_channel,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.insecure_channel",
+            ) as insecure_channel,
+            patch(
+                "openfeature.contrib.provider.flagd.config.grpc.intercept_channel",
+                return_value=wrapped_channel,
+            ) as intercept_channel,
+        ):
+            resolver = GrpcResolver(
+                config=config,
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+                emit_provider_configuration_changed=Mock(),
+            )
+
+        self.assertIs(resolver.channel, wrapped_channel)
+        secure_channel.assert_called_once()
+        self.assertIs(secure_channel.call_args.kwargs["credentials"], credentials)
+        insecure_channel.assert_not_called()
+        intercept_channel.assert_called_once_with(raw_channel, interceptor)
+
     def test_generate_channel_skips_intercept_channel_when_no_interceptors(self):
         raw_channel = Mock(spec=Channel)
         config = Config(tls=False, cache=CacheType.DISABLED)

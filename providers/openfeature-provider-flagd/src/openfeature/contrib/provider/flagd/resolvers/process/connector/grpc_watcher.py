@@ -293,34 +293,37 @@ class GrpcWatcher(FlagStateConnector):
     def _wait_before_reconnect(self) -> None:
         self._shutdown_event.wait(self.retry_backoff_max_seconds)
 
-    def listen(self) -> None:  # noqa: C901
+    def _listen_once(
+        self, call_args: GrpcMultiCallableArgs, request_args: dict
+    ) -> bool:
+        try:
+            context_values_response = self._fetch_metadata()
+            request = sync_pb2.SyncFlagsRequest(**request_args)
+            logger.debug("Setting up gRPC sync flags connection")
+            for flag_rsp in self.stub.SyncFlags(request, **call_args):
+                if self._handle_flag_response(flag_rsp, context_values_response):
+                    return True
+        except grpc.RpcError as e:
+            if self._handle_rpc_error(e):
+                return True
+        except json.JSONDecodeError:
+            logger.exception("Could not parse JSON flag data from SyncFlags endpoint")
+        except ParseError:
+            logger.exception("Could not parse flag data using flagd syntax")
+        except Exception:
+            if self.active:
+                logger.exception("Unexpected SyncFlags stream error, reconnecting")
+            else:
+                logger.debug("SyncFlags stream ended during shutdown", exc_info=True)
+        return False
+
+    def listen(self) -> None:
         call_args = self.generate_grpc_call_args()
         request_args = self._create_request_args()
 
         while self.active:
-            try:
-                context_values_response = self._fetch_metadata()
-                request = sync_pb2.SyncFlagsRequest(**request_args)
-                logger.debug("Setting up gRPC sync flags connection")
-                for flag_rsp in self.stub.SyncFlags(request, **call_args):
-                    if self._handle_flag_response(flag_rsp, context_values_response):
-                        return
-            except grpc.RpcError as e:
-                if self._handle_rpc_error(e):
-                    return
-            except json.JSONDecodeError:
-                logger.exception(
-                    "Could not parse JSON flag data from SyncFlags endpoint"
-                )
-            except ParseError:
-                logger.exception("Could not parse flag data using flagd syntax")
-            except Exception:
-                if self.active:
-                    logger.exception("Unexpected SyncFlags stream error, reconnecting")
-                else:
-                    logger.debug(
-                        "SyncFlags stream ended during shutdown", exc_info=True
-                    )
+            if self._listen_once(call_args, request_args):
+                return
             if self.active:
                 self._wait_before_reconnect()
 
