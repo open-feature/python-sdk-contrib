@@ -98,5 +98,6 @@ def assert_handler_run_within(event_type, event_handles, time: int):
     )
 )
 def assert_handler_not_run(event_type: str, event_handles: list):
-    found = any(h["type"] == event_type for h in event_handles)
+    handles = assert_handlers(event_handles, event_type, 30)
+    found = any(h["type"] == event_type for h in handles)
     assert not found
