@@ -581,6 +581,19 @@ def _meta(implementation: str, implementation_version: str) -> cucumber.Meta:
     )
 
 
+def messages_protocol_version() -> str:
+    """The Messages release this stream was produced against.
+
+    Exposed because the report envelope has to record it too. Messages is
+    versioned and the implementations pin different releases -- this one is on
+    34.2.0 while the Go TCK builds against v21 -- so a consumer holding two
+    reports cannot assume one schema validates both. Sharing this one function
+    with the stream's own Meta message means the envelope and the stream cannot
+    disagree about which release produced it.
+    """
+    return _protocol_version()
+
+
 def _protocol_version() -> str:
     """The Messages version this stream is written against.
 
