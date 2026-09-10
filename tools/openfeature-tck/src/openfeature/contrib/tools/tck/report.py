@@ -42,7 +42,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import TckConfig
-from .messages import MESSAGES_FORMAT, ScenarioIdentity, ScenarioRun, StepRun
+from .messages import (
+    MESSAGES_FORMAT,
+    ScenarioIdentity,
+    ScenarioRun,
+    StepRun,
+    messages_protocol_version,
+)
 
 __all__ = [
     "REPORT_DIR_ENV",
@@ -119,7 +125,17 @@ class Results:
     format: str = MESSAGES_FORMAT
 
     def as_json(self) -> dict[str, typing.Any]:
-        document = {"format": self.format, "location": self.location}
+        # The format's version is recorded alongside its name because Cucumber
+        # Messages is versioned and the four implementations pin different
+        # releases. Without it a consumer validating this stream has to guess
+        # which schema to use, and guessing wrong is worse than not checking: a
+        # later schema accepts messages this producer could not have emitted,
+        # and an earlier one rejects messages that are perfectly valid.
+        document = {
+            "format": self.format,
+            "formatVersion": messages_protocol_version(),
+            "location": self.location,
+        }
         if self.digest:
             document["digest"] = self.digest
         return document
