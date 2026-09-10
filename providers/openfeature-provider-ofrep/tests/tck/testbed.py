@@ -27,6 +27,7 @@ rather than failing inside testcontainers.
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 import time
 import typing
@@ -121,7 +122,16 @@ class FlagdTestbed:
         return self
 
     def stop(self) -> None:
-        self._compose.stop()
+        """Stop the stack and remove the temporary flag directory.
+
+        The directory comes off in a ``finally`` because a compose failure is
+        exactly when it would otherwise be left behind, and it is created in
+        ``__init__`` -- so every constructed testbed leaks one until this runs.
+        """
+        try:
+            self._compose.stop()
+        finally:
+            shutil.rmtree(self._flags_dir, ignore_errors=True)
 
     def get_ofrep_url(self) -> str:
         """Return the base URL to hand to ``OFREPProvider``.
@@ -163,10 +173,16 @@ class FlagdTestbed:
 
 
 def running_testbed() -> typing.Iterator[FlagdTestbed]:
-    """Yield a started testbed and stop it afterwards. Used by the session fixture."""
+    """Yield a started testbed and stop it afterwards. Used by the session fixture.
+
+    ``start`` is inside the ``try`` on purpose. It brings the stack up and then
+    waits for readiness, so a readiness timeout leaves containers running that
+    nothing would otherwise stop -- and a suite that cannot reach its backend is
+    precisely when a developer is going to run it again.
+    """
     testbed = FlagdTestbed()
-    testbed.start()
     try:
+        testbed.start()
         yield testbed
     finally:
         testbed.stop()
