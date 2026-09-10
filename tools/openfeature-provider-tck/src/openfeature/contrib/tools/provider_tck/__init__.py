@@ -50,23 +50,25 @@ from __future__ import annotations
 import importlib.resources
 
 from .capability import ALL_CAPABILITIES, Capability
-from .config import TckConfig
+from .config import KnownDeviation, TckConfig
 from .control import (
     BackendControl,
     ConnectionControl,
     UnsupportedControlError,
 )
 from .inprocess import InProcessControl
+from .messages import MESSAGES_FORMAT
 from .provider import (
     CHANGING_FLAG_KEY,
     ControllableInMemoryProvider,
     canonical_flag_set,
 )
-from .report import REPORT_DIR_ENV, SCHEMA_VERSION, Outcome
+from .report import REPORT_DIR_ENV, SCHEMA_VERSION
 
 __all__ = [
     "ALL_CAPABILITIES",
     "CHANGING_FLAG_KEY",
+    "MESSAGES_FORMAT",
     "REPORT_DIR_ENV",
     "SCHEMA_VERSION",
     "BackendControl",
@@ -74,7 +76,7 @@ __all__ = [
     "ConnectionControl",
     "ControllableInMemoryProvider",
     "InProcessControl",
-    "Outcome",
+    "KnownDeviation",
     "TckConfig",
     "UnsupportedControlError",
     "canonical_flag_set",

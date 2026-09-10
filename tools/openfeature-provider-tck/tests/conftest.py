@@ -3,34 +3,65 @@
 A conformance suite that quietly goes green on scenarios it did not run is worse
 than no suite at all -- and the same is true of one that quietly goes green on a
 scenario it *did* run and fail. So the one scenario the Python SDK cannot
-currently satisfy is marked ``xfail(strict=True)`` here, which:
+currently satisfy is recorded twice, in two forms that answer different
+questions.
 
-* keeps it visible in the report, as XFAIL with the reason attached;
-* fails the suite if it ever *passes*, so the marker is removed the moment the
-  SDK is fixed rather than lingering as a lie.
+``xfail(strict=True)`` keeps the *run* honest: the scenario is expected to fail,
+and the suite fails if it ever passes, so the marker is removed the moment the
+SDK is fixed rather than lingering as a lie.
 
-This lives in the TCK's own self-test rather than in the shared package. It is a
-fact about the SDK under test, not part of the conformance definition, and
-Appendix F deliberately leaves a general "known deviations" concept as an open
-question (spec#417, Q4). If that concept lands, this moves into it.
+:class:`KnownDeviation` keeps the *report* honest. The results payload reports
+the scenario as failed regardless of the marker -- an expected failure is still a
+failure, and softening it there would hide exactly what the marker exists to keep
+visible -- and the envelope carries the acknowledgement beside it, with the issue
+it is tracked under. That is what lets a consumer tell a known and tracked gap
+from a surprise without the result itself being weakened.
+
+The two are declared together here so they cannot drift: the reason on the marker
+and the summary in the report are the same sentence.
 """
 
 from __future__ import annotations
 
 import pytest
 
+from openfeature.contrib.tools.provider_tck import KnownDeviation
+
 # The Scenario Outline row that asks for boolean-flag as an Integer.
 _BOOL_AS_INT = (
     "test_requesting_the_wrong_type_returns_the_code_default[boolean-flag-Integer-1]"
 )
+
+_ISSUE = "https://github.com/open-feature/python-sdk/issues/619"
 
 _REASON = (
     "python-sdk: a boolean satisfies an Integer request. The client type-checks with "
     "isinstance(value, int) and bool is a subclass of int in Python, so boolean-flag "
     "requested as an Integer returns True with reason STATIC and no error code, where "
     "the specification requires the code default and TYPE_MISMATCH. "
-    "See https://github.com/open-feature/python-sdk/issues/619"
+    f"See {_ISSUE}"
 )
+
+KNOWN_DEVIATIONS = (KnownDeviation(issue=_ISSUE, summary=_REASON),)
+"""What the report acknowledges.
+
+No ``capability``: the scenario carries no capability tag, because returning the
+code default on a type mismatch is mandatory. ``@strict-numeric-typing`` is a
+neighbouring question -- whether 0.5 satisfies an integer request -- and this
+provider satisfies it, so attributing the deviation there would be wrong twice
+over.
+"""
+
+
+@pytest.fixture(scope="session")
+def tck_known_deviations() -> tuple[KnownDeviation, ...]:
+    """The deviations a suite in this package declares.
+
+    A fixture rather than an import so that the marker below and the report's
+    acknowledgement are written down once, in one place, and a suite picks it up
+    the same way it picks up everything else it is given.
+    """
+    return KNOWN_DEVIATIONS
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

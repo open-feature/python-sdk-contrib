@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Iterable
+import typing
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from openfeature.provider import FeatureProvider
@@ -10,7 +11,7 @@ from openfeature.provider import FeatureProvider
 from .capability import ALL_CAPABILITIES, Capability
 from .control import BackendControl
 
-__all__ = ["ProviderFactory", "TckConfig"]
+__all__ = ["KnownDeviation", "ProviderFactory", "TckConfig"]
 
 ProviderFactory = Callable[[], FeatureProvider]
 """Creates the provider under test.
@@ -22,6 +23,46 @@ starts -- a container stack's host ports do not exist until it is up.
 
 DEFAULT_EVENT_TIMEOUT = 12.0
 DEFAULT_READY_TIMEOUT = 30.0
+
+
+@dataclass(frozen=True)
+class KnownDeviation:
+    """A gap the provider is known to have, acknowledged rather than hidden.
+
+    Distinct from an undeclared capability, which is a choice, and from a
+    not-applicable one, which is impossible: this is a defect against something
+    the specification does not treat as optional, with the gap tracked
+    somewhere.
+
+    It changes nothing about how the suite runs. The scenario still fails, and
+    the results payload still reports it as failed -- a report that softened a
+    failure into a footnote would hide exactly what the acknowledgement exists to
+    keep visible. What this adds is the acknowledgement itself, in the envelope,
+    so that a consumer can tell a known and tracked gap from a surprise.
+    """
+
+    issue: str
+    """Where the gap is tracked. A URI, because the schema requires one."""
+
+    summary: str
+    """What is wrong, for a person reading a comparison page."""
+
+    capability: Capability | None = None
+    """The capability the deviation concerns, when it maps to one.
+
+    Left out for a deviation against a mandatory scenario, which belongs to no
+    capability -- which is the common case, since a capability a provider fails
+    is usually one it should not have declared.
+    """
+
+    def as_json(self) -> dict[str, typing.Any]:
+        document: dict[str, typing.Any] = {
+            "issue": self.issue,
+            "summary": self.summary,
+        }
+        if self.capability is not None:
+            document["capability"] = self.capability.tag
+        return document
 
 
 @dataclass(frozen=True)
@@ -92,6 +133,32 @@ class TckConfig:
     widening it.
     """
 
+    not_applicable: Mapping[Capability, str] = field(default_factory=dict)
+    """Capabilities that cannot hold for this provider, each with a reason.
+
+    Kept apart from simply leaving a capability out of :attr:`capabilities`,
+    because the two are different claims and collapsing them misrepresents whole
+    languages: ``@strict-numeric-typing`` is unsatisfiable in JavaScript because
+    the language has no integer type, and reporting that as a choice would show
+    every JavaScript provider as missing something none of them can have.
+
+    Scenarios behind a not-applicable capability are skipped exactly as an
+    undeclared one's are -- the gate makes no distinction, and neither does the
+    results payload. The difference is recorded once, here, and reaches the
+    report's declaration.
+
+    Where the impossibility is a property of the language rather than of the
+    provider it belongs in the capability documentation rather than in every
+    report, so this is for provider-specific cases.
+    """
+
+    known_deviations: Sequence[KnownDeviation] = ()
+    """Gaps this provider is known to have, with each one tracked somewhere.
+
+    An acknowledgement, not an excuse: the scenarios still fail and the results
+    payload still says so. See :class:`KnownDeviation`.
+    """
+
     event_timeout: float = DEFAULT_EVENT_TIMEOUT
     """Seconds to wait for a provider event.
 
@@ -136,6 +203,43 @@ class TckConfig:
             problems.append(
                 f"unknown capabilities {unknown!r}: capabilities are the members of "
                 f"the Capability enum"
+            )
+
+        # Normalised the same way, so a dict literal keyed by Capability is what
+        # an adopter writes and a plain mapping is what everything else reads.
+        object.__setattr__(self, "not_applicable", dict(self.not_applicable))
+        object.__setattr__(self, "known_deviations", tuple(self.known_deviations))
+
+        stray = [c for c in self.not_applicable if not isinstance(c, Capability)]
+        if stray:
+            problems.append(
+                f"unknown capabilities {stray!r} in not_applicable: capabilities are "
+                f"the members of the Capability enum"
+            )
+
+        both = sorted(
+            capability.tag
+            for capability in self.not_applicable
+            if isinstance(capability, Capability) and capability in self.capabilities
+        )
+        if both:
+            problems.append(
+                f"capabilities and not_applicable both claim {' '.join(both)}: a "
+                f"capability is either declared or impossible, and a report saying "
+                f"both leaves a consumer to guess which"
+            )
+
+        unreasoned = sorted(
+            capability.tag
+            for capability, reason in self.not_applicable.items()
+            if isinstance(capability, Capability)
+            and (not isinstance(reason, str) or not reason.strip())
+        )
+        if unreasoned:
+            problems.append(
+                f"not_applicable gives no reason for {' '.join(unreasoned)}: "
+                f"'impossible for this provider' is only useful to a reader who is "
+                f"told why, and the report schema requires the reason"
             )
 
         if (

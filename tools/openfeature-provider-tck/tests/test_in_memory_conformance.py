@@ -22,6 +22,7 @@ from pytest_bdd import scenarios
 
 from openfeature.contrib.tools.provider_tck import (
     Capability,
+    KnownDeviation,
     TckConfig,
     canonical_flag_set,
     features_path,
@@ -70,7 +71,7 @@ def _new_provider() -> FeatureProvider:
 
 
 @pytest.fixture(scope="session")
-def tck_config() -> TckConfig:
+def tck_config(tck_known_deviations: tuple[KnownDeviation, ...]) -> TckConfig:
     """Declare the provider under test and what it can do.
 
     Each omission is a fact about the provider rather than a convenience:
@@ -93,6 +94,11 @@ def tck_config() -> TckConfig:
       vacuously while the feature was gated on ``EVENTS``, which is precisely
       the failure mode the split of ``@lifecycle`` from ``@events`` exists to
       end. A skip with a reason is the honest outcome.
+
+    ``known_deviations`` is the one thing here that is not a claim about what
+    this provider supports: it is the acknowledgement of a scenario the SDK
+    fails, which the results payload still reports as a failure. See
+    ``conftest.py``.
     """
     return TckConfig(
         name="in-memory",
@@ -103,6 +109,7 @@ def tck_config() -> TckConfig:
             Capability.OBJECT,
             Capability.NUMERIC_COERCION,
         },
+        known_deviations=tck_known_deviations,
     )
 
 

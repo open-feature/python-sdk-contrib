@@ -20,13 +20,14 @@ from pytest_bdd import scenarios
 from openfeature.contrib.tools.provider_tck import (
     Capability,
     InProcessControl,
+    KnownDeviation,
     TckConfig,
     features_path,
 )
 
 
 @pytest.fixture(scope="session")
-def tck_config() -> TckConfig:
+def tck_config(tck_known_deviations: tuple[KnownDeviation, ...]) -> TckConfig:
     """Declare the provider under test and what it can do.
 
     ``STALE`` and ``UNAVAILABLE_INIT`` stay undeclared: there is still no
@@ -50,6 +51,9 @@ def tck_config() -> TckConfig:
             Capability.OBJECT,
             Capability.NUMERIC_COERCION,
         },
+        # The same SDK bug, against the same issue: it is a defect in the client
+        # rather than in either provider, so both suites acknowledge it.
+        known_deviations=tck_known_deviations,
     )
 
 

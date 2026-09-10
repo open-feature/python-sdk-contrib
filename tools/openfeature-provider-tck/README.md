@@ -128,6 +128,11 @@ of, so a provider that wrongly rejects `10.0` as an integer still passes; adding
 set for every language at once. Appendix F records that as an open gap, together with a second one:
 the width of a language's integer accessor — 64-bit against 32-bit — is not modelled at all.
 
+For a capability that *cannot* hold rather than one you chose not to declare, use
+`not_applicable={Capability.X: "why"}`. The suite treats it identically — the scenarios are skipped
+either way — but the report keeps the two apart, because collapsing them misrepresents a provider:
+declining an optional feature is a choice, and an impossibility is not.
+
 ## Controlling the backend
 
 `BackendControl` is the single seam between the scenarios and whatever manipulates the backend. Step
@@ -177,8 +182,10 @@ This is **Python-specific** — the identical scenario passes in every other lan
 is a fair advertisement for having more than one implementation. Tracked as
 [open-feature/python-sdk#619](https://github.com/open-feature/python-sdk/issues/619).
 
-The self-test marks that one row `xfail(strict=True)` with a pointer to the issue, so it stays
-visible in the report and un-hides itself automatically once the SDK is fixed.
+The self-test marks that one row `xfail(strict=True)` with a pointer to the issue, so the run
+un-hides itself automatically once the SDK is fixed, and declares it in
+`TckConfig.known_deviations`, so the report acknowledges it. The results payload still reports the
+scenario as `FAILED`: the acknowledgement records the gap, it does not soften it.
 
 ### 2. The in-memory provider cannot update its flag set
 
@@ -220,59 +227,90 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 
 ## Conformance reports
 
-Set `PROVIDER_TCK_REPORT_DIR` and each suite writes a machine-readable record of its run to
-`<dir>/<name>.json`, conforming to the [report schema][report-schema] in the specification.
+Set `PROVIDER_TCK_REPORT_DIR` and each suite writes **two** files: an envelope at `<dir>/<name>.json`,
+conforming to the [report schema][report-schema] in the specification, and the results it points at
+at `<dir>/<name>.ndjson`, which is a [Cucumber Messages][messages] stream.
 
 ```console
 $ PROVIDER_TCK_REPORT_DIR=./reports pytest
-provider-tck [in-memory]: report written to reports/in-memory.json (1 failed, 5 not-declared, 23 passed)
+provider-tck [in-memory]: report written to reports/in-memory.json with results in in-memory.ndjson (1 failed, 23 passed, 5 skipped)
 
-$ jq '.scenarios | group_by(.outcome) | map({(.[0].outcome): length}) | add' reports/in-memory.json
-{
-  "failed": 1,
-  "not-declared": 5,
-  "passed": 23
-}
+$ jq -c .results reports/in-memory.json
+{"format":"cucumber-messages","location":"in-memory.ndjson","digest":"sha256:c7e12a…"}
+
+$ jq -r 'select(.testStepFinished) | .testStepFinished.testStepResult.status' \
+    reports/in-memory.ndjson | sort | uniq -c
+      1 FAILED
+    220 PASSED
+     45 SKIPPED
 ```
+
+Statuses are per step, not per scenario. Of the 45 skipped, 42 belong to the five scenarios the
+capability gate stopped — their before-hooks included, which is where the reason is — and three are
+the steps of the failing scenario that were never reached.
 
 It is an environment variable rather than a `TckConfig` field so that emitting a report is a property
 of the *run* and not of the code: CI sets it, a developer running the suite locally does not, and no
 adopter changes a line to publish one. Unset means no report, which is not an error. Several suites
-in one pytest session each write their own file, so flagd's two resolvers would not collide.
+in one pytest session each write their own pair, so flagd's two resolvers would not collide.
 
-### Why every scenario is listed
+### Why the results are not our format
+
+Per-scenario outcomes, tags, Scenario Outline row identity and the executed feature source are all
+already specified by Cucumber Messages, which is maintained, cross-language, schema'd, and emitted
+natively by cucumber-jvm. Defining them again in the report schema created a second format to
+maintain and version, and two places for the same fact to disagree. So the envelope says what was
+tested and what the provider claims; the payload says what happened.
+
+The results are referenced rather than inlined because the stream carries the feature sources and is
+far larger than the envelope, and a consumer deciding whether it cares about a report should not have
+to fetch a whole run to find out. `results.digest` is a SHA-256 over the exact bytes written, so a
+consumer can tell that what it fetched is what the envelope described.
+
+Two things Messages cannot carry, so they stay in the envelope. `declaration` is an *input* to
+reading the results rather than a summary of them: a skipped scenario says the question was not put
+to this provider, and only the declaration says whether that is because the provider declines the
+capability. And no standard results format has a slot for the tested subject — Messages records the
+runtime and the OS, not what was being asked about.
+
+### Reading the payload
 
 Appendix F requires that a scenario skipped for an undeclared capability is reported as skipped
 **with the reason** and never as passed. A consumer cannot check that against a summary line, so the
-report records the outcome of *every* scenario individually — and is required to be complete, because
-a document that quietly dropped what it skipped would satisfy the letter of the rule and still
-mislead whoever read it.
+stream carries every scenario the run collected, including the ones the capability gate skipped
+before their first step, and Cucumber's own `SKIPPED` is what it reports them as.
 
-Which also means the report is not a transcription of pytest's summary. The run above finishes green:
-the one scenario the Python SDK cannot satisfy is marked `xfail` (finding 1), so pytest counts it as
-expected and exits zero. The provider still did not satisfy it, and the document says `failed` with
-the reason — an expected failure is a recorded deviation, not an excused one.
+Each scenario is a `TestCase` referring to a `Pickle`, and a test case is as bad as its worst step,
+which is Cucumber's rule. Every test case carries two hook steps as well as its Gherkin steps: pytest
+runs a scenario in three phases and only the middle one executes steps, so the before-hook is where a
+capability skip's reason lands and the after-hook is where a teardown failure does.
 
-Four outcomes rather than two, because "did not run" is not one thing:
+Given a scenario's tags — in its pickle — and the envelope's `declaration`, the capability
+responsible for a skip follows, which is why it is no longer transported once per scenario.
 
-| Outcome | Means |
-| --- | --- |
-| `passed` | the scenario ran and passed |
-| `failed` | the scenario ran and failed, including a known deviation marked `xfail` |
-| `not-declared` | skipped because the provider did not declare a capability the scenario is tagged with |
-| `not-applicable` | skipped for any other reason — a marker an adopter applied, a step calling `pytest.skip` |
+Which also means the payload is not a transcription of pytest's summary. The run above finishes
+green: the one scenario the Python SDK cannot satisfy is marked `xfail` (finding 1), so pytest counts
+it as expected and exits zero. The provider still did not satisfy it, and the stream says `FAILED`.
+The acknowledgement goes in the envelope's `knownDeviations` instead — an expected failure is a
+recorded deviation, not an excused one — which an adoption declares with `TckConfig.known_deviations`.
+
+### Which row of a Scenario Outline
+
+A pickle's `astNodeIds` are `[scenario id, table row id]`, and the row id resolves in the
+`GherkinDocument` to exactly the cells the feature file wrote. That is what tells the eleven rows of
+the type-mismatch matrix apart — one of which differs in outcome from its ten siblings — and it is
+exact rather than a naming convention every implementation has to reproduce byte-for-byte.
 
 ### What identifies a report
 
-`tck.specRevision` and `tck.assetsTree` come from `spec_revision.json`, which `hatch_build_sync.py`
-generates from the submodule alongside the copied assets. It has to be captured at build time: the
-submodule is not in the wheel, so an installed copy has nothing left to ask. A build that cannot
-reach git — an unpacked sdist, say — warns and records `unknown` rather than inventing a commit.
+`tck.specRevision` comes from `spec_revision.json`, which `hatch_build_sync.py` generates from the
+submodule alongside the copied assets. It has to be captured at build time: the submodule is not in
+the wheel, so an installed copy has nothing left to ask. A build that cannot reach git — an unpacked
+sdist, say — warns and records `unknown` rather than inventing a commit.
 
-The tree hash is carried as well as the commit because it identifies the assets alone. It is
-unchanged by unrelated edits elsewhere in the specification, so two runs that executed identical
-assets report the same value even when pinned to different commits — and it is checkable, since
-`git rev-parse <specRevision>:specification/assets/provider-tck` must reproduce it.
+No asset tree hash. It was carried so a consumer could tell whether two runs executed the same
+questions; the payload's `Source` messages carry the executed feature files verbatim, which answers
+that directly rather than by proxy.
 
 `provider.name` is what the provider reports through its own metadata, not `TckConfig.name`.
 `TckConfig.name` is chosen to read well in a failure message — `flagd-rpc` — which makes it the
@@ -291,10 +329,10 @@ the field.
 | `test_in_memory_conformance` | the SDK's `InMemoryProvider` | reference adoption for a backend-less provider |
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
 | `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
-| `test_report` | the conformance report | checks the two properties a consumer is entitled to assume |
+| `test_report` | the conformance report | checks the two properties a consumer is entitled to assume, against the emitted Messages stream |
 
 ```
-78 passed, 9 skipped, 2 xfailed
+94 passed, 9 skipped, 2 xfailed
 ```
 
 No Docker and no network. The conformance suites take under a second; `test_report` takes most of a
@@ -311,14 +349,15 @@ what they did while the feature was gated on `@events`.
   cannot assert one *reached* the backend. That needs an echo operation on the control API.
 - **No HTTP control client yet.** It arrives with the first containerised adopter.
 - **Caching, hooks and flag metadata** are not covered.
-- **A report cannot name a Scenario Outline row portably.** Every row of an outline shares one
-  scenario name, and the report schema has nowhere to put the row, so several entries would be
-  indistinguishable — including, here, one that differs in outcome from its siblings. This
-  implementation qualifies the name with pytest's example id (`... [boolean-flag-Integer-1]`), which
-  is unambiguous but is not what another language would produce for the same row. Raised on
+- **The results payload is assembled here.** pytest-bdd emits no Cucumber Messages — it ships the
+  legacy Cucumber JSON format and nothing for the ndjson protocol — so `messages.py` builds the
+  stream from the official types and re-parses the feature files to get the AST node ids a pickle
+  refers to. If pytest-bdd ever emits Messages itself, that module should shrink to a shim. Whether
+  a report belongs inside a provider's released artifact is still open on
   [open-feature/spec#424](https://github.com/open-feature/spec/issues/424).
 
 [report-schema]: https://github.com/open-feature/spec/blob/main/specification/assets/provider-tck/report/conformance-report.schema.json
+[messages]: https://github.com/cucumber/messages
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
 [spec]: https://github.com/open-feature/spec
