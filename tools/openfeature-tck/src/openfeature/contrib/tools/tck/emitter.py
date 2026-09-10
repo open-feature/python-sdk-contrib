@@ -1,39 +1,71 @@
-"""The pytest half of the conformance report: turning a run into the document.
+"""The pytest half of the conformance report: turning a run into the two documents.
 
-Kept apart from :mod:`report`, which knows what a report *is* and nothing about
-pytest. Everything here is translation -- a pytest node into a scenario, a
-:class:`pytest.TestReport` into an :class:`~.report.Outcome`, the end of a
-session into a file on disk.
+Kept apart from :mod:`report`, which knows what an envelope *is*, and from
+:mod:`messages`, which knows what a Cucumber Messages stream is; neither knows
+anything about pytest. Everything here is translation -- a pytest node into a
+scenario, a :class:`pytest.TestReport` into a step status, the end of a session
+into a pair of files on disk.
 
-The translation that matters is the one for skips. pytest reports a skip
-honestly, unlike some runners, but "skipped" alone does not distinguish a
-capability the provider never declared from a scenario the run had some other
-reason not to execute, and the report format does. So the decision is made
-against the scenario's own tags and the suite's declared capabilities rather than
-against the wording of a skip message.
+Two translations matter.
+
+**Skips.** pytest reports a skip honestly, unlike some runners, and Cucumber's
+``SKIPPED`` says the same thing, so a capability-gated scenario reaches the
+stream as skipped without anything having to be decided. What the stream does not
+say is *why* -- and it does not need to, because the envelope carries the
+provider's declaration and the stream carries the scenario's tags, so the reason
+for the skip follows from the two. The skip message is carried anyway, on the
+setup hook's result, because a person reading the stream should not have to
+perform that derivation.
+
+**Expected failures.** A scenario marked ``xfail`` is one pytest reports as
+skipped and finishes green on. The provider still did not satisfy it, so the
+stream reports it as failed. The acknowledgement belongs in the envelope's
+``knownDeviations``, where it is a claim about the provider rather than a
+softening of the result.
 """
 
 from __future__ import annotations
 
 import os
+import time
 import typing
 from pathlib import Path
 
 import pytest
 
 from .config import TckConfig
+from .messages import (
+    FeatureCatalog,
+    ScenarioIdentity,
+    ScenarioRun,
+    Status,
+    StepRun,
+    feature_uri,
+    worse,
+    write_stream,
+)
 from .report import (
     REPORT_DIR_ENV,
-    Outcome,
+    TCK_DISTRIBUTION,
+    TCK_IMPLEMENTATION,
     PhaseOutcome,
     ReportCollector,
-    ScenarioIdentity,
+    Results,
+    SuiteReport,
+    distribution_version,
+    envelope_file_name,
     normalise_tags,
-    report_file_name,
-    write_report,
+    stream_file_name,
+    write_envelope,
 )
 
-__all__ = ["COLLECTOR_KEY", "ReportEmitter", "classify_phase", "scenario_identity"]
+__all__ = [
+    "COLLECTOR_KEY",
+    "ReportEmitter",
+    "classify_phase",
+    "scenario_identity",
+    "scenario_run",
+]
 
 COLLECTOR_KEY = pytest.StashKey[ReportCollector]()
 """Where the session's collector lives, so a fixture can reach it from a request."""
@@ -48,12 +80,15 @@ node is, which is the question the callspec already answers.
 """
 
 _MAX_REASON = 500
-"""How much of a failure message the report carries.
+"""How much of a failure message the stream carries.
 
-A reason is for a person reading a comparison page, not for debugging: whoever
+A message is for a person reading a comparison page, not for debugging: whoever
 ran the suite has the traceback. Whole tracebacks in a published document also
 leak local paths.
 """
+
+_SKIPPED = pytest.skip.Exception
+"""What ``pytest.skip`` raises, named so a step hook can recognise it."""
 
 
 def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
@@ -76,8 +111,12 @@ def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
         tags |= set(getattr(rule, "tags", None) or ())
     tags |= _examples_tags(node, scenario)
 
+    filename = str(getattr(feature, "filename", ""))
+    relative = str(getattr(feature, "rel_filename", "") or Path(filename).name)
+
     return ScenarioIdentity(
-        feature=Path(str(getattr(feature, "filename", ""))).stem,
+        uri=feature_uri(relative),
+        path=Path(filename),
         name=str(getattr(scenario, "name", "")),
         example=_example_of(node),
         tags=normalise_tags(tags),
@@ -88,12 +127,11 @@ def _examples_tags(node: pytest.Item, scenario: object) -> set[str]:
     """The tags of the Examples block *this row* came from.
 
     Gherkin allows an Examples block to carry its own tags, so two rows of one
-    Scenario Outline can differ in which capability gates them. Those tags are not
-    on the scenario, the feature or the rule, so a report built from those three
-    alone would show a row the capability gate skipped as carrying no capability
-    at all -- and it would then be classified ``not-applicable`` rather than
-    ``not-declared``, which is precisely the distinction Appendix F asks a report
-    to keep. It would also not count towards the capability rollup.
+    Scenario Outline can differ in which capability gates them. Those tags are
+    not on the scenario, the feature or the rule, so a stream built from those
+    three alone would show a row the capability gate skipped as carrying no
+    capability at all -- and the envelope's declaration would then not explain
+    the skip, which is the one derivation the format asks a consumer to make.
 
     Resolved by intersecting the tags the scenario's Examples blocks declare with
     the markers pytest actually put on this node: pytest-bdd attaches an Examples
@@ -116,24 +154,23 @@ def _examples_tags(node: pytest.Item, scenario: object) -> set[str]:
 def _example_of(node: pytest.Item) -> tuple[tuple[str, str], ...]:
     """The Examples row this node came from, keyed by column header.
 
-    Every row of a Scenario Outline shares one scenario name, so the row is what
-    tells eleven otherwise identical entries apart -- and in this suite one row
-    of the type-mismatch matrix genuinely differs in outcome from its ten
-    siblings. The row goes in its own field rather than into a mangled name
-    because the parameters *are* the identity and they come from the feature
-    file, whereas a name format would be a rule about this runner: pytest-bdd's
-    own id for the row above is ``boolean-flag-Integer-1``, which no other
-    language's runner has any reason to reproduce.
+    No longer reported -- Cucumber Messages identifies an outline row by the AST
+    node id of the table row a pickle was compiled from, which is exact and which
+    every runner that emits Messages already carries. This survives as the *join
+    key*: it is the one description of a row that both a pytest-bdd node and a
+    Gherkin pickle can produce independently, so it is how a node is matched to
+    its pickle. Matching on the pickle's name would not work, because the
+    compiler interpolates the row's parameters into it and pytest-bdd does not.
 
     pytest-bdd renders an outline by parametrizing the generated test over one
     dict per row, keyed by the Examples column header, and pytest hangs it on the
     node's callspec. A scenario that is not an outline is not parametrized and
-    has no callspec at all, which is why the empty tuple -- and therefore an
-    omitted field -- is the answer for one.
+    has no callspec at all, which is why the empty tuple is the answer for one --
+    and it matches the empty row of a pickle with a single AST node id.
 
     Values are passed through as the parser produced them: Gherkin cells are
-    strings, and the report says what the table said rather than guessing that
-    ``1`` was meant as a number.
+    strings, and both sides of the join have to agree on ``"1"`` rather than one
+    of them guessing it was meant as a number.
     """
     params = getattr(getattr(node, "callspec", None), "params", None)
     if not isinstance(params, dict):
@@ -168,12 +205,13 @@ class ReportEmitter:
 
     def __init__(self, config: pytest.Config) -> None:
         self.collector = ReportCollector()
+        self._step_started: dict[str, int] = {}
         config.stash[COLLECTOR_KEY] = self.collector
 
     def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
         """Enumerate every TCK scenario the session collected.
 
-        At collection rather than as each runs, so that the document accounts for
+        At collection rather than as each runs, so that the stream accounts for
         scenarios that never got as far as running a fixture.
         """
         for item in items:
@@ -184,6 +222,63 @@ class ReportEmitter:
     def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
         self.collector.observe(report.nodeid, _phase_outcome(report))
 
+    # -- what each Gherkin step did ------------------------------------------
+    #
+    # pytest reports a scenario, not its steps. Cucumber Messages records a
+    # result per step, and inventing one -- marking all eight steps failed
+    # because the scenario failed -- would be saying something untrue about the
+    # seven that passed and the ones that were never reached. pytest-bdd's step
+    # hooks are the only place the truth is available.
+
+    def pytest_bdd_before_step(
+        self, request: pytest.FixtureRequest, step: object
+    ) -> None:
+        self._step_started[request.node.nodeid] = time.time_ns()
+
+    def pytest_bdd_after_step(self, request: pytest.FixtureRequest) -> None:
+        self._finish_step(request, Status.passed)
+
+    def pytest_bdd_step_error(
+        self, request: pytest.FixtureRequest, exception: BaseException
+    ) -> None:
+        # A step that calls ``pytest.skip`` raises through the same hook as one
+        # that failed, and the two are not the same result. Told apart by the
+        # exception type rather than by the message, which is prose.
+        if isinstance(exception, _SKIPPED):
+            self._finish_step(request, Status.skipped, exception)
+            return
+        self._finish_step(request, Status.failed, exception)
+
+    def pytest_bdd_step_func_lookup_error(
+        self, request: pytest.FixtureRequest, exception: BaseException
+    ) -> None:
+        # UNDEFINED rather than FAILED: the step was never run, because nothing
+        # claimed to know how to run it. That is a defect in an adoption rather
+        # than a finding about the provider, and the stream says which.
+        self._step_started.setdefault(request.node.nodeid, time.time_ns())
+        self._finish_step(request, Status.undefined, exception)
+
+    def _finish_step(
+        self,
+        request: pytest.FixtureRequest,
+        status: Status,
+        exception: BaseException | None = None,
+    ) -> None:
+        node_id = request.node.nodeid
+        finished = time.time_ns()
+        self.collector.observe_step(
+            node_id,
+            StepRun(
+                status=status,
+                message=_reason(str(exception)) if exception is not None else "",
+                exception_type=type(exception).__name__
+                if exception is not None
+                else "",
+                started_ns=self._step_started.pop(node_id, finished),
+                finished_ns=finished,
+            ),
+        )
+
     def pytest_sessionfinish(self, session: pytest.Session) -> None:
         directory = os.environ.get(REPORT_DIR_ENV, "").strip()
         if not directory:
@@ -191,20 +286,20 @@ class ReportEmitter:
         self.write(session, Path(directory))
 
     def write(self, session: pytest.Session, directory: Path) -> None:
-        """Write every suite's report, failing the session if one cannot be written.
+        """Write every suite's pair of files, failing the session if one cannot be.
 
         A run that asked for a report and silently did not get one is how a
         publishing pipeline ends up serving a stale result forever, so both a
         write failure and an incomplete document are loud and change the exit
         status rather than being logged and forgotten.
         """
-        for problem in self.collector.resolve(classify_phase):
+        for problem in self.collector.resolve(scenario_run):
             self._fail(session, f"tck: {problem}")
 
         written: dict[str, str] = {}
         for suite in self.collector.suites:
             name = suite.config.name
-            file_name = report_file_name(name)
+            file_name = envelope_file_name(name)
             if written.get(file_name, name) != name:
                 self._fail(
                     session,
@@ -213,23 +308,67 @@ class ReportEmitter:
                 )
                 continue
             written[file_name] = name
+            self._write_suite(session, directory, suite)
 
-            try:
-                path = write_report(directory, name, suite.build())
-            except OSError as error:
-                self._fail(
-                    session,
-                    f"tck [{name}]: could not write the conformance report "
-                    f"to {directory}: {error}",
-                )
-                continue
-            counts = ", ".join(
-                f"{count} {outcome}"
-                for outcome, count in sorted(suite.counts().items())
+    def _write_suite(
+        self, session: pytest.Session, directory: Path, suite: SuiteReport
+    ) -> None:
+        name = suite.config.name
+        runs = suite.sorted_runs
+
+        catalog = FeatureCatalog()
+        try:
+            for run in runs:
+                catalog.load(run.identity)
+        except OSError as error:
+            self._fail(
+                session,
+                f"tck [{name}]: could not read the feature files the run "
+                f"executed, so the results payload cannot name them: {error}",
             )
-            self._say(
-                session, f"tck [{name}]: report written to {path} ({counts})"
+            return
+
+        unmatched = [
+            run.identity for run in runs if catalog.pickle_for(run.identity) is None
+        ]
+        for identity in unmatched:
+            # The one failure mode this format exists to rule out: a scenario
+            # that ran and is missing from the results. Reported per scenario
+            # rather than as a count, because which one it is is the whole point.
+            self._fail(
+                session,
+                f"tck [{name}]: {identity.uri} scenario "
+                f"{identity.name!r}{_row(identity)} matched no Gherkin pickle, so "
+                f"the results payload does not account for it",
             )
+
+        stream_path = directory / stream_file_name(name)
+        try:
+            digest = write_stream(
+                stream_path,
+                catalog,
+                runs,
+                implementation=TCK_IMPLEMENTATION,
+                implementation_version=distribution_version(TCK_DISTRIBUTION),
+            )
+            envelope = suite.build(Results(location=stream_path.name, digest=digest))
+            path = write_envelope(directory, name, envelope)
+        except OSError as error:
+            self._fail(
+                session,
+                f"tck [{name}]: could not write the conformance report "
+                f"to {directory}: {error}",
+            )
+            return
+
+        counts = ", ".join(
+            f"{count} {status}" for status, count in sorted(suite.counts().items())
+        )
+        self._say(
+            session,
+            f"tck [{name}]: report written to {path} with results in "
+            f"{stream_path.name} ({counts})",
+        )
 
     def _say(self, session: pytest.Session, message: str) -> None:
         reporter = session.config.pluginmanager.get_plugin("terminalreporter")
@@ -241,6 +380,13 @@ class ReportEmitter:
         session.exitstatus = pytest.ExitCode.INTERNAL_ERROR
 
 
+def _row(identity: ScenarioIdentity) -> str:
+    if not identity.example:
+        return ""
+    row = " ".join(f"{header}={cell}" for header, cell in identity.example)
+    return f" [{row}]"
+
+
 def _phase_outcome(report: pytest.TestReport) -> PhaseOutcome:
     """Reduce a pytest phase report to what the conformance report needs."""
     xfail_reason: str | None = getattr(report, "wasxfail", None)
@@ -250,54 +396,68 @@ def _phase_outcome(report: pytest.TestReport) -> PhaseOutcome:
         outcome=report.outcome,
         xfail_reason=xfail_reason,
         message=message,
-        duration=report.duration,
+        start=getattr(report, "start", 0.0),
+        stop=getattr(report, "stop", 0.0),
     )
 
 
-def classify_phase(
-    phase: PhaseOutcome, identity: ScenarioIdentity, config: TckConfig
-) -> tuple[Outcome, str] | None:
-    """Map one phase onto an outcome, or onto nothing.
+def scenario_run(
+    identity: ScenarioIdentity,
+    phases: list[PhaseOutcome],
+    steps: list[StepRun],
+) -> ScenarioRun:
+    """Assemble one scenario's execution from what pytest reported about it.
 
-    Nothing is the answer for a setup or teardown that simply worked: it says
-    nothing about the scenario, and letting it speak would overwrite what the
-    call phase already established.
+    The scenario's own status is the most serious of its phases', so a scenario
+    whose steps passed and whose teardown then blew up is a failed scenario: the
+    phase that reports last must not be the one that decides.
+    """
+    starts = [phase.start for phase in phases if phase.start]
+    stops = [phase.stop for phase in phases if phase.stop]
+    run = ScenarioRun(
+        identity=identity,
+        steps=list(steps),
+        started_ns=int(min(starts, default=0.0) * 1_000_000_000),
+        finished_ns=int(max(stops, default=0.0) * 1_000_000_000),
+    )
+    for phase in phases:
+        status, message = classify_phase(phase)
+        result = StepRun(
+            status=status,
+            message=message,
+            started_ns=int(phase.start * 1_000_000_000),
+            finished_ns=int(phase.stop * 1_000_000_000),
+        )
+        if phase.when == "setup":
+            run.setup = result
+        elif phase.when == "teardown":
+            run.teardown = result
+        upgraded = worse(run.status, status)
+        if upgraded is not run.status:
+            # The message belongs to whichever phase decided the verdict, so a
+            # teardown failure does not inherit the reason a passing call gave.
+            run.message = message
+        run.status = upgraded
+    return run
+
+
+def classify_phase(phase: PhaseOutcome) -> tuple[Status, str]:
+    """Map one pytest phase onto a Cucumber status.
+
+    The one decision that is not a rename: an expected failure is still a
+    failure. pytest reports an ``xfail`` as skipped and exits zero; the provider
+    did not satisfy the scenario, and a stream calling it anything else would
+    hide exactly the deviation the marker was added to keep visible. The
+    acknowledgement goes in the envelope's ``knownDeviations`` instead, which is
+    where a claim about the provider belongs.
     """
     if phase.outcome == "skipped" and phase.xfail_reason is not None:
-        # An expected failure is still a failure. The provider did not satisfy
-        # the scenario, and a report calling it anything else would hide exactly
-        # the deviation the marker was added to keep visible.
-        return Outcome.FAILED, _reason(f"expected failure: {phase.xfail_reason}")
+        return Status.failed, _reason(f"expected failure: {phase.xfail_reason}")
     if phase.outcome == "failed":
-        return Outcome.FAILED, phase.message or "failed"
+        return Status.failed, phase.message or "failed"
     if phase.outcome == "skipped":
-        return _skipped(phase, identity, config)
-    if phase.when == "call":
-        return Outcome.PASSED, ""
-    return None
-
-
-def _skipped(
-    phase: PhaseOutcome, identity: ScenarioIdentity, config: TckConfig
-) -> tuple[Outcome, str]:
-    """Tell a capability skip apart from every other kind.
-
-    Decided from the scenario's tags and the suite's declared capabilities rather
-    than from the skip message, because the message is prose and the distinction
-    is not. Anything else that skipped a scenario -- a marker an adopter applied,
-    a step calling ``pytest.skip`` -- is reported as not applicable: it did not
-    run, and not because a capability was left undeclared.
-    """
-    undeclared = [
-        capability.tag
-        for capability in identity.capabilities()
-        if not config.declares(capability)
-    ]
-    if undeclared:
-        return Outcome.NOT_DECLARED, phase.message or (
-            f"provider does not declare {' '.join(undeclared)}"
-        )
-    return Outcome.NOT_APPLICABLE, phase.message or "skipped"
+        return Status.skipped, phase.message or "skipped"
+    return Status.passed, ""
 
 
 def _skip_reason(report: pytest.TestReport) -> str:
