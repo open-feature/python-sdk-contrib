@@ -311,19 +311,17 @@ def sync() -> None:
 
 
 def write_revision() -> None:
-    """Record the spec commit and the asset tree these copies came from.
+    """Record the spec commit these copies came from.
 
-    The tree hash is carried as well as the commit because it identifies the
-    assets alone: it does not change when an unrelated part of the specification
-    does, so two runs that executed identical assets report the same value even
-    when pinned to different commits. It is also checkable rather than merely
-    asserted, since ``git rev-parse <commit>:specification/assets/provider-tck``
-    must reproduce it.
+    The asset tree hash that used to accompany it is gone. It was carried so a
+    consumer could tell whether two runs executed the same questions; the
+    conformance report's results are now a Cucumber Messages stream, which
+    carries the executed feature source itself and answers that directly rather
+    than by proxy.
     """
     commit = _git("rev-parse", "HEAD") or UNKNOWN_REVISION
-    tree = _git("rev-parse", f"HEAD:{ASSETS_PATH_IN_SPEC}") or ""
     (DEST_BASE / REVISION_FILE).write_text(
-        json.dumps({"specRevision": commit, "assetsTree": tree}, indent=2) + "\n",
+        json.dumps({"specRevision": commit}, indent=2) + "\n",
         encoding="utf-8",
     )
 
