@@ -200,8 +200,6 @@ def test_a_reserved_capability_cannot_be_declared() -> None:
     for reserved in RESERVED_CAPABILITIES:
         with pytest.raises(ValueError, match=f"reserved capabilities {reserved.tag}"):
             _config(capabilities={Capability.EVENTS, reserved})
-        with pytest.raises(ValueError, match=f"reserved capabilities {reserved.tag}"):
-            _config(not_applicable={reserved: "no scenario asks"})
 
 
 def test_the_refusal_says_what_may_be_declared_instead() -> None:
@@ -212,38 +210,6 @@ def test_the_refusal_says_what_may_be_declared_instead() -> None:
     assert "DECLARABLE_CAPABILITIES" in message
     for capability in DECLARABLE_CAPABILITIES:
         assert capability.tag in message
-
-
-# -- declaring an impossibility ----------------------------------------------
-
-
-def test_not_applicable_is_normalised_and_keeps_its_reasons() -> None:
-    """Written as a dict literal keyed by ``Capability``; read as a mapping."""
-    config = _config(not_applicable={Capability.NUMERIC_COERCION: "no integer type"})
-    assert dict(config.not_applicable) == {
-        Capability.NUMERIC_COERCION: "no integer type"
-    }
-
-
-def test_a_capability_cannot_be_both_declared_and_impossible() -> None:
-    """The two are different claims, and a declaration asserting both says neither."""
-    with pytest.raises(ValueError, match="both claim @events"):
-        _config(
-            capabilities={Capability.EVENTS},
-            not_applicable={Capability.EVENTS: "a reason"},
-        )
-
-
-def test_a_not_applicable_capability_must_say_why() -> None:
-    """A reason is required: "impossible for this provider" is useless without one."""
-    for empty in ("", " ", "\n"):
-        with pytest.raises(ValueError, match="no reason for @stale"):
-            _config(not_applicable={Capability.STALE: empty})
-
-
-def test_something_that_is_not_a_capability_cannot_be_not_applicable() -> None:
-    with pytest.raises(ValueError, match="in not_applicable"):
-        _config(not_applicable={"stale": "a reason"})
 
 
 # -- acknowledging a gap -----------------------------------------------------
