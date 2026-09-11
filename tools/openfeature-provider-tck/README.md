@@ -401,14 +401,14 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | --- | --- | --- |
 | `test_in_memory_conformance` | the SDK's `InMemoryProvider` | reference adoption for a backend-less provider |
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
-| `test_in_process_control` | `InProcessControl` and the canonical flag set | pins what the Gherkin cannot assert about itself, including that the in-memory flag set mirrors `canonical-flags.json` type for type |
+| `test_in_process_control` | `InProcessControl` and the canonical flag set | pins what the Gherkin cannot assert about itself, including that the in-memory flag set is decoded from `canonical-flags.json` — every flag served under the file's own default variant, with the Python type the file wrote |
 | `test_lifecycle_steps` | the steps that call the provider directly | the in-memory suites skip `@lifecycle`, so the shutdown, re-initialise and metadata steps are driven against a recording provider instead |
 | `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
 | `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot take a canonical scenario's identity |
 | `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping and the control-API it reports, against a stubbed control API |
 
 ```
-121 passed, 21 skipped, 2 xfailed
+140 passed, 21 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
