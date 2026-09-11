@@ -73,6 +73,33 @@ from tests.tck.suite import ResolverSuite, build_config
 #     implementation to the lossless rule; when openfeature-flagd-core follows
 #     it, this is declared again.
 #
+#   REINITIALIZATION
+#     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
+#     down can be initialized again" that had been untagged before it. Withheld
+#     here even though this resolver does support reuse, which is the
+#     interesting half of the story and was measured rather than assumed:
+#     declaring LIFECYCLE and REINITIALIZATION together locally makes the
+#     scenario run, and in-process passes it, while RPC fails it against a
+#     closed channel. The two resolvers genuinely differ.
+#
+#     It stays withheld because declaring it would be vacuous. The scenario
+#     lives in lifecycle.feature, which carries @lifecycle at the feature level,
+#     so it inherits that tag and carries both; the gate skips a scenario when
+#     any capability gating it is undeclared, and this suite does not declare
+#     LIFECYCLE. Declaring REINITIALIZATION alone would leave the scenario
+#     skipped on @lifecycle and the claim unexamined -- the same
+#     declare-what-nothing-exercises error the reserved tags below are kept out
+#     for. Declaring LIFECYCLE is a separate question from this one and is not
+#     settled here.
+#
+#     Requirement 2.5.2 says a provider SHOULD revert to its uninitialized
+#     state and that "some providers MAY allow reinitialization", so reuse is
+#     permitted rather than required and withholding needs no KnownDeviation.
+#
+#     Worth recording that this scenario never ran here, at this pin or the one
+#     before it: it is one of the six @lifecycle skips each resolver reports,
+#     not a scenario that used to pass.
+#
 #   TARGETING, CACHING
 #     Reserved in the Capability enum; no scenario carries either tag. Declaring
 #     a capability nothing exercises would be a claim with no evidence behind it,
