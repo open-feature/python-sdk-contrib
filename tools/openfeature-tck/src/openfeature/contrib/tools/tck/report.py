@@ -271,6 +271,14 @@ class SuiteReport:
         different things -- a choice against a capability, and an impossibility.
         :class:`~.config.TckConfig` refuses a configuration that puts a
         capability in both, so a consumer never has to decide which one wins.
+
+        Neither set is filtered here. A reserved capability -- one no scenario
+        carries, which the schema forbids in this block -- cannot be in a
+        ``TckConfig`` at all: it is refused at construction, and the default
+        capability set excludes it. Dropping one silently at emission time would
+        make a rejected configuration look like an accepted one, and leave the
+        adopter who wrote it believing the declaration they read back was the
+        declaration they asked for.
         """
         declaration: dict[str, typing.Any] = {
             "declared": self.config.sorted_capabilities
