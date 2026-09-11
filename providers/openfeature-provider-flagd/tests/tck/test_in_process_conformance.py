@@ -50,7 +50,7 @@ from tests.tck.suite import ResolverSuite, build_config
 #     deadline passes without a synced ruleset, which the SDK's registry turns
 #     into PROVIDER_ERROR.
 #
-#   STRICT_NUMERIC_TYPING
+#   NUMERIC_COERCION
 #     Local, and strict: flagd_core.py:25 admits only `int` for an integer
 #     request, and flagd_core.py:228-231 raises TypeMismatchError for anything
 #     else -- so `float-flag`'s 0.5 is reported as a mismatch rather than
@@ -70,7 +70,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
         Capability.UNAVAILABLE_INIT,
-        Capability.STRICT_NUMERIC_TYPING,
+        Capability.NUMERIC_COERCION,
     }
 )
 
