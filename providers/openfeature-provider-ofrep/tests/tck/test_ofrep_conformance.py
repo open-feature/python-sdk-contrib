@@ -64,15 +64,13 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # rate-limit timestamp, and nothing else survives between evaluations.
 #
 #   LIFECYCLE
-#     Not in the Capability enum on this branch yet (it lands with
-#     feat/provider-tck), and it would not be declared once it does.
 #     OFREPProvider does not override `initialize`, so it inherits
 #     AbstractProvider's, which is `pass` (python-sdk
 #     openfeature/provider/__init__.py:138-139). Nothing contacts the backend
 #     before the first evaluation, so initialisation has no outcome to observe.
-#     lifecycle.feature is gated on @events at feature level on this branch and
-#     skips for that reason; when it is retagged to @lifecycle it must keep
-#     skipping, for this one.
+#     lifecycle.feature carries @lifecycle at feature level and skips as a
+#     whole, which is the intended outcome: it was gated on @events before the
+#     capability was split out, and the retag had to keep it skipping here.
 #
 #   EVENTS
 #     The provider never emits. It extends AbstractProvider, so it inherits
@@ -109,6 +107,23 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     PROVIDER_ERROR, so the scenario's premise does not hold. `TckConfig` also
 #     rejects the capability without a `new_unavailable_provider`, and none is
 #     supplied here for the same reason.
+#
+#   REINITIALIZATION
+#     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
+#     down can be initialized again" that had been untagged before it.
+#     Requirement 2.5.2 says a provider SHOULD revert to its uninitialized
+#     state and that "some providers MAY allow reinitialization", so reuse is
+#     permitted rather than required and withholding needs no KnownDeviation.
+#
+#     Reuse would in fact work here -- a stateless provider holding only a
+#     Session has nothing to release and nothing to rebuild, and `shutdown` is
+#     inherited and does nothing either -- but the scenario cannot be reached to
+#     demonstrate it. It lives in lifecycle.feature, so it inherits @lifecycle
+#     at feature level, and the gate skips a scenario when any capability
+#     gating it is undeclared. With LIFECYCLE withheld above, declaring this
+#     would leave the scenario skipped on @lifecycle and the claim unexamined:
+#     the same declare-what-nothing-exercises error the reserved tags below are
+#     kept out for.
 #
 #   TARGETING, CACHING
 #     Reserved in the Capability enum; no scenario carries either tag. Declaring
