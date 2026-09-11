@@ -34,6 +34,12 @@ from pathlib import Path
 import pytest
 
 from .config import TckConfig
+from .extensions import (
+    collision_problem,
+    reserved_prefix_problem,
+    uri_collisions,
+    uri_for,
+)
 from .messages import (
     FeatureCatalog,
     ScenarioIdentity,
@@ -113,11 +119,18 @@ def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
     tags |= _examples_tags(node, scenario)
 
     filename = str(getattr(feature, "filename", ""))
-    relative = str(getattr(feature, "rel_filename", "") or Path(filename).name)
+    path = Path(filename)
+    relative = str(getattr(feature, "rel_filename", "") or path.name)
 
     return ScenarioIdentity(
-        uri=feature_uri(relative),
-        path=Path(filename),
+        # Derived from where the file is, falling back to what pytest-bdd called
+        # it. pytest-bdd names a feature by its parent directory joined to its
+        # own name, which two files can share: an extension at
+        # tck-extensions/features/errors.feature arrives under exactly the uri
+        # the canonical errors.feature already occupies, and the payload carries
+        # one source per uri.
+        uri=uri_for(path) or feature_uri(relative),
+        path=path,
         name=str(getattr(scenario, "name", "")),
         example=_example_of(node),
         tags=normalise_tags(tags),
@@ -317,6 +330,13 @@ class ReportEmitter:
         name = suite.config.name
         runs = suite.sorted_runs
 
+        if not self._identities_are_sound(session, suite):
+            # Refusing to write is the point: a document that presents an
+            # adopter's feature file as the specification's -- or reports one
+            # file's scenarios against another's source -- is worse than no
+            # document, because it is the one thing a consumer cannot check.
+            return
+
         catalog = FeatureCatalog()
         try:
             for run in runs:
@@ -374,6 +394,39 @@ class ReportEmitter:
         gap = control_api_gap(suite.config.control)
         if gap:
             self._say(session, f"tck [{name}]: {gap}")
+
+    def _identities_are_sound(
+        self, session: pytest.Session, suite: SuiteReport
+    ) -> bool:
+        """Whether every feature file this suite ran is named in the payload as itself.
+
+        Two ways it might not be, and both are silent without this. A file that
+        is not one of the packaged assets must not be reported under their uri
+        prefix, or a consumer reading ``features/errors.feature`` in the stream
+        has no way to tell that the specification did not write it. And two
+        files must not share a uri, or the stream carries one source for both
+        and the second file's scenarios are reported against the first's.
+        """
+        name = suite.config.name
+        runs = suite.sorted_runs
+
+        reserved = [
+            problem
+            for run in runs
+            if (problem := reserved_prefix_problem(run.identity.uri, run.identity.path))
+        ]
+        for problem in dict.fromkeys(reserved):
+            self._fail(session, f"tck [{name}]: {problem}")
+
+        collisions = uri_collisions(
+            (run.identity.uri, run.identity.path) for run in runs
+        )
+        for uri, paths in sorted(collisions.items()):
+            self._fail(
+                session, f"tck [{name}]: {collision_problem(uri, paths)}"
+            )
+
+        return not reserved and not collisions
 
     def _say(self, session: pytest.Session, message: str) -> None:
         reporter = session.config.pluginmanager.get_plugin("terminalreporter")
