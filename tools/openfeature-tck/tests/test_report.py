@@ -129,7 +129,6 @@ def tck_config():
         control=control,
         new_provider=control.new_provider,
         capabilities={capabilities},
-        not_applicable={not_applicable},
         known_deviations={deviations},
     )
 
@@ -146,9 +145,6 @@ unbounded, and the provider behind ``InProcessControl`` hands each variant back
 untouched rather than coercing it. Three declared capabilities are what these
 tests need; which three has to stay an honest claim about the provider.
 """
-
-NOT_APPLICABLE = '{Capability.STALE: "this provider has no connection to lose"}'
-"""One capability the provider cannot have rather than merely does not declare."""
 
 DEVIATIONS = (
     "(KnownDeviation("
@@ -534,7 +530,6 @@ def _write_suite(
     directory: Path,
     name: str = SUITE_NAME,
     capabilities: str = CAPABILITIES,
-    not_applicable: str = NOT_APPLICABLE,
     deviations: bool = True,
 ) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
@@ -542,7 +537,6 @@ def _write_suite(
         _SUITE_MODULE.format(
             name=name,
             capabilities=capabilities,
-            not_applicable=not_applicable,
             deviations=DEVIATIONS if deviations else "()",
         ),
         encoding="utf-8",
@@ -597,7 +591,6 @@ def narrow_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
         file_name="narrow.json",
         name="narrow",
         capabilities="{Capability.LARGE_INTEGERS}",
-        not_applicable="{}",
         deviations=False,
     )
 
@@ -873,20 +866,19 @@ def test_the_payload_is_a_well_formed_messages_stream(run: Run) -> None:
 def test_the_declaration_is_an_input_not_a_summary(run: Run) -> None:
     """Which is why it cannot be derived from the payload and is stated here.
 
-    Declared and not-applicable are disjoint and mean different things -- a
-    choice against a capability, and an impossibility -- and the payload can
-    express neither, because a skip in it says only that the question was not
-    put to this provider.
+    The payload cannot express it, because a skip in it says only that the
+    question was not put to this provider. What the declaration adds is whether
+    that is because the capability was not claimed -- and that is all it adds:
+    one skip carrying its reason is the whole mechanism, so the block holds the
+    declared set and nothing restating it.
     """
     declaration = run.envelope["declaration"]
+    assert set(declaration) == {"declared"}
     assert declaration["declared"] == [
         Capability.EVENTS.tag,
         Capability.LARGE_INTEGERS.tag,
         Capability.OBJECT.tag,
     ]
-    assert declaration["notApplicable"] == {
-        Capability.STALE.tag: "this provider has no connection to lose"
-    }
     assert Capability.STALE.tag not in declaration["declared"]
 
 
@@ -1014,46 +1006,16 @@ def test_a_gated_skip_is_skipped_for_every_step() -> None:
 
 
 def test_the_declaration_reports_what_the_configuration_declares() -> None:
+    """The declared set, and nothing beside it restating what a skip says."""
     suite = SuiteReport(config=_config(capabilities={Capability.EVENTS}))
     declaration = suite.build(_results())["declaration"]
-    assert declaration["declared"] == [Capability.EVENTS.tag]
-    assert "notApplicable" not in declaration
-
-
-def test_a_not_applicable_capability_is_reported_with_its_reason() -> None:
-    """Impossible is not the same claim as undeclared, and the report keeps both."""
-    suite = SuiteReport(
-        config=_config(
-            capabilities={Capability.EVENTS},
-            not_applicable={Capability.NUMERIC_COERCION: "no integer type"},
-        )
-    )
-    declaration = suite.build(_results())["declaration"]
-    assert declaration["notApplicable"] == {
-        Capability.NUMERIC_COERCION.tag: "no integer type"
-    }
-
-
-def test_a_capability_cannot_be_both_declared_and_impossible() -> None:
-    with pytest.raises(ValueError, match="both claim @events"):
-        _config(
-            capabilities={Capability.EVENTS},
-            not_applicable={Capability.EVENTS: "a reason"},
-        )
-
-
-def test_a_not_applicable_capability_must_say_why() -> None:
-    with pytest.raises(ValueError, match="no reason for @stale"):
-        _config(
-            capabilities={Capability.EVENTS}, not_applicable={Capability.STALE: " "}
-        )
+    assert declaration == {"declared": [Capability.EVENTS.tag]}
 
 
 def test_a_reserved_capability_cannot_be_declared() -> None:
     """A tag no scenario carries is a claim nothing can check, so it is refused.
 
-    Refused at construction rather than dropped at emission time, for the same
-    reason a capability claimed as both declared and impossible is: the adopter
+    Refused at construction rather than dropped at emission time: the adopter
     wrote it down and meant something by it, and a config silently different
     from the one they wrote is worse than one that will not build. This is also
     where their own code is still on the stack.
@@ -1061,11 +1023,6 @@ def test_a_reserved_capability_cannot_be_declared() -> None:
     for reserved in RESERVED_CAPABILITIES:
         with pytest.raises(ValueError, match=f"reserved capabilities {reserved.tag}"):
             _config(capabilities={Capability.EVENTS, reserved})
-        with pytest.raises(ValueError, match=f"reserved capabilities {reserved.tag}"):
-            _config(
-                capabilities={Capability.EVENTS},
-                not_applicable={reserved: "no scenario asks"},
-            )
 
 
 def test_a_reserved_capability_cannot_reach_the_declaration() -> None:
