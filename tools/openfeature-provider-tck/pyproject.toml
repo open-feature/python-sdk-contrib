@@ -17,7 +17,7 @@ classifiers = [
 ]
 keywords = ["openfeature", "conformance", "tck", "feature-flags"]
 dependencies = [
-    "openfeature-sdk>=0.8.2",
+    "openfeature-sdk>=0.10.0",
     "pytest>=8.4.0",
     # Same runner the flagd provider and the flagd testkit already use, so an
     # adopting module gains no new test framework.
