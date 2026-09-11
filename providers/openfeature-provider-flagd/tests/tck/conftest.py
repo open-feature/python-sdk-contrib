@@ -12,6 +12,25 @@ no-container-restart invariant in the TCK's ``control-api.yaml``.
 TCK drives the testbed's launchpad through the standardised control API, which
 the launchpad already implements, and reuses the container lifecycle already in
 ``tests/e2e``.
+
+**The testbed does not yet serve the whole canonical flag set.** The
+conformance assets at spec@15fe8611 added six flags -- ``false-flag``,
+``zero-flag``, ``empty-string-flag``, ``large-integer-flag``,
+``huge-integer-flag`` and ``integral-float-flag`` -- and flagd-testbed v3.8.0
+(``openfeature/test-harness/version.txt``) seeds none of them. Until
+open-feature/flagd-testbed catches up, both suites fail these scenarios with
+``FLAG_NOT_FOUND``, for every resolver alike:
+
+* ``A falsy value is a value, not an absence`` -- three rows, untagged;
+* ``A large integer resolves without loss of precision`` -- untagged;
+* ``An integer beyond 32 bits resolves without loss of precision`` -- under
+  ``@large-integers``, which both suites declare.
+
+``integral-float-flag`` is asked for only under ``@numeric-coercion``, which
+neither suite declares, so its scenario is skipped rather than failed. The
+failures are deliberately left as failures: they say something true about the
+stack under test, and an ``xfail`` would say the provider is at fault when it is
+the backend that is behind.
 """
 
 from __future__ import annotations
