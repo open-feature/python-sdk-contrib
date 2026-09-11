@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.resources
+import json
 import typing
 
 from openfeature.event import ProviderEventDetails
@@ -15,6 +17,7 @@ __all__ = [
     "CHANGING_FLAG_KEY",
     "ControllableInMemoryProvider",
     "canonical_flag_set",
+    "canonical_flags_json",
     "changing_flag",
 ]
 
@@ -23,6 +26,23 @@ CHANGING_FLAG_KEY = "changing-flag"
 
 _CHANGING_BASELINE = "foo"
 _CHANGING_CHANGED = "bar"
+
+_PACKAGE = "openfeature.contrib.tools.provider_tck"
+
+_FLAG_DATA_DIRECTORY = "flag_data"
+_CANONICAL_FLAGS_FILE = "canonical-flags.json"
+
+_COMMENT_KEY = "$comment"
+"""The key the specification's assets carry prose under.
+
+Ignored at the document level, at a flag's level and among a flag's *variant
+names* -- a "variant" called ``$comment`` is prose about the flag rather than a
+variant of it -- and deliberately **not** inside a variant's value. A value is
+opaque data the suite passes through: ``object-flag`` could perfectly well grow
+a member of that name, and a loader that reached into a value to strip it would
+serve an object no scenario expects. JavaScript's suite draws the line in the
+same place, on purpose.
+"""
 
 
 class ControllableInMemoryProvider(InMemoryProvider):
@@ -81,6 +101,13 @@ class ControllableInMemoryProvider(InMemoryProvider):
 
 
 def changing_flag(default_variant: str) -> InMemoryFlag[str]:
+    """Build ``changing-flag`` at one of its two variants.
+
+    The one flag built by hand rather than decoded, because
+    :meth:`InProcessControl.change_flag` has to rebuild it at the *other*
+    variant and so has to name both. That the names here are the ones the
+    canonical file defines is asserted by the self-tests rather than assumed.
+    """
     return InMemoryFlag(
         default_variant=default_variant,
         variants={
@@ -90,78 +117,124 @@ def changing_flag(default_variant: str) -> InMemoryFlag[str]:
     )
 
 
+def canonical_flags_json() -> str:
+    """Return the canonical flag set as raw JSON, in the flagd flag-definition format.
+
+    This is the flag set every scenario assumes, and a backend under test must
+    serve an equivalent one. The format is not what matters -- the keys, types,
+    variant names and resolved values are. Seed them however your backend seeds
+    flags.
+
+    Exposed so an adopting provider can seed a backend from the canonical
+    definition rather than transcribing it, transcription being the usual way
+    the two drift apart. :func:`canonical_flag_set` takes its own advice.
+    """
+    ref = (
+        importlib.resources.files(_PACKAGE)
+        / _FLAG_DATA_DIRECTORY
+        / _CANONICAL_FLAGS_FILE
+    )
+    return ref.read_text(encoding="utf-8")
+
+
 def canonical_flag_set() -> FlagStorage:
     """Return the canonical flag set as SDK in-memory flags.
 
-    Mirrors ``flag_data/canonical-flags.json`` entry for entry -- and the
-    self-tests check that it does, value for value and Python type for Python
-    type. Four properties of that file are load-bearing and hold here too:
+    Decoded from ``flag_data/canonical-flags.json`` -- the JSON
+    :func:`canonical_flags_json` returns -- rather than transcribed, so that the
+    in-memory suites cannot drift from the file every other language seeds a
+    backend from. That file is published precisely so an adopter can "seed a
+    backend directly from the canonical definition rather than transcribing it,
+    transcription being the usual way the two drift apart"; this suite is an
+    adopter of it like any other.
+
+    The drift it prevents is silent rather than loud. A fixture that has moved
+    away from the file makes the in-memory self-tests pass against a baseline
+    that is no longer the canonical one, so the suite verifies itself against
+    the wrong flags while reporting green -- and the report it publishes claims
+    the canonical set.
+
+    Four properties of the file are load-bearing, and all four survive the
+    decoding:
 
     * ``missing-flag`` is absent, which is what the ``FLAG_NOT_FOUND`` scenario
       tests. Adding it turns that scenario green for the wrong reason.
     * no flag carries a ``context_evaluator``, so every evaluation reports reason
       ``STATIC`` -- the TCK tests a provider's mapping of a response, not a
-      backend's evaluation logic.
+      backend's evaluation logic. Nothing here can add one: the file has no way
+      to express targeting that this decoder reads.
     * ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``
       resolve to ``False``, ``0`` and ``""``. They are values, not absences, and
       the falsy scenarios exist to catch a provider that cannot tell the
       difference. Their ``zero``/``non-zero`` variant names are load-bearing
       too: the scenarios assert the variant, not only the value.
-    * ``integral-float-flag`` is the ``float`` ``10.0`` and ``huge-integer-flag``
-      is the ``int`` ``9007199254740991``. Writing the first as ``10`` makes the
-      lossless-coercion scenario pass without coercing; nothing here goes
-      through a float, so the second cannot be rounded.
+    * a number keeps the type it was written with. ``json.loads`` gives ``int``
+      for ``10``, ``float`` for ``10.0`` and an arbitrary-precision ``int`` for
+      2^53 - 1, and nothing here normalises either way, so
+      ``integral-float-flag`` stays the ``float`` ``10.0`` and
+      ``huge-integer-flag`` stays exact. Normalising integral floats to ``int``
+      is the decoder bug that bit Java, and it makes the lossless-coercion
+      scenario pass without coercing anything.
+
+    A variant's value is passed through untouched, which is both why the types
+    survive and why a ``$comment`` member *inside* an object value survives with
+    them -- see :data:`_COMMENT_KEY`.
+
+    Raises:
+        ValueError: if the packaged file is not the shape this expects.
+            Unreachable for a pinned spec revision, because the file is copied
+            in from the submodule at build time: a failure here means the pinned
+            assets and this decoder disagree about the file's shape, which
+            moving the pin should have surfaced.
     """
-    return {
-        "boolean-flag": InMemoryFlag(
-            default_variant="on", variants={"on": True, "off": False}
-        ),
-        "string-flag": InMemoryFlag(
-            default_variant="greeting", variants={"greeting": "hi", "parting": "bye"}
-        ),
-        "integer-flag": InMemoryFlag(
-            default_variant="ten", variants={"one": 1, "ten": 10}
-        ),
-        "float-flag": InMemoryFlag(
-            default_variant="half", variants={"tenth": 0.1, "half": 0.5}
-        ),
-        # 2^31 - 1: the largest value every language's integer accessor can ask for.
-        "large-integer-flag": InMemoryFlag(
-            default_variant="max-int32", variants={"one": 1, "max-int32": 2147483647}
-        ),
-        # 2^53 - 1: asked for only under @large-integers. A Python int is exact.
-        "huge-integer-flag": InMemoryFlag(
-            default_variant="max-safe",
-            variants={"one": 1, "max-safe": 9007199254740991},
-        ),
-        # A float with no fractional part, for the lossless half of
-        # @numeric-coercion. The trailing ``.0`` is the whole point.
-        "integral-float-flag": InMemoryFlag(
-            default_variant="ten", variants={"tenth": 0.1, "ten": 10.0}
-        ),
-        "boolean-zero-flag": InMemoryFlag(
-            default_variant="zero", variants={"zero": False, "non-zero": True}
-        ),
-        "integer-zero-flag": InMemoryFlag(
-            default_variant="zero", variants={"zero": 0, "non-zero": 1}
-        ),
-        "string-zero-flag": InMemoryFlag(
-            default_variant="zero", variants={"zero": "", "non-zero": "str"}
-        ),
-        "object-flag": InMemoryFlag(
-            default_variant="template",
-            variants={
-                "empty": {},
-                "template": {
-                    "showImages": True,
-                    "title": "Check out these pics!",
-                    "imagesPerPage": 100,
-                },
-            },
-        ),
-        # A string flag, evaluated as a boolean by the TYPE_MISMATCH scenario.
-        "wrong-flag": InMemoryFlag(
-            default_variant="one", variants={"one": "uno", "two": "dos"}
-        ),
-        CHANGING_FLAG_KEY: changing_flag(_CHANGING_BASELINE),
-    }
+    return _decode_canonical_flags(canonical_flags_json())
+
+
+def _decode_canonical_flags(raw: str) -> FlagStorage:
+    """Turn the canonical flag file into in-memory flags."""
+    document = json.loads(raw)
+    if not isinstance(document, dict):
+        msg = f"{_CANONICAL_FLAGS_FILE} is not a JSON object"
+        raise ValueError(msg)
+
+    # Reading the one member this needs is what ignores $comment at the document
+    # level, along with every other part of the flagd format the suite has no
+    # use for.
+    definitions = document.get("flags")
+    if not isinstance(definitions, dict) or not definitions:
+        msg = f"{_CANONICAL_FLAGS_FILE} defines no flags"
+        raise ValueError(msg)
+
+    return {key: _decode_flag(key, value) for key, value in definitions.items()}
+
+
+def _decode_flag(key: str, definition: typing.Any) -> InMemoryFlag[typing.Any]:
+    """Turn one flag definition into an in-memory flag, or say why it cannot be."""
+    if not isinstance(definition, dict):
+        msg = f"flag {key!r}: expected an object, got {type(definition).__name__}"
+        raise ValueError(msg)
+
+    variants = definition.get("variants")
+    if not isinstance(variants, dict):
+        msg = f"flag {key!r}: variants is not an object"
+        raise ValueError(msg)
+    # Only the variant *names* are filtered. The values are not looked into.
+    variants = {name: value for name, value in variants.items() if name != _COMMENT_KEY}
+
+    default_variant = definition.get("defaultVariant")
+    if not isinstance(default_variant, str) or default_variant not in variants:
+        msg = (
+            f"flag {key!r}: default variant {default_variant!r} is not one of its "
+            f"variants ({', '.join(sorted(map(repr, variants)))})"
+        )
+        raise ValueError(msg)
+
+    raw_state = definition.get("state")
+    try:
+        state = InMemoryFlag.State(raw_state)
+    except ValueError:
+        allowed = ", ".join(member.value for member in InMemoryFlag.State)
+        msg = f"flag {key!r}: state {raw_state!r} is none of {allowed}"
+        raise ValueError(msg) from None
+
+    return InMemoryFlag(default_variant=default_variant, variants=variants, state=state)
