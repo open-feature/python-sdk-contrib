@@ -32,7 +32,7 @@ from pytest_bdd import scenarios
 from openfeature.contrib.tools.provider_tck import (
     Capability,
     TckConfig,
-    features_path,
+    feature_paths,
 )
 
 
@@ -47,7 +47,7 @@ def tck_config():
     )
 
 
-scenarios(features_path())
+scenarios(*feature_paths())
 ```
 
 There is **no `conftest.py` to write and nothing to import for the steps**. The step definitions
@@ -69,6 +69,72 @@ inside the distribution, so **adopting this package needs no git submodule** —
 different timescales — a streaming provider sees a configuration change in milliseconds, one that
 polls every 30 seconds may need most of a poll interval. Set it to comfortably exceed your
 worst-case detection latency, or the suite reports timeouts that are really just impatience.
+
+## Adding your own scenarios
+
+A provider is rarely only a provider. flagd has `fractional` targeting, another vendor has a
+proprietary rollout rule, and the behaviour of those is as worth pinning as the contract they sit on
+top of. Verifying them used to mean a second harness: a second backend lifecycle, a second set of
+fixtures, a second thing to keep working.
+
+Put them in the same run instead. Create a directory named `tck-extensions` beside the module that
+calls `scenarios()`, and write step definitions for whatever is new in a `conftest.py` beside it:
+
+```
+tests/
+├── conftest.py                    # your step definitions
+├── test_conformance.py            # the fixture and the one call, unchanged
+└── tck-extensions/
+    └── fractional.feature
+```
+
+```python
+# conftest.py
+from pytest_bdd import then
+
+from openfeature.contrib.tools.provider_tck import TckState
+
+
+@then("the fractional rule splits the population")
+def fractional_splits(tck_state: TckState) -> None: ...
+```
+
+That is the whole of it — **no registration, no option and no new argument**. pytest collects
+`conftest.py` on its own, pytest-bdd resolves steps through the fixture system, and the canonical
+step vocabulary is in scope in your feature file beside your own steps. `tck_state` is the same
+per-scenario state the canonical steps use, so your scenario runs against the provider the suite
+registered, in the same backend lifecycle, with the same reset between scenarios.
+
+The one thing pytest cannot find by itself is the feature files, because the canonical ones are
+inside the installed distribution rather than in your repository. `feature_paths()` returns both:
+
+```python
+scenarios(*feature_paths())
+```
+
+That line does not change when you add an extension, and it is the only difference from
+`scenarios(features_path())` — which still works and still sees only the canonical set. An adopter
+with no `tck-extensions` directory runs exactly what they ran before: same scenarios, same count.
+
+### Your scenarios cannot stand in for ours
+
+Every feature file carries a uri, and it is how a canonical scenario is told from an adopter's:
+canonical files are the ones under the `features/` prefix and yours are under `extensions/` — the
+prefix Go and JavaScript mount theirs under too, so a consumer holding conformance reports from
+several languages applies one rule. The prefix is derived from where a file *is*, not from what the
+runner called it, and `extensions.py` reports two cases that derivation cannot rule out:
+
+- **A feature file of yours under the reserved `features/` prefix.** Handing `scenarios()` a
+  directory of your own named `features` is the one route left to a canonical-looking uri.
+- **Two feature files that would share one uri.** A record of what ran holds one copy of a feature
+  file per uri, so the second file's scenarios would be attributed to the first file's.
+
+This is not hypothetical. Java's suite found that a same-named feature file in a second classpath
+root *replaced* the canonical one, and the run went green having asked the adopter's questions
+instead of the specification's — the worst outcome available to a conformance suite. The Python
+route to the same place is narrower and just as quiet: pytest-bdd names a feature file by its parent
+directory joined to its own name, so `tck-extensions/features/errors.feature` arrives under the uri
+the canonical `errors.feature` already occupies.
 
 ## Capabilities
 
@@ -252,12 +318,15 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
 | `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
 | `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
+| `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot take a canonical scenario's identity |
 
 ```
-70 passed, 9 skipped, 2 xfailed
+84 passed, 9 skipped, 2 xfailed
 ```
 
-No Docker, no network, under a second.
+No Docker and no network. The conformance suites take under a second; `test_extensions` takes most
+of the rest, because the properties it checks are properties of a whole pytest session and it runs a
+generated adoption in a subprocess to check them.
 
 Neither in-memory suite declares `@lifecycle`, so the three lifecycle scenarios are skipped in both.
 That is the point: with no backend to reach, they would pass without testing anything — which is
