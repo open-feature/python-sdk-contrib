@@ -19,7 +19,7 @@ in a second classpath root silently *replacing* the canonical one, and the run
 went green having asked the adopter's questions instead of the specification's.
 The Python route to the same place is narrower and just as quiet: pytest-bdd
 names a feature file by its parent directory joined to its own name, so a file at
-``tck-extensions/features/errors.feature`` arrives under the uri the canonical
+``extensions/gherkin/errors.feature`` arrives under the uri the canonical
 ``errors.feature`` already occupies.
 
 The first three are properties of how a whole session runs rather than of what a
@@ -341,7 +341,7 @@ def test_features_path_sees_no_extension_however_many_are_beside_it(
 ) -> None:
     """The older call still means exactly what it meant: the canonical set.
 
-    Both generated suites sit in the same directory as the ``tck-extensions``
+    Both generated suites sit in the same directory as the ``extensions``
     directory, so the one that asks for ``features_path()`` is asking with an
     extension in arm's reach and must still not see it.
     """
@@ -355,7 +355,7 @@ def test_features_path_sees_no_extension_however_many_are_beside_it(
 def test_feature_paths_is_the_canonical_set_when_there_is_no_extension_directory() -> (
     None
 ):
-    """This test module has no ``tck-extensions`` beside it, and gets one path."""
+    """This test module has no ``extensions`` beside it, and gets one path."""
     assert not (Path(__file__).parent / EXTENSIONS_DIRECTORY).exists()
     assert feature_paths() == (features_path(),)
 
@@ -390,11 +390,32 @@ def test_the_canonical_features_are_found_inside_the_distribution() -> None:
 # -- deriving the uri --------------------------------------------------------
 
 
+def test_the_two_prefixes_are_the_ones_appendix_f_names() -> None:
+    """Pinned as literals, because every other assertion here uses the constants.
+
+    Those assertions hold whatever the constants say, so renaming one would leave
+    the suite green while the uris it emits stopped joining with another
+    language's -- which is the failure that happened. Appendix F fixes both
+    strings: a canonical feature is identified by its path relative to the
+    specification's asset directory, and ``gherkin`` is the directory it occupies
+    there; an extension mounts under ``extensions``.
+    """
+    assert CANONICAL_DIRECTORY == "gherkin"
+    assert EXTENSIONS_URI_PREFIX == "extensions"
+    assert CANONICAL_DIRECTORY != EXTENSIONS_DIRECTORY, (
+        "an extensions directory sharing the canonical name is how an extension "
+        "comes to occupy a canonical file's identity"
+    )
+
+
 def test_the_canonical_assets_keep_the_reserved_prefix() -> None:
     canonical = Path(features_path()) / CANONICAL_FEATURE
     assert uri_for(canonical) == f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
     assert is_canonical_uri(f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}")
-    assert reserved_prefix_problem(f"features/{CANONICAL_FEATURE}", canonical) is None
+    assert (
+        reserved_prefix_problem(f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}", canonical)
+        is None
+    )
 
 
 def test_an_extension_keeps_its_layout_below_the_extensions_prefix(
@@ -404,7 +425,7 @@ def test_an_extension_keeps_its_layout_below_the_extensions_prefix(
 
     Including one that reproduces the canonical name, which is the collision the
     derivation exists for: pytest-bdd would have called the second of these
-    ``features/errors.feature``.
+    ``gherkin/errors.feature``.
     """
     root = tmp_path / EXTENSIONS_DIRECTORY
     assert uri_for(root / "vendor.feature") == "extensions/vendor.feature"
@@ -415,7 +436,9 @@ def test_an_extension_keeps_its_layout_below_the_extensions_prefix(
     assert (
         uri_for(root / "a" / "b" / "vendor.feature") == "extensions/a/b/vendor.feature"
     )
-    assert not is_canonical_uri(f"extensions/features/{CANONICAL_FEATURE}")
+    assert not is_canonical_uri(
+        f"{EXTENSIONS_URI_PREFIX}/{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
+    )
 
 
 def test_a_derived_uri_is_slash_separated_on_every_platform(tmp_path: Path) -> None:
@@ -440,7 +463,7 @@ def test_a_local_file_under_the_reserved_prefix_is_a_problem(tmp_path: Path) -> 
     """The one route to a canonical-looking uri the convention cannot close.
 
     An adopter may still hand ``scenarios()`` a directory of their own named
-    ``features``, and its files are then named exactly as canonical ones would
+    ``gherkin``, and its files are then named exactly as canonical ones would
     be. Reported rather than raised: the scenarios are the adopter's to run, and
     it is publishing them as the specification's that has to be refused.
     """
@@ -454,7 +477,7 @@ def test_a_local_file_under_the_reserved_prefix_is_a_problem(tmp_path: Path) -> 
 def test_two_files_that_would_share_one_uri_are_reported(tmp_path: Path) -> None:
     """Deriving the uri from the location narrows the collision; it does not end it.
 
-    A ``tck-extensions`` directory nested inside another one reaches the same uri
+    An ``extensions`` directory nested inside another one reaches the same uri
     as its namesake at the root, and so would two test modules sharing one
     ``tck_config``.
     """

@@ -35,7 +35,7 @@ question is identical everywhere.
 injects the generated tests into the *calling module* by walking the stack, so a
 convenience wrapper around it would deposit them inside this package instead.
 :func:`~.extensions.feature_paths` is the canonical assets plus a
-``tck-extensions`` directory beside the calling module, if there is one -- see
+``extensions`` directory beside the calling module, if there is one -- see
 :mod:`~.extensions`.
 
 The step definitions arrive through this package's pytest plugin, so there is
@@ -95,7 +95,7 @@ __all__ = [
 
 # NOTE ON THE SOURCE OF TRUTH
 #
-# The files under features/ and flag_data/, and control-api.yaml, are NOT owned
+# The files under gherkin/ and flag_data/, and control-api.yaml, are NOT owned
 # by this repository and are NOT committed to it. They are copies of the
 # language-agnostic conformance artifacts defined in open-feature/spec under
 # specification/assets/provider-tck/, which reaches this package as a git
