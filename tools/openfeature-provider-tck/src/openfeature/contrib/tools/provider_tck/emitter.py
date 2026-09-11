@@ -52,6 +52,7 @@ from .report import (
     ReportCollector,
     Results,
     SuiteReport,
+    control_api_gap,
     distribution_version,
     envelope_file_name,
     normalise_tags,
@@ -369,6 +370,10 @@ class ReportEmitter:
             f"provider-tck [{name}]: report written to {path} with results in "
             f"{stream_path.name} ({counts})",
         )
+
+        gap = control_api_gap(suite.config.control)
+        if gap:
+            self._say(session, f"provider-tck [{name}]: {gap}")
 
     def _say(self, session: pytest.Session, message: str) -> None:
         reporter = session.config.pluginmanager.get_plugin("terminalreporter")
