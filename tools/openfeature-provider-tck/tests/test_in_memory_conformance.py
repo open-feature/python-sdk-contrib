@@ -101,7 +101,7 @@ def tck_config() -> TckConfig:
         capabilities={
             Capability.EVENTS,
             Capability.OBJECT,
-            Capability.STRICT_NUMERIC_TYPING,
+            Capability.NUMERIC_COERCION,
         },
     )
 
