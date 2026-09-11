@@ -49,8 +49,8 @@ from __future__ import annotations
 
 import importlib.resources
 
-from .capability import ALL_CAPABILITIES, Capability
-from .config import TckConfig
+from .capability import DECLARABLE_CAPABILITIES, RESERVED_CAPABILITIES, Capability
+from .config import KnownDeviation, TckConfig
 from .control import (
     BackendControl,
     ConnectionControl,
@@ -64,13 +64,15 @@ from .provider import (
 )
 
 __all__ = [
-    "ALL_CAPABILITIES",
     "CHANGING_FLAG_KEY",
+    "DECLARABLE_CAPABILITIES",
+    "RESERVED_CAPABILITIES",
     "BackendControl",
     "Capability",
     "ConnectionControl",
     "ControllableInMemoryProvider",
     "InProcessControl",
+    "KnownDeviation",
     "TckConfig",
     "UnsupportedControlError",
     "canonical_flag_set",
