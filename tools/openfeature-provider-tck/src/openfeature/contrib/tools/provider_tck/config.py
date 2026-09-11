@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 
 from openfeature.provider import FeatureProvider
@@ -29,10 +29,9 @@ DEFAULT_READY_TIMEOUT = 30.0
 class KnownDeviation:
     """A gap the provider is known to have, acknowledged rather than hidden.
 
-    Distinct from an undeclared capability, which is a choice, and from a
-    not-applicable one, which is impossible: this is a defect against something
-    the specification does not treat as optional, with the gap tracked
-    somewhere.
+    Distinct from an undeclared capability, which is a choice the provider is
+    entitled to make: this is a defect against something the specification does
+    not treat as optional, with the gap tracked somewhere.
 
     It changes nothing about how the suite runs. The scenario still fails, and
     the results payload still reports it as failed -- a report that softened a
@@ -136,25 +135,12 @@ class TckConfig:
 
     Naming a reserved capability here is rejected at construction rather than
     passed into a report. See :data:`~.capability.RESERVED_CAPABILITIES`.
-    """
 
-    not_applicable: Mapping[Capability, str] = field(default_factory=dict)
-    """Capabilities that cannot hold for this provider, each with a reason.
-
-    Kept apart from simply leaving a capability out of :attr:`capabilities`,
-    because the two are different claims and collapsing them misrepresents whole
-    languages: ``@numeric-coercion`` is unsatisfiable in JavaScript because
-    the language has no integer type, and reporting that as a choice would show
-    every JavaScript provider as missing something none of them can have.
-
-    Scenarios behind a not-applicable capability are skipped exactly as an
-    undeclared one's are -- the gate makes no distinction, and neither does the
-    results payload. The difference is recorded once, here, and reaches the
-    report's declaration.
-
-    Where the impossibility is a property of the language rather than of the
-    provider it belongs in the capability documentation rather than in every
-    report, so this is for provider-specific cases.
+    A capability that cannot hold in a language at all -- ``@numeric-coercion``
+    where the language has a single numeric type, ``@large-integers`` on a
+    32-bit accessor -- is a property of the SDK rather than of the provider, and
+    Appendix F records it once rather than every report restating it. Here it is
+    simply left undeclared, and the skip carries the reason.
     """
 
     known_deviations: Sequence[KnownDeviation] = ()
@@ -216,46 +202,9 @@ class TckConfig:
                 f"the Capability enum"
             )
 
-        # Normalised the same way, so a dict literal keyed by Capability is what
-        # an adopter writes and a plain mapping is what everything else reads.
-        object.__setattr__(self, "not_applicable", dict(self.not_applicable))
         object.__setattr__(self, "known_deviations", tuple(self.known_deviations))
 
-        stray = [c for c in self.not_applicable if not isinstance(c, Capability)]
-        if stray:
-            problems.append(
-                f"unknown capabilities {stray!r} in not_applicable: capabilities are "
-                f"the members of the Capability enum"
-            )
-
-        both = sorted(
-            capability.tag
-            for capability in self.not_applicable
-            if isinstance(capability, Capability) and capability in self.capabilities
-        )
-        if both:
-            problems.append(
-                f"capabilities and not_applicable both claim {' '.join(both)}: a "
-                f"capability is either declared or impossible, and a report saying "
-                f"both leaves a consumer to guess which"
-            )
-
-        problems.extend(
-            reserved_problems(self.capabilities, self.not_applicable.keys())
-        )
-
-        unreasoned = sorted(
-            capability.tag
-            for capability, reason in self.not_applicable.items()
-            if isinstance(capability, Capability)
-            and (not isinstance(reason, str) or not reason.strip())
-        )
-        if unreasoned:
-            problems.append(
-                f"not_applicable gives no reason for {' '.join(unreasoned)}: "
-                f"'impossible for this provider' is only useful to a reader who is "
-                f"told why, and the report schema requires the reason"
-            )
+        problems.extend(reserved_problems(self.capabilities))
 
         if (
             Capability.UNAVAILABLE_INIT in self.capabilities
@@ -293,14 +242,12 @@ class TckConfig:
         return sorted(c.tag for c in self.capabilities)
 
 
-def reserved_problems(*named: Iterable[Capability]) -> list[str]:
-    """Refuse a reserved capability named anywhere in a configuration.
+def reserved_problems(declared: Iterable[Capability]) -> list[str]:
+    """Refuse a reserved capability named in a configuration.
 
-    A reserved capability gates no scenario, so naming it cannot be verified
-    either way: declaring it claims something nothing examined, and calling it
-    not-applicable records an impossibility about a question that was never
-    asked. Either would reach the report's declaration, which the schema
-    forbids.
+    A reserved capability gates no scenario, so declaring it cannot be verified
+    either way: the claim is about something nothing examined, and it would
+    reach the report's declaration, which the schema forbids.
 
     Refused rather than dropped quietly. The adopter wrote it down and meant
     something by it, so a configuration silently different from the one they
@@ -312,19 +259,18 @@ def reserved_problems(*named: Iterable[Capability]) -> list[str]:
     """
     reserved = sorted(
         capability.tag
-        for group in named
-        for capability in group
+        for capability in declared
         if isinstance(capability, Capability) and capability.reserved
     )
     if not reserved:
         return []
     declarable = " ".join(sorted(c.tag for c in DECLARABLE_CAPABILITIES))
     return [
-        f"reserved capabilities {' '.join(sorted(set(reserved)))} cannot be declared "
-        f"or called not-applicable: no scenario carries them, so the claim cannot be "
-        f"verified, cannot produce a skip, and would tell a reader of the report only "
-        f"that something was claimed and nothing examined. The declarable "
-        f"capabilities, which is what DECLARABLE_CAPABILITIES holds, are {declarable}"
+        f"reserved capabilities {' '.join(sorted(set(reserved)))} cannot be declared: "
+        f"no scenario carries them, so the claim cannot be verified, cannot produce a "
+        f"skip, and would tell a reader of the report only that something was claimed "
+        f"and nothing examined. The declarable capabilities, which is what "
+        f"DECLARABLE_CAPABILITIES holds, are {declarable}"
     ]
 
 
