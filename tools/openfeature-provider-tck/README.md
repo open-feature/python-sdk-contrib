@@ -150,7 +150,7 @@ suite at all, so `pytest.skip` carries the reason into the report:
 
 ```
 SKIPPED provider does not declare capability @stale.
-        Declared: @events @large-integers @object
+        Declared: @events @large-integers @object @variants
 ```
 
 | Capability | Tag | Meaning |
@@ -160,11 +160,12 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.STALE` | `@stale` | enters `STALE` and emits `PROVIDER_STALE` on backend loss |
 | `Capability.CONFIGURATION_CHANGE` | `@configuration-change` | detects configuration changes and emits `PROVIDER_CONFIGURATION_CHANGED` |
 | `Capability.OBJECT` | `@object` | supports structured flag values |
+| `Capability.VARIANTS` | `@variants` | names the variant it resolved, which [Requirement 2.2.4](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md) makes a `SHOULD` and `types.md` types as optional |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
 | `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly; undeclarable where the SDK's integer accessor is 32-bit |
 | `Capability.REINITIALIZATION` | `@reinitialization` | can be initialised again after `shutdown`, which [Requirement 2.5.2](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md) permits rather than requires |
-| `Capability.TARGETING` | `@targeting` | reserved; **not declarable** — no scenarios yet |
+| `Capability.TARGETING` | `@targeting` | resolves a flag differently for a matching evaluation context |
 | `Capability.CACHING` | `@caching` | reserved; **not declarable** — no scenarios yet |
 
 `@lifecycle` and `@events` are deliberately separate, and the split matters in both directions. An
@@ -201,6 +202,30 @@ alone leaves the scenario skipped on `@lifecycle` and the declaration unverified
 withholds `LIFECYCLE` has never run this scenario, and has no evidence either way on which to declare
 reuse.
 
+`@variants` was the one found the hard way, and it is the reason the rule above is worth stating
+twice. Every evaluation scenario used to assert a variant, which reads as obviously correct until a
+backend with no variant concept for a plain flag is put under test: its evaluation response carries
+no such key, the provider never receives one, and no seeding can produce one. Ten scenarios failed a
+conformant provider for something its author could not fix, and nothing could be recorded as a
+`KnownDeviation` because there was no capability to hang one on.
+[Requirement 2.2.4](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md)
+is a **SHOULD** and `types.md` types the field `variant (string, optional)`, so the suite was
+asserting a `MUST` neither of them states. Since spec revision `26362f85` the variant assertions
+live in one gated Scenario Outline of eight rows; the value and reason assertions stay untagged,
+because 2.2.3 makes the value a `MUST`.
+
+`@targeting` was **reserved and undeclarable** until the same revision, on the reading that targeting
+is backend evaluation logic and out of scope. The scope argument still holds — its three scenarios do
+not test how a backend evaluates a rule — but the conclusion did not: they exist to show the context
+reached the backend at all, which is a property of the provider and of nothing else.
+`targeting-key-flag` is the one flag in the canonical set with a rule, specified by behaviour rather
+than syntax (resolve `hit` when the targeting key is exactly `5c3d8535-f81a-4478-a6d3-afaa4d51199e`),
+and a matching context resolving to a different value is what catches a provider that drops the
+context — no echo endpoint on the control API required. The three scenarios are the matching context,
+the non-matching one and no context at all; the second and third are not padding, since a provider
+that always returned the targeted value would pass the first and one that refuses to evaluate a rule
+with no targeting key is caught by the third.
+
 Untagged scenarios are mandatory and always run. `capabilities` defaults to every *declarable*
 capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
 the default, run the suite, and remove only what your provider genuinely cannot do.
@@ -219,7 +244,11 @@ nothing examined. `TckConfig` raises if you name one in `capabilities`, and
 `DECLARABLE_CAPABILITIES` excludes them — which is the case that matters, because "every capability
 except X" is how a reserved tag gets declared by accident rather than by decision. One
 implementation's published conformance report asserts `@targeting` and `@caching` for exactly that
-reason.
+reason, back when both were reserved.
+
+`@caching` is the only reserved tag left. Leaving one reserved once it *has* scenarios would be the
+mirror of the mistake the set exists to prevent — a capability that can be verified, refused the
+chance — so `@targeting` moved out of it the moment the specification gave it three.
 
 `@numeric-coercion` deserves a note, because it is the one capability here that **the specification
 does not define**. OpenFeature has a single numeric type on purpose — `number` is "a numeric value of
@@ -408,7 +437,7 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping and the control-API it reports, against a stubbed control API |
 
 ```
-140 passed, 21 skipped, 2 xfailed
+158 passed, 27 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
@@ -419,12 +448,19 @@ Neither in-memory suite declares `@lifecycle`, so the six lifecycle scenarios �
 initialisation, three about shutdown — are skipped in both. That is the point: with no backend to
 reach, the initialisation ones would pass without testing anything — which is what they did while the
 feature was gated on `@events`. Neither declares `@numeric-coercion` either, for the reason in
-finding 3, so its three scenarios are skipped too.
+finding 3, so its three scenarios are skipped too. Neither declares `@targeting`: both resolve the
+same decoded flag set, and `canonical_flag_set` deliberately ignores `targeting-key-flag`'s rule
+rather than becoming a second implementation of somebody else's evaluator, so those three scenarios
+are skipped as well. Both declare `@variants`, since an in-memory flag set is keyed by variant name.
 
 ## Known gaps
 
-- **Evaluation context passthrough is unverifiable.** The scenarios build evaluation contexts but
-  cannot assert one *reached* the backend. That needs an echo operation on the control API.
+- **Evaluation context passthrough is verified only for the targeting key.** `targeting-key-flag`
+  resolves differently for a matching context, so the `@targeting` scenarios catch a provider that
+  drops the context — no echo operation needed for that. What is still unverified is that the
+  *whole* context arrives intact: a provider that forwards the targeting key and silently discards
+  every other attribute passes. That needs either an echo operation on the control API or a second
+  canonical flag whose rule keys on a custom attribute.
 - **No shared containerised-backend helper.** `HttpControl` drives the control API, but starting the
   stack and discovering its mapped ports is still each adopter's own code. Abstracting that from a
   single example tends to produce the wrong abstraction; it should wait for a second adopter.

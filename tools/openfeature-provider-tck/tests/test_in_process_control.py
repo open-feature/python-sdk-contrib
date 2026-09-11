@@ -252,14 +252,28 @@ def test_a_number_inside_an_object_keeps_its_type_too() -> None:
     assert template["imagesPerPage"] == 100
 
 
-def test_no_packaged_flag_carries_targeting() -> None:
-    """Every scenario expects reason ``STATIC``.
+def test_no_decoded_flag_carries_targeting() -> None:
+    """Every untargeted scenario expects reason ``STATIC``.
 
     The TCK tests a provider's mapping of a response, not a backend's
     evaluation logic, so a flag that evaluated its context would report
     ``TARGETING_MATCH`` and fail scenarios that are about something else.
+
+    Stated about the *decoded* flags rather than about the file, because since
+    spec revision ``26362f85`` the file is not free of targeting: it gives
+    ``targeting-key-flag`` a rule so that a real backend can show a context
+    arriving. ``_decode_canonical_flags`` reads only ``state``, ``variants`` and
+    ``defaultVariant``, so the member is inert here -- which is what this
+    asserts, and what obliges an in-memory adoption to leave ``@targeting``
+    undeclared rather than fail its scenarios.
     """
-    for key, flag in canonical_flag_set().items():
+    decoded = canonical_flag_set()
+    assert "targeting-key-flag" in decoded, (
+        "the packaged flag file no longer defines targeting-key-flag, so this "
+        "test no longer checks anything: the flag with the one targeting rule "
+        "is what makes the member's inertness observable"
+    )
+    for key, flag in decoded.items():
         assert flag.context_evaluator is None, f"{key} has targeting"
 
 

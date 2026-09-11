@@ -13,6 +13,7 @@ import typing
 from dataclasses import dataclass, field
 
 from openfeature.client import OpenFeatureClient
+from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import EventDetails, ProviderEvent
 from openfeature.flag_evaluation import FlagType
 from openfeature.provider import FeatureProvider
@@ -129,6 +130,16 @@ class TckState:
     flag_key: str | None = None
     flag_type: FlagType | None = None
     default_value: typing.Any = None
+    evaluation_context: EvaluationContext | None = None
+    """The context the scenario supplies to the evaluation, if it supplies one.
+
+    ``None`` rather than an empty context, and the distinction is load-bearing:
+    one of the ``@targeting`` scenarios is specifically about a rule that cannot
+    match because no context was given at all, and a provider that would fall
+    over on an empty context rather than on an absent one is exactly what it is
+    looking for. So an unset context is passed to the SDK as ``None``, which is
+    what an application calling the two-argument form sends.
+    """
     last: EvaluationRecord | None = None
     lifecycle: list[LifecycleRecord] = field(default_factory=list)
     """Every direct lifecycle call this scenario made, in order."""
