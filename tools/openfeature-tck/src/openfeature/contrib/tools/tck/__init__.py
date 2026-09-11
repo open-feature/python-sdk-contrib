@@ -81,6 +81,7 @@ from __future__ import annotations
 
 import importlib.resources
 
+from .canonical import PARTIAL_ENV
 from .capability import (
     DECLARABLE_CAPABILITIES,
     INEXPRESSIBLE_CAPABILITIES,
@@ -134,6 +135,7 @@ __all__ = [
     "EXTENSIONS_DIRECTORY",
     "INEXPRESSIBLE_CAPABILITIES",
     "MESSAGES_FORMAT",
+    "PARTIAL_ENV",
     "REPORT_DIR_ENV",
     "RESERVED_CAPABILITIES",
     "SCHEMA_VERSION",

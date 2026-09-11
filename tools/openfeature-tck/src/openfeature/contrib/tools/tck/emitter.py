@@ -33,6 +33,13 @@ from pathlib import Path
 
 import pytest
 
+from .canonical import (
+    PARTIAL_ENV,
+    canonical_scenarios,
+    describe,
+    missing_canonical,
+    partial_run_allowed,
+)
 from .config import TckConfig
 from .extensions import (
     collision_problem,
@@ -96,6 +103,14 @@ leak local paths.
 
 _SKIPPED = pytest.skip.Exception
 """What ``pytest.skip`` raises, named so a step hook can recognise it."""
+
+_MAX_MISSING = 10
+"""How many missing canonical scenarios a failure names before summarising.
+
+Enough to act on and not so many that the reason is lost above them. A run with
+one scenario selected is missing twenty-eight, and listing all of them says
+nothing the count did not.
+"""
 
 
 def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
@@ -222,11 +237,19 @@ class ReportEmitter:
         self._step_started: dict[str, int] = {}
         config.stash[COLLECTOR_KEY] = self.collector
 
+    @pytest.hookimpl(trylast=True)
     def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
-        """Enumerate every TCK scenario the session collected.
+        """Enumerate every TCK scenario the session will run.
 
         At collection rather than as each runs, so that the stream accounts for
         scenarios that never got as far as running a fixture.
+
+        ``trylast`` so that pytest's own deselection -- ``-k``, ``-m``,
+        ``--deselect`` -- has already removed what it is going to remove.
+        Enumerating before it does would make a filtered run report every
+        deselected scenario as collected but never run, which is a true
+        statement about a list nobody asked for and drowns the one message that
+        matters: which canonical scenarios are missing.
         """
         for item in items:
             identity = scenario_identity(item)
@@ -294,12 +317,37 @@ class ReportEmitter:
         )
 
     def pytest_sessionfinish(self, session: pytest.Session) -> None:
+        if session.config.getoption("collectonly", False):
+            # Nothing ran, and nothing was meant to. Every check below asks what
+            # a run executed, and the answer "nothing" is not a finding here.
+            return
+
+        problems = self.collector.resolve(scenario_run)
+
+        # Whether a suite may be published is a property of the run rather than
+        # of the report, so it is established whether or not one was asked for.
+        # Both checks are made on every suite rather than short-circuited, so a
+        # suite with two faults hears about both.
+        unpublishable: set[int] = set()
+        for suite in self.collector.suites:
+            sound = self._identities_are_sound(session, suite)
+            complete = self._canonical_set_ran(session, suite)
+            if not sound or not complete:
+                unpublishable.add(id(suite))
+
         directory = os.environ.get(REPORT_DIR_ENV, "").strip()
         if not directory:
             return
-        self.write(session, Path(directory))
+        for problem in problems:
+            self._fail(session, f"tck: {problem}")
+        self.write(session, Path(directory), unpublishable)
 
-    def write(self, session: pytest.Session, directory: Path) -> None:
+    def write(
+        self,
+        session: pytest.Session,
+        directory: Path,
+        unpublishable: typing.AbstractSet[int] = frozenset(),
+    ) -> None:
         """Write every suite's pair of files, failing the session if one cannot be.
 
         A run that asked for a report and silently did not get one is how a
@@ -307,11 +355,10 @@ class ReportEmitter:
         write failure and an incomplete document are loud and change the exit
         status rather than being logged and forgotten.
         """
-        for problem in self.collector.resolve(scenario_run):
-            self._fail(session, f"tck: {problem}")
-
         written: dict[str, str] = {}
         for suite in self.collector.suites:
+            if id(suite) in unpublishable:
+                continue
             name = suite.config.name
             file_name = envelope_file_name(name)
             if written.get(file_name, name) != name:
@@ -324,18 +371,55 @@ class ReportEmitter:
             written[file_name] = name
             self._write_suite(session, directory, suite)
 
+    def _canonical_set_ran(self, session: pytest.Session, suite: SuiteReport) -> bool:
+        """Whether this suite executed every scenario the TCK ships.
+
+        The check a conformance claim rests on that no amount of reading the
+        report can supply: the results payload says what happened to the
+        scenarios that ran, and says nothing at all about the ones that did not.
+
+        A capability-gated skip counts -- it was asked, and the report accounts
+        for it with a reason. An extension scenario does not count and cannot
+        close a gap. :data:`~.canonical.PARTIAL_ENV` downgrades the failure to a
+        note for someone working on a single scenario; it does not make the run
+        publishable, because the report is withheld either way.
+        """
+        missing = missing_canonical(suite.runs.values())
+        if not missing:
+            return True
+
+        name = suite.config.name
+        total = len(canonical_scenarios())
+        headline = (
+            f"tck [{name}]: {len(missing)} of {total} canonical scenarios "
+            f"did not run, so this run cannot support a conformance claim and no "
+            f"report is written for it. The canonical set is fixed by the "
+            f"specification; running less of it is not a configuration. Decline "
+            f"capabilities your provider does not have through TckConfig instead, "
+            f"which reports the scenarios as skipped with their reason"
+        )
+        if partial_run_allowed():
+            self._say(
+                session,
+                f"{headline}. {PARTIAL_ENV} is set, so the run is not failed for it",
+            )
+        else:
+            self._fail(
+                session,
+                f"{headline}. To filter anyway while working on one scenario, set "
+                f"{PARTIAL_ENV}=1 and accept that the run is not a conformance run",
+            )
+        for key in missing[:_MAX_MISSING]:
+            self._say(session, f"  - {describe(key)}")
+        if len(missing) > _MAX_MISSING:
+            self._say(session, f"  ... and {len(missing) - _MAX_MISSING} more")
+        return False
+
     def _write_suite(
         self, session: pytest.Session, directory: Path, suite: SuiteReport
     ) -> None:
         name = suite.config.name
         runs = suite.sorted_runs
-
-        if not self._identities_are_sound(session, suite):
-            # Refusing to write is the point: a document that presents an
-            # adopter's feature file as the specification's -- or reports one
-            # file's scenarios against another's source -- is worse than no
-            # document, because it is the one thing a consumer cannot check.
-            return
 
         catalog = FeatureCatalog()
         try:
@@ -406,6 +490,11 @@ class ReportEmitter:
         has no way to tell that the specification did not write it. And two
         files must not share a uri, or the stream carries one source for both
         and the second file's scenarios are reported against the first's.
+
+        A suite that fails either writes no report. Refusing is the point: a
+        document that presents an adopter's feature file as the specification's
+        is worse than no document, because it is the one thing a consumer cannot
+        check.
         """
         name = suite.config.name
         runs = suite.sorted_runs
