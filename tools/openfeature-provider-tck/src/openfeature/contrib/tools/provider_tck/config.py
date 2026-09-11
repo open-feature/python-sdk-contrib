@@ -138,7 +138,7 @@ class TckConfig:
 
     Kept apart from simply leaving a capability out of :attr:`capabilities`,
     because the two are different claims and collapsing them misrepresents whole
-    languages: ``@strict-numeric-typing`` is unsatisfiable in JavaScript because
+    languages: ``@numeric-coercion`` is unsatisfiable in JavaScript because
     the language has no integer type, and reporting that as a choice would show
     every JavaScript provider as missing something none of them can have.
 
