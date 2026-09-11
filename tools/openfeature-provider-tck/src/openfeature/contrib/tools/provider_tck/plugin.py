@@ -4,7 +4,12 @@ Registered through the ``pytest11`` entry point, so installing this package is
 all it takes for the step definitions to be available. pytest-bdd resolves steps
 through the fixture system and fixtures from an installed plugin are visible to
 every test, which is what keeps an adoption down to one fixture and one call to
-:func:`tck_scenarios`.
+``scenarios(*feature_paths())``.
+
+The same mechanism is what makes the suite extensible: a step an adopter defines
+in their own ``conftest.py`` is resolved by the same fixture lookup as one this
+plugin ships, so their scenarios need no glue and no second harness. See
+:mod:`~.extensions`.
 """
 
 from __future__ import annotations
