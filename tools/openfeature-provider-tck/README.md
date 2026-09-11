@@ -331,6 +331,34 @@ of the *run* and not of the code: CI sets it, a developer running the suite loca
 adopter changes a line to publish one. Unset means no report, which is not an error. Several suites
 in one pytest session each write their own pair, so flagd's two resolvers would not collide.
 
+### A partial run is not a conformance run
+
+The canonical scenario set is fixed by the specification, and a run that executed less of it cannot
+support a conformance claim. `-k`, `-m`, `--deselect`, or a test module that stopped calling
+`scenarios()` on the canonical path each run fewer scenarios, and none of them is an error to
+pytest. Go measured the consequence: `-run` on a single scenario passed green and emitted a
+well-formed report covering 1 of 29 canonical scenarios, with nothing in the document saying so.
+
+So every run is checked against the scenarios this distribution ships, and a suite that did not
+execute all of them writes no report:
+
+```console
+$ PROVIDER_TCK_REPORT_DIR=./reports pytest -k "unknown_flag_key"
+provider-tck [in-memory]: 28 of 29 canonical scenarios did not run, so this run cannot support a
+conformance claim and no report is written for it. …
+  - features/errors.feature: A float flag is not silently narrowed to an integer
+  - features/errors.feature: Requesting the wrong type returns the code default [key=float-flag requested=Boolean default=false]
+  … and 18 more
+```
+
+A scenario the capability gate skipped **has** run: it was asked, and the report accounts for it
+with its reason, so declining a capability never trips this. Your own scenarios are yours — they are
+not counted towards the canonical set and cannot close a gap in it.
+
+Set `PROVIDER_TCK_PARTIAL=1` to work on a single scenario without the guard failing the run. It buys
+a green run and nothing else: no report is written for an incomplete suite either way. Java's TCK
+spells the same escape hatch the same way.
+
 ### Why the results are not our format
 
 Per-scenario outcomes, tags, Scenario Outline row identity and the executed feature source are all
@@ -408,14 +436,16 @@ the field.
 | `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
 | `test_report` | the conformance report | checks the two properties a consumer is entitled to assume, against the emitted Messages stream |
 | `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot stand in for a canonical scenario |
+| `test_canonical_set` | the canonical-set guard | a run that executed less than the canonical set fails and publishes nothing |
 
 ```
-110 passed, 9 skipped, 2 xfailed
+132 passed, 9 skipped, 2 xfailed
 ```
 
-No Docker and no network. The conformance suites take under a second; `test_report` and
-`test_extensions` take most of the time, because the properties they check are properties of a whole
-pytest session and they run generated adoptions in subprocesses to check them.
+No Docker and no network. The conformance suites take under a second; `test_report`,
+`test_extensions` and `test_canonical_set` take most of the time, because the properties they check
+are properties of a whole pytest session and they run generated adoptions in subprocesses to check
+them.
 
 Neither in-memory suite declares `@lifecycle`, so the three lifecycle scenarios are skipped in both.
 That is the point: with no backend to reach, they would pass without testing anything — which is
