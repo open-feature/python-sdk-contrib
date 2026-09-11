@@ -267,12 +267,13 @@ class SuiteReport:
     def _declaration(self) -> dict[str, typing.Any]:
         """What the provider claims, which is what makes a skip legible.
 
-        The declared set and the not-applicable set are disjoint and mean
-        different things -- a choice against a capability, and an impossibility.
-        :class:`~.config.TckConfig` refuses a configuration that puts a
-        capability in both, so a consumer never has to decide which one wins.
+        A skip in the payload says only that the question was not put to this
+        provider; this says whether that is because the capability was not
+        claimed. Given the two, the reason a scenario was skipped follows from
+        its own tags, which is why one skip carrying its reason is the whole
+        mechanism and nothing here restates it.
 
-        Neither set is filtered here. A reserved capability -- one no scenario
+        The set is not filtered. A reserved capability -- one no scenario
         carries, which the schema forbids in this block -- cannot be in a
         ``TckConfig`` at all: it is refused at construction, and the default
         capability set excludes it. Dropping one silently at emission time would
@@ -280,18 +281,7 @@ class SuiteReport:
         adopter who wrote it believing the declaration they read back was the
         declaration they asked for.
         """
-        declaration: dict[str, typing.Any] = {
-            "declared": self.config.sorted_capabilities
-        }
-        not_applicable = {
-            capability.tag: reason
-            for capability, reason in sorted(
-                self.config.not_applicable.items(), key=lambda item: item[0].tag
-            )
-        }
-        if not_applicable:
-            declaration["notApplicable"] = not_applicable
-        return declaration
+        return {"declared": self.config.sorted_capabilities}
 
     def _backend(self) -> dict[str, typing.Any]:
         backend: dict[str, typing.Any] = {}
