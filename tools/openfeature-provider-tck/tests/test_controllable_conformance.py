@@ -38,6 +38,12 @@ def tck_config() -> TckConfig:
     ``test_in_memory_conformance``: there is no backend to reach during
     initialisation, so the readiness scenario would pass here without testing
     anything. It did exactly that while the feature was gated on ``@events``.
+
+    ``NUMERIC_COERCION`` stays undeclared for the reason given there too.
+    ``ControllableInMemoryProvider`` changes nothing about resolution, so it
+    inherits the SDK provider's refusal to coerce: ``10.0`` requested as an
+    integer is a ``TYPE_MISMATCH`` rather than ``10``. ``LARGE_INTEGERS`` is
+    declared, since a Python ``int`` is exact at 2^53 - 1.
     """
     control = InProcessControl()
     return TckConfig(
@@ -48,7 +54,7 @@ def tck_config() -> TckConfig:
             Capability.EVENTS,
             Capability.CONFIGURATION_CHANGE,
             Capability.OBJECT,
-            Capability.NUMERIC_COERCION,
+            Capability.LARGE_INTEGERS,
         },
     )
 

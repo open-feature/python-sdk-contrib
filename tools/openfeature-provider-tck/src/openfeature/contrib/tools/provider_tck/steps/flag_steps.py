@@ -16,6 +16,7 @@ __all__ = [
     "a_flag_with_key_and_default",
     "no_exception_should_have_been_thrown",
     "the_error_code_should_be",
+    "the_error_message_should_be_empty",
     "the_flag_was_evaluated_with_details",
     "the_flag_was_modified",
     "the_reason_should_be",
@@ -147,22 +148,56 @@ def the_error_code_should_be(tck_state: TckState, expected: str) -> None:
     raise AssertionError(msg)
 
 
+@then("the error message should be empty")
+def the_error_message_should_be_empty(tck_state: TckState) -> None:
+    """Assert no error message was reported (requirement 2.3.2).
+
+    Asserted on the success paths, where a message contradicts the value beside
+    it: an application reading the message will believe the wrong one of the
+    two signals. ``None`` and ``""`` are both "none": the SDK's resolution
+    details default the field to ``None`` and a provider that writes the empty
+    string has said the same thing.
+    """
+    record = tck_state.require_evaluation()
+    if record.error_message:
+        msg = (
+            f"an error message was reported alongside a successful evaluation: "
+            f"{record.error_message!r}. A value and an error message are two "
+            f"contradictory signals, and the application cannot tell which to believe"
+        )
+        raise AssertionError(msg)
+
+
 @then("no exception should have been thrown")
 def no_exception_should_have_been_thrown(tck_state: TckState) -> None:
-    """Assert the evaluation returned rather than raised.
+    """Assert that nothing the scenario asked of the provider raised.
+
+    That is the evaluation, if there was one, and every direct lifecycle call:
+    each records what it raised rather than propagating it, and this is the
+    one step that reads those records back.
 
     In Python an errored evaluation returns the code default in the details and
     does not raise, so this holds on the error paths too. A provider that raises
-    instead takes the calling application down with it, which is what the
-    feature files forbid.
+    instead takes the calling application down with it -- and one that raises
+    from ``shutdown`` does so from the application's own shutdown, where an
+    exception is least welcome. Both are what the feature files forbid.
     """
-    record = tck_state.require_evaluation()
-    if record.raised is not None:
+    if not tck_state.has_called_provider():
         msg = (
-            f"the evaluation raised {record.raised!r}. A flag evaluation must always "
-            f"return a value and an error code, never raise"
+            "nothing has been asked of the provider in this scenario: a "
+            '"When the flag was evaluated with details" or "When the provider is '
+            'shut down" step must come first'
         )
         raise AssertionError(msg)
+
+    raised = tck_state.raised()
+    if raised:
+        what, exc = raised[0]
+        msg = (
+            f"{what} raised {exc!r}. A provider must return from an evaluation with a "
+            f"value and an error code, and from a lifecycle call quietly -- never raise"
+        )
+        raise AssertionError(msg) from exc
 
 
 @then("the resolved object value should contain")

@@ -6,6 +6,9 @@ quietly making the conformance suites meaningless.
 
 from __future__ import annotations
 
+import json
+import typing
+
 import pytest
 
 from openfeature.contrib.tools.provider_tck import (
@@ -14,6 +17,7 @@ from openfeature.contrib.tools.provider_tck import (
     ControllableInMemoryProvider,
     InProcessControl,
     canonical_flag_set,
+    canonical_flags_json,
 )
 from openfeature.event import ProviderEvent
 
@@ -119,6 +123,53 @@ def test_canonical_flag_set_omits_missing_flag() -> None:
     reason, and nothing else in the suite would notice.
     """
     assert "missing-flag" not in canonical_flag_set()
+
+
+def _same_value_and_type(expected: typing.Any, actual: typing.Any) -> bool:
+    """Equal, and of the same Python type, member by member.
+
+    ``==`` alone is what a seeding step that "cleans up" gets past: ``10 == 10.0``
+    and ``0 == False`` in Python, so the integral float and the falsy values
+    would compare equal to exactly the mistranslations they exist to catch.
+    """
+    if type(expected) is not type(actual):
+        return False
+    if isinstance(expected, dict):
+        return set(expected) == set(actual) and all(
+            _same_value_and_type(v, actual[k]) for k, v in expected.items()
+        )
+    if isinstance(expected, list):
+        return len(expected) == len(actual) and all(
+            _same_value_and_type(e, a) for e, a in zip(expected, actual, strict=True)
+        )
+    return bool(expected == actual)
+
+
+def test_canonical_flag_set_mirrors_the_canonical_json_type_for_type() -> None:
+    """The in-memory flag set is transcribed, so this is what stops it drifting.
+
+    Key for key, default variant for default variant, and every variant's value
+    with its Python type: ``json.loads`` keeps ``10.0`` a ``float`` and ``0``
+    an ``int``, and the transcription has to as well. The four load-bearing
+    properties the flag file documents -- no ``missing-flag``, no targeting,
+    falsy values kept, ``10.0`` a float and 2^53 - 1 an integer -- all follow
+    from being an exact mirror of it.
+    """
+    canonical = json.loads(canonical_flags_json())["flags"]
+    transcribed = canonical_flag_set()
+
+    assert set(transcribed) == set(canonical)
+    for key, definition in canonical.items():
+        flag = transcribed[key]
+        assert flag.default_variant == definition["defaultVariant"], key
+        assert flag.context_evaluator is None, f"{key} has targeting"
+        assert set(flag.variants) == set(definition["variants"]), key
+        for variant, value in definition["variants"].items():
+            assert _same_value_and_type(value, flag.variants[variant]), (
+                f"{key}/{variant}: canonical {value!r} ({type(value).__name__}), "
+                f"transcribed {flag.variants[variant]!r} "
+                f"({type(flag.variants[variant]).__name__})"
+            )
 
 
 def test_update_flags_names_the_union_of_old_and_new_keys() -> None:

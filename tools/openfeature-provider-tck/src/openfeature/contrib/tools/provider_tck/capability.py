@@ -88,12 +88,35 @@ class Capability(str, Enum):
     that, and flagd's instance is tracked as `open-feature/flagd#1996
     <https://github.com/open-feature/flagd/issues/1996>`_.
 
-    Only the lossy half has a scenario. The canonical flag set has no integral
-    float to ask the lossless half of, and adding one changes the flag set for
-    every language at once, so a provider that wrongly rejects ``10.0`` as an
-    integer still passes. Appendix F records that as an open gap, along with a
-    second one: the width of a language's integer accessor is not modelled here
-    at all.
+    Both halves have scenarios, and a provider declaring the tag must satisfy
+    all three. The lossy half asks for ``float-flag`` (``0.5``) as an integer
+    and expects ``TYPE_MISMATCH``; the lossless half asks for
+    ``integral-float-flag`` (``10.0``) as an integer and for ``integer-flag``
+    (``10``) as a float, and expects both to succeed. Rejecting every float is
+    an easy way to pass the first, and the other two are what stop it.
+
+    The SDK's own ``InMemoryProvider`` cannot declare this: it hands values
+    back untouched and the client's type check is ``isinstance``-based, so
+    ``10.0`` requested as an integer is a ``TYPE_MISMATCH`` rather than ``10``.
+    The width of the integer accessor is a separate property, and a separate
+    capability: :attr:`LARGE_INTEGERS`.
+    """
+
+    LARGE_INTEGERS = "large-integers"
+    """Provider resolves integers up to 2^53 - 1 exactly.
+
+    A property of the language's SDK as much as of the provider, which is why
+    it is a capability rather than mandatory: Java's integer accessor is a
+    32-bit ``Integer``, and a provider cannot resolve a value the accessor has
+    no room for. Every language can ask for 2^31 - 1, so that precision
+    scenario is untagged; only the one asking for 2^53 - 1 carries this tag.
+
+    Python's ``int`` is unbounded, so a Python provider declares it unless
+    something of its own -- a 32-bit field in its wire format, a float on the
+    way through -- narrows the value. Nothing above 2^53 - 1 is asked for:
+    JavaScript cannot represent it, and what a provider owes a value that does
+    not fit the requested accessor is the open question in
+    `open-feature/spec#430 <https://github.com/open-feature/spec/issues/430>`_.
     """
 
     TARGETING = "targeting"

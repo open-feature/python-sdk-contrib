@@ -15,10 +15,11 @@ from dataclasses import dataclass, field
 from openfeature.client import OpenFeatureClient
 from openfeature.event import EventDetails, ProviderEvent
 from openfeature.flag_evaluation import FlagType
+from openfeature.provider import FeatureProvider
 
 from .config import TckConfig
 
-__all__ = ["EvaluationRecord", "EventRecorder", "TckState"]
+__all__ = ["EvaluationRecord", "EventRecorder", "LifecycleRecord", "TckState"]
 
 
 @dataclass
@@ -37,6 +38,29 @@ class EvaluationRecord:
     rather than raising, so this stays ``None`` on the error paths the suite
     exercises. It is what "no exception should have been thrown" asserts.
     """
+
+
+@dataclass
+class LifecycleRecord:
+    """The outcome of one direct call into the provider's lifecycle.
+
+    The shutdown scenarios call the provider's own ``shutdown`` and
+    ``initialize`` rather than going through the SDK, because the SDK's
+    bookkeeping around them is Appendix B's business rather than this suite's.
+    Each call is recorded the same way an evaluation is -- what it raised, if
+    anything -- so that "no exception should have been thrown" reads one kind
+    of record for both, plus how long it took, which is what the prompt-shutdown
+    scenario bounds.
+    """
+
+    operation: str
+    """``shutdown`` or ``initialize``, for failure messages."""
+
+    duration: float
+    """Wall-clock seconds the call took to return, or to be given up on."""
+
+    raised: BaseException | None = None
+    """The exception the call raised, if any."""
 
 
 class EventRecorder:
@@ -93,10 +117,21 @@ class TckState:
 
     config: TckConfig
     client: OpenFeatureClient | None = None
+    provider: FeatureProvider | None = None
+    """The provider under test, for the steps that call it directly.
+
+    Everything else reaches the provider through :attr:`client`, which is how
+    an application would. The lifecycle and metadata steps are the exception:
+    they ask the provider itself, because what they verify is the provider's
+    own ``shutdown``, ``initialize`` and ``get_metadata`` rather than the SDK's
+    handling of them.
+    """
     flag_key: str | None = None
     flag_type: FlagType | None = None
     default_value: typing.Any = None
     last: EvaluationRecord | None = None
+    lifecycle: list[LifecycleRecord] = field(default_factory=list)
+    """Every direct lifecycle call this scenario made, in order."""
     remembered: typing.Any = None
     has_memory: bool = False
     recorders: dict[ProviderEvent, EventRecorder] = field(default_factory=dict)
@@ -110,6 +145,47 @@ class TckState:
             )
             raise AssertionError(msg)
         return self.client
+
+    def require_provider(self) -> FeatureProvider:
+        if self.provider is None:
+            msg = (
+                "no provider has been registered in this scenario: a "
+                '"Given a stable provider" or "Given a unavailable provider" step '
+                "must come first"
+            )
+            raise AssertionError(msg)
+        return self.provider
+
+    def require_shutdown(self) -> LifecycleRecord:
+        """The most recent direct ``shutdown`` call, for the steps that bound it."""
+        for record in reversed(self.lifecycle):
+            if record.operation == "shutdown":
+                return record
+        msg = (
+            "the provider has not been shut down in this scenario: a "
+            '"When the provider is shut down" step must come first'
+        )
+        raise AssertionError(msg)
+
+    def raised(self) -> list[tuple[str, BaseException]]:
+        """Every call into the provider that raised, as (what was called, exception).
+
+        The evaluation and the lifecycle calls are recorded separately, since
+        they carry different things, but "did anything the scenario asked of
+        the provider raise" is one question and this is where it is answered.
+        """
+        raised: list[tuple[str, BaseException]] = [
+            (record.operation, record.raised)
+            for record in self.lifecycle
+            if record.raised is not None
+        ]
+        if self.last is not None and self.last.raised is not None:
+            raised.append(("the evaluation", self.last.raised))
+        return raised
+
+    def has_called_provider(self) -> bool:
+        """Whether the scenario has asked anything of the provider yet."""
+        return self.last is not None or bool(self.lifecycle)
 
     def require_flag(self) -> tuple[str, FlagType, typing.Any]:
         if self.flag_key is None or self.flag_type is None:

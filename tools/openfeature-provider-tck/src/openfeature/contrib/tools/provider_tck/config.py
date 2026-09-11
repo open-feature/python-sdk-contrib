@@ -179,7 +179,13 @@ class TckConfig:
     """
 
     ready_timeout: float = DEFAULT_READY_TIMEOUT
-    """Seconds to wait for a provider to reach ``READY`` during initialisation."""
+    """Seconds to wait for a provider to reach ``READY`` during initialisation.
+
+    Also the longest the suite waits on a direct ``shutdown`` or ``initialize``
+    call before giving up on it and recording the wait as a failure, so that a
+    provider whose shutdown hangs on a backend that is gone fails its scenario
+    with a message rather than hanging the session.
+    """
 
     def __post_init__(self) -> None:
         problems: list[str] = []
