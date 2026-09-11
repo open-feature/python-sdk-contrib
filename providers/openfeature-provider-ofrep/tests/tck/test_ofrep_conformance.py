@@ -47,7 +47,7 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     ofrep/__init__.py:248 admits `(dict, list)` for FlagType.OBJECT -- so a JSON
 #     object comes back as one rather than being rejected or flattened.
 #
-#   STRICT_NUMERIC_TYPING
+#   NUMERIC_COERCION
 #     ofrep/__init__.py:250 maps FlagType.INTEGER to `int`, and the isinstance
 #     check at ofrep/__init__.py:255 fails for the float 0.5, raising
 #     TypeMismatchError. So float-flag's 0.5 is reported as a mismatch rather
@@ -119,7 +119,7 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 CAPABILITIES = frozenset(
     {
         Capability.OBJECT,
-        Capability.STRICT_NUMERIC_TYPING,
+        Capability.NUMERIC_COERCION,
     }
 )
 
