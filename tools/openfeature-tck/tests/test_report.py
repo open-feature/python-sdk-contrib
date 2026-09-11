@@ -55,6 +55,7 @@ from openfeature.contrib.tools.tck.emitter import (
     classify_phase,
     scenario_run,
 )
+from openfeature.contrib.tools.tck.extensions import CANONICAL_DIRECTORY
 from openfeature.contrib.tools.tck.messages import (
     MESSAGES_FORMAT,
     ScenarioIdentity,
@@ -463,7 +464,7 @@ def _config(**overrides: typing.Any) -> TckConfig:
 
 def _identity(*tags: str, name: str = "a scenario") -> ScenarioIdentity:
     return ScenarioIdentity(
-        uri="features/events.feature",
+        uri=f"{CANONICAL_DIRECTORY}/events.feature",
         path=Path(features_path()) / "events.feature",
         name=name,
         tags=tags,
@@ -1165,9 +1166,11 @@ def test_a_feature_uri_is_slash_separated_on_every_platform() -> None:
     backslash-separated -- and a report emitted there would otherwise not be
     comparable with one emitted on Linux.
     """
-    assert feature_uri("features/errors.feature") == "features/errors.feature"
-    assert feature_uri(os.path.join("features", "errors.feature")) == (
-        "features/errors.feature"
+    assert feature_uri(f"{CANONICAL_DIRECTORY}/errors.feature") == (
+        f"{CANONICAL_DIRECTORY}/errors.feature"
+    )
+    assert feature_uri(os.path.join(CANONICAL_DIRECTORY, "errors.feature")) == (
+        f"{CANONICAL_DIRECTORY}/errors.feature"
     )
 
 

@@ -141,7 +141,7 @@ def scenario_identity(node: pytest.Item) -> ScenarioIdentity | None:
         # Derived from where the file is, falling back to what pytest-bdd called
         # it. pytest-bdd names a feature by its parent directory joined to its
         # own name, which two files can share: an extension at
-        # tck-extensions/features/errors.feature arrives under exactly the uri
+        # extensions/gherkin/errors.feature arrives under exactly the uri
         # the canonical errors.feature already occupies, and the payload carries
         # one source per uri.
         uri=uri_for(path) or feature_uri(relative),
@@ -486,7 +486,7 @@ class ReportEmitter:
 
         Two ways it might not be, and both are silent without this. A file that
         is not one of the packaged assets must not be reported under their uri
-        prefix, or a consumer reading ``features/errors.feature`` in the stream
+        prefix, or a consumer reading ``gherkin/errors.feature`` in the stream
         has no way to tell that the specification did not write it. And two
         files must not share a uri, or the stream carries one source for both
         and the second file's scenarios are reported against the first's.
