@@ -53,12 +53,37 @@ from tests.tck.suite import ResolverSuite, build_config
 #     passes without a connection, which the SDK's registry turns into
 #     PROVIDER_ERROR.
 #
-#   NUMERIC_COERCION
-#     RPC does not type-check locally; it asks flagd for an Int and flagd answers
-#     INVALID_ARGUMENT for a float-valued flag, which grpc.py:461-462 maps to
-#     TypeMismatchError. So 0.5 is never narrowed to 0.
+#   LARGE_INTEGERS
+#     RPC never narrows an integer. flagd holds every numeric variant as a
+#     float64 -- Go's encoding/json decodes an untyped number into one -- and
+#     2^53 - 1 is exactly the largest integer a float64 represents without
+#     rounding, which is why the canonical set asks for nothing larger. The
+#     server casts it to the int64 of ResolveIntResponse.value, and grpc.py:448
+#     hands that to the SDK as a Python int, unbounded. Nothing in between is
+#     32 bits wide.
 #
 # Not declared, and why:
+#
+#   NUMERIC_COERCION
+#     RPC does not type-check locally: grpc.py:444-448 asks flagd for an Int and
+#     passes back whatever the server answers, so the whole decision is flagd's.
+#     flagd's evaluator resolves the variant as a float64 and casts it with a
+#     bare `int64(val)` (core/pkg/evaluator/json.go, ResolveIntValue, at the
+#     v0.16.0 the testbed's `flagd/Dockerfile` builds on), so `float-flag`'s 0.5
+#     comes back as 0 with reason STATIC and no error code -- silently narrowed,
+#     which is the one thing the lossy scenario forbids. The two lossless
+#     scenarios pass for the same reason: 10.0 casts to 10, and a float
+#     accessor sees the float64 the server already holds. One of three is a
+#     failure, and a declaration is all or nothing.
+#
+#     An earlier revision of this file claimed flagd answers INVALID_ARGUMENT
+#     here. The server source says otherwise: INVALID_ARGUMENT is what
+#     grpc.py:461-462 would map to TypeMismatchError if it ever arrived, and
+#     for a float-valued flag it does not. The Java reference adoption recorded
+#     the same narrowing against the same server. flagd's numeric-coercion ADR
+#     (docs/architecture-decisions/numeric-coercion.md) commits it to lossless
+#     coercion, tracked as open-feature/flagd#1996; this is declared again once
+#     the testbed ships a flagd that implements it.
 #
 #   TARGETING, CACHING
 #     Reserved in the Capability enum; no scenario carries either tag. Declaring
@@ -71,7 +96,7 @@ RPC_CAPABILITIES = frozenset(
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
         Capability.UNAVAILABLE_INIT,
-        Capability.NUMERIC_COERCION,
+        Capability.LARGE_INTEGERS,
     }
 )
 
