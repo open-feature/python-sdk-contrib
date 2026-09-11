@@ -77,14 +77,14 @@ proprietary rollout rule, and the behaviour of those is as worth pinning as the 
 top of. Verifying them used to mean a second harness: a second backend lifecycle, a second set of
 fixtures, a second thing to keep working.
 
-Put them in the same run instead. Create a directory named `tck-extensions` beside the module that
+Put them in the same run instead. Create a directory named `extensions` beside the module that
 calls `scenarios()`, and write step definitions for whatever is new in a `conftest.py` beside it:
 
 ```
 tests/
 ├── conftest.py                    # your step definitions
 ├── test_conformance.py            # the fixture and the one call, unchanged
-└── tck-extensions/
+└── extensions/
     └── fractional.feature
 ```
 
@@ -114,18 +114,20 @@ scenarios(*feature_paths())
 
 That line does not change when you add an extension, and it is the only difference from
 `scenarios(features_path())` — which still works and still sees only the canonical set. An adopter
-with no `tck-extensions` directory runs exactly what they ran before: same scenarios, same count.
+with no `extensions` directory runs exactly what they ran before: same scenarios, same count.
 
 ### Your scenarios cannot stand in for ours
 
 Every feature file carries a uri, and it is how a canonical scenario is told from an adopter's:
-canonical files are the ones under the `features/` prefix and yours are under `extensions/` — the
+canonical files are the ones under the `gherkin/` prefix and yours are under `extensions/` — the
 prefix Go and JavaScript mount theirs under too, so a consumer holding conformance reports from
-several languages applies one rule. The prefix is derived from where a file *is*, not from what the
-runner called it, and `extensions.py` reports two cases that derivation cannot rule out:
+several languages applies one rule. Neither prefix is this package's to choose: Appendix F
+identifies a canonical feature by its path *relative to the specification's asset directory*, which
+is what makes it `gherkin/`. The prefix is derived from where a file *is*, not from what the runner
+called it, and `extensions.py` reports two cases that derivation cannot rule out:
 
-- **A feature file of yours under the reserved `features/` prefix.** Handing `scenarios()` a
-  directory of your own named `features` is the one route left to a canonical-looking uri.
+- **A feature file of yours under the reserved `gherkin/` prefix.** Handing `scenarios()` a
+  directory of your own named `gherkin` is the one route left to a canonical-looking uri.
 - **Two feature files that would share one uri.** A record of what ran holds one copy of a feature
   file per uri, so the second file's scenarios would be attributed to the first file's.
 
@@ -133,7 +135,7 @@ This is not hypothetical. Java's suite found that a same-named feature file in a
 root *replaced* the canonical one, and the run went green having asked the adopter's questions
 instead of the specification's — the worst outcome available to a conformance suite. The Python
 route to the same place is narrower and just as quiet: pytest-bdd names a feature file by its parent
-directory joined to its own name, so `tck-extensions/features/errors.feature` arrives under the uri
+directory joined to its own name, so `extensions/gherkin/errors.feature` arrives under the uri
 the canonical `errors.feature` already occupies.
 
 ## Capabilities

@@ -25,7 +25,14 @@ DO_NOT_EDIT = (
 )
 
 # (source directory or file, destination) relative to SPEC_ASSETS / DEST_BASE.
-TREES = [("gherkin", "features"), ("flags", "flag_data")]
+#
+# "gherkin" copies to a directory of the same name on purpose, and the pair is not
+# redundant: a canonical feature is identified by its path relative to the asset
+# directory, so the destination name *is* the reported uri prefix. Renaming it
+# locally -- it used to land in "features" -- silently renamed the uri, which is
+# how this suite reported features/errors.feature for the file Go reports as
+# gherkin/errors.feature. Keep the two equal.
+TREES = [("gherkin", "gherkin"), ("flags", "flag_data")]
 FILES = [("openapi/control-api.yaml", "control-api.yaml")]
 
 

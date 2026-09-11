@@ -55,7 +55,7 @@ packages = ["src/openfeature"]
 # Ship the conformance assets even though they are gitignored: an adopter
 # installing this package must need no submodule of their own.
 artifacts = [
-    "src/openfeature/contrib/tools/provider_tck/features/",
+    "src/openfeature/contrib/tools/provider_tck/gherkin/",
     "src/openfeature/contrib/tools/provider_tck/flag_data/",
     "src/openfeature/contrib/tools/provider_tck/control-api.yaml",
 ]
