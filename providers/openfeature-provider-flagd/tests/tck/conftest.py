@@ -14,7 +14,7 @@ the launchpad already implements, and reuses the container lifecycle already in
 ``tests/e2e``.
 
 **The testbed does not yet serve the whole canonical flag set.** The
-conformance assets at spec@fc99d5ac ask for three flags that flagd-testbed
+conformance assets at spec@26362f85 ask for three flags that flagd-testbed
 v3.8.0 (``openfeature/test-harness/version.txt``) does not seed:
 ``large-integer-flag``, ``huge-integer-flag`` and ``integral-float-flag``.
 Until open-feature/flagd-testbed catches up, both suites fail these scenarios
@@ -22,13 +22,28 @@ with ``FLAG_NOT_FOUND``, for every resolver alike:
 
 * ``A large integer resolves without loss of precision`` -- untagged;
 * ``An integer beyond 32 bits resolves without loss of precision`` -- under
-  ``@large-integers``, which both suites declare.
+  ``@large-integers``, which both suites declare;
+* ``The resolved details name the variant``, the ``large-integer-flag`` row of
+  it -- under ``@variants``, which both suites declare. New at spec@26362f85,
+  and the same gap rather than a new one: the row asks for the variant
+  ``max-int32`` of a flag that is not there, so it fails with the same
+  ``FLAG_NOT_FOUND`` as the two above. The other seven rows pass on both
+  resolvers, which is the evidence the capability is declared on -- withholding
+  it would say flagd does not name variants, which is false, and would
+  attribute a missing flag to a capability the provider has.
 
 ``integral-float-flag`` is asked for only under ``@numeric-coercion``, which
 neither suite declares, so its scenario is skipped rather than failed. The
 failures are deliberately left as failures: they say something true about the
 stack under test, and an ``xfail`` would say the provider is at fault when it is
-the backend that is behind.
+the backend that is behind. None of them is a ``KnownDeviation`` either: a
+deviation is for a behaviour the *provider* is required to have and does not.
+
+``targeting-key-flag``, new in the canonical set at the same revision, needs no
+testbed change. It is the flag flagd-testbed's own ``targeting.feature`` already
+uses -- same key, same ``hit``/``miss`` variants, same uuid -- seeded from
+``flags/testing-flags.json`` by the launchpad's ``default`` configuration, so
+the three ``@targeting`` scenarios pass on both resolvers as they stand.
 
 The falsy flags used to fail the same way and no longer do. ``ba002ce8`` renamed
 them to ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``,
