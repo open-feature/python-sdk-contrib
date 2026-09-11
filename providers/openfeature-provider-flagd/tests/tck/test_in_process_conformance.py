@@ -50,14 +50,28 @@ from tests.tck.suite import ResolverSuite, build_config
 #     deadline passes without a synced ruleset, which the SDK's registry turns
 #     into PROVIDER_ERROR.
 #
-#   NUMERIC_COERCION
-#     Local, and strict: flagd_core.py:25 admits only `int` for an integer
-#     request, and flagd_core.py:228-231 raises TypeMismatchError for anything
-#     else -- so `float-flag`'s 0.5 is reported as a mismatch rather than
-#     narrowed to 0. (The float mapping at flagd_core.py:26 is deliberately the
-#     wider one, `(int, float)`, but widening towards float loses nothing.)
+#   LARGE_INTEGERS
+#     The ruleset arrives as JSON text over the sync stream and FlagdCore parses
+#     it with `json.loads` (flagd_core.py:73), which gives an unbounded Python
+#     int for 9007199254740991; nothing between the parser and the SDK routes
+#     the value through a float or a 32-bit field.
 #
 # Not declared, and why:
+#
+#   NUMERIC_COERCION
+#     Local, and strict in one direction only. flagd_core.py:25 admits only
+#     `int` for an integer request and `_check_type` (flagd_core.py:228-231)
+#     raises TypeMismatchError for anything else, so `float-flag`'s 0.5 is a
+#     mismatch rather than 0 -- the lossy half holds. The float mapping at
+#     flagd_core.py:26 is the wider `(int, float)`, and `resolve_float_value`
+#     (flagd_core.py:113-114) widens an int result to a float, so `integer-flag`
+#     requested as a Float is 10.0 -- that lossless half holds too. But the
+#     same `(int,)` rule rejects `integral-float-flag`'s 10.0 requested as an
+#     Integer, where the tag requires 10: two of three, and a declaration is
+#     all or nothing. flagd's numeric-coercion ADR
+#     (docs/architecture-decisions/numeric-coercion.md) commits every flagd
+#     implementation to the lossless rule; when openfeature-flagd-core follows
+#     it, this is declared again.
 #
 #   TARGETING, CACHING
 #     Reserved in the Capability enum; no scenario carries either tag. Declaring
@@ -70,7 +84,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
         Capability.UNAVAILABLE_INIT,
-        Capability.NUMERIC_COERCION,
+        Capability.LARGE_INTEGERS,
     }
 )
 
