@@ -20,8 +20,15 @@ from openfeature.contrib.tools.provider_tck import (
 from tests.e2e.flagd_container import FlagdContainer
 from tests.tck.suite import ResolverSuite, build_config
 
-# Every capability below is declared on the strength of a line of provider code,
-# not on the strength of a green run.
+# Every capability below was declared, the suite run, and the scenarios seen to
+# pass. The code references say where the behaviour lives, so a reader can check
+# the claim -- they are not the evidence for it.
+#
+# The distinction is Appendix F's, stated there since spec@26362f85 and worth
+# repeating here because this file used to get it backwards: source inspection is
+# unreliable in both directions. @reinitialization below is the case in point --
+# RPC's shutdown reverts enough of its own state to read as support for reuse,
+# and the channel underneath cannot be rebuilt.
 #
 #   EVENTS
 #     grpc.py:261 emits PROVIDER_READY when the evaluation stream delivers its
@@ -47,6 +54,16 @@ from tests.tck.suite import ResolverSuite, build_config
 #
 #   OBJECT
 #     grpc.py:336 resolves structured values through ResolveObject.
+#
+#   VARIANTS
+#     grpc.py:449 carries the response's `variant` field into the resolution
+#     details for every typed call, and flagd names a variant for every flag in
+#     the testbed's set.
+#
+#   TARGETING
+#     grpc.py:492 puts the evaluation context's targeting key into the request's
+#     context struct, so the server evaluates targeting-key-flag's rule against
+#     it and answers `hit` or `miss`.
 #
 #   UNAVAILABLE_INIT
 #     grpc.py:175 raises ProviderNotReadyError once the blocking init deadline
@@ -109,23 +126,26 @@ from tests.tck.suite import ResolverSuite, build_config
 #     scenario when any capability gating it is undeclared, and neither resolver
 #     declares LIFECYCLE. Declaring REINITIALIZATION alone would leave the
 #     scenario skipped on @lifecycle and the claim unexamined -- a vacuous
-#     declaration of the kind the reserved tags below are kept out for.
+#     declaration of the kind the reserved tag below is kept out for.
 #
 #     Worth recording that this scenario never ran here, at this pin or the one
 #     before it: it is one of the six @lifecycle skips each resolver reports,
 #     not a scenario that used to pass. Reading its absence from the failure
 #     list as evidence of support is the mistake this note exists to prevent.
 #
-#   TARGETING, CACHING
-#     Reserved in the Capability enum; no scenario carries either tag. Declaring
-#     a capability nothing exercises would be a claim with no evidence behind it,
-#     so they are left out of both suites.
+#   CACHING
+#     Reserved in the Capability enum; no scenario carries the tag. Declaring a
+#     capability nothing exercises would be a claim with no evidence behind it,
+#     so it is left out of both suites. @targeting was reserved alongside it
+#     until spec@26362f85 gave it three scenarios, and is now declared above.
 RPC_CAPABILITIES = frozenset(
     {
         Capability.EVENTS,
         Capability.STALE,
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
+        Capability.VARIANTS,
+        Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
         Capability.LARGE_INTEGERS,
     }

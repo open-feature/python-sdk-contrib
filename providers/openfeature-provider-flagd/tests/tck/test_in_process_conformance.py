@@ -23,8 +23,14 @@ from openfeature.contrib.tools.provider_tck import (
 from tests.e2e.flagd_container import FlagdContainer
 from tests.tck.suite import ResolverSuite, build_config
 
-# Every capability below is declared on the strength of a line of provider code,
-# not on the strength of a green run.
+# Every capability below was declared, the suite run, and the scenarios seen to
+# pass. The code references say where the behaviour lives, so a reader can check
+# the claim -- they are not the evidence for it.
+#
+# The distinction is Appendix F's, stated there since spec@26362f85 and worth
+# repeating here because this file used to get it backwards: source inspection is
+# unreliable in both directions, which @reinitialization below shows from the
+# other side -- this resolver does support reuse, and reading it does not say so.
 #
 #   EVENTS
 #     grpc_watcher.py:262 emits PROVIDER_READY once the first sync payload has
@@ -44,6 +50,17 @@ from tests.tck.suite import ResolverSuite, build_config
 #
 #   OBJECT
 #     in_process.py:122 resolves structured values from the local ruleset.
+#
+#   VARIANTS
+#     flagd_core.py returns the variant name it selected with every resolution,
+#     and in_process.py carries it into the resolution details. The ruleset is
+#     keyed by variant, so there is always one to report.
+#
+#   TARGETING
+#     targeting.py:40-41 puts the evaluation context's targeting key into the
+#     JSON-logic context under `targetingKey`, and flagd_core.py:154 evaluates
+#     the flag's rule against it, so targeting-key-flag selects `hit` or `miss`
+#     locally.
 #
 #   UNAVAILABLE_INIT
 #     grpc_watcher.py:151 raises ProviderNotReadyError once the blocking init
@@ -88,7 +105,7 @@ from tests.tck.suite import ResolverSuite, build_config
 #     any capability gating it is undeclared, and this suite does not declare
 #     LIFECYCLE. Declaring REINITIALIZATION alone would leave the scenario
 #     skipped on @lifecycle and the claim unexamined -- the same
-#     declare-what-nothing-exercises error the reserved tags below are kept out
+#     declare-what-nothing-exercises error the reserved tag below is kept out
 #     for. Declaring LIFECYCLE is a separate question from this one and is not
 #     settled here.
 #
@@ -100,16 +117,19 @@ from tests.tck.suite import ResolverSuite, build_config
 #     before it: it is one of the six @lifecycle skips each resolver reports,
 #     not a scenario that used to pass.
 #
-#   TARGETING, CACHING
-#     Reserved in the Capability enum; no scenario carries either tag. Declaring
-#     a capability nothing exercises would be a claim with no evidence behind it,
-#     so they are left out of both suites.
+#   CACHING
+#     Reserved in the Capability enum; no scenario carries the tag. Declaring a
+#     capability nothing exercises would be a claim with no evidence behind it,
+#     so it is left out of both suites. @targeting was reserved alongside it
+#     until spec@26362f85 gave it three scenarios, and is now declared above.
 IN_PROCESS_CAPABILITIES = frozenset(
     {
         Capability.EVENTS,
         Capability.STALE,
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
+        Capability.VARIANTS,
+        Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
         Capability.LARGE_INTEGERS,
     }
