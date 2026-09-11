@@ -136,8 +136,15 @@ def tck_config():
 scenarios(features_path())
 '''
 
-CAPABILITIES = "{Capability.EVENTS, Capability.OBJECT, Capability.NUMERIC_COERCION}"
-"""What the main generated suite declares: enough to produce a skip and a pass."""
+CAPABILITIES = "{Capability.EVENTS, Capability.OBJECT, Capability.LARGE_INTEGERS}"
+"""What the main generated suite declares: enough to produce a skip and a pass.
+
+``LARGE_INTEGERS`` rather than ``NUMERIC_COERCION`` for the same reason the
+in-memory self-tests declare the one and not the other -- a Python ``int`` is
+unbounded, and the provider behind ``InProcessControl`` hands each variant back
+untouched rather than coercing it. Three declared capabilities are what these
+tests need; which three has to stay an honest claim about the provider.
+"""
 
 NOT_APPLICABLE = '{Capability.STALE: "this provider has no connection to lose"}'
 """One capability the provider cannot have rather than merely does not declare."""
@@ -588,7 +595,7 @@ def narrow_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
         tmp_path_factory,
         file_name="narrow.json",
         name="narrow",
-        capabilities="{Capability.NUMERIC_COERCION}",
+        capabilities="{Capability.LARGE_INTEGERS}",
         not_applicable="{}",
         deviations=False,
     )
@@ -873,7 +880,7 @@ def test_the_declaration_is_an_input_not_a_summary(run: Run) -> None:
     declaration = run.envelope["declaration"]
     assert declaration["declared"] == [
         Capability.EVENTS.tag,
-        Capability.NUMERIC_COERCION.tag,
+        Capability.LARGE_INTEGERS.tag,
         Capability.OBJECT.tag,
     ]
     assert declaration["notApplicable"] == {
