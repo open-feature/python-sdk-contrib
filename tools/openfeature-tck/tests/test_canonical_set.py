@@ -40,7 +40,10 @@ from openfeature.contrib.tools.tck.canonical import (
     missing_canonical,
     partial_run_allowed,
 )
-from openfeature.contrib.tools.tck.extensions import is_canonical_uri
+from openfeature.contrib.tools.tck.extensions import (
+    CANONICAL_DIRECTORY,
+    is_canonical_uri,
+)
 from openfeature.contrib.tools.tck.messages import (
     ScenarioIdentity,
     ScenarioRun,
@@ -162,9 +165,9 @@ def _run(
     (directory / "test_guarded.py").write_text(_SUITE_MODULE, encoding="utf-8")
     (directory / "conftest.py").write_text(_CONFTEST_MODULE, encoding="utf-8")
     if extension:
-        features = directory / EXTENSIONS_DIRECTORY
-        features.mkdir(parents=True, exist_ok=True)
-        (features / "vendor.feature").write_text(_VENDOR_FEATURE, encoding="utf-8")
+        extensions = directory / EXTENSIONS_DIRECTORY
+        extensions.mkdir(parents=True, exist_ok=True)
+        (extensions / "vendor.feature").write_text(_VENDOR_FEATURE, encoding="utf-8")
 
     reports = tmp_path / "reports"
     environment = dict(os.environ)
@@ -274,7 +277,7 @@ def test_an_extension_cannot_close_a_gap(tmp_path: Path) -> None:
 
     assert run.result.returncode != 0, run.stdout
     assert f"1 of {CANONICAL_COUNT} canonical scenarios did not run" in run.stdout
-    assert f"features/errors.feature: {EXCLUDED_SCENARIO}" in run.stdout
+    assert f"{CANONICAL_DIRECTORY}/errors.feature: {EXCLUDED_SCENARIO}" in run.stdout
     assert not run.envelopes
 
 
@@ -322,21 +325,21 @@ def test_an_extension_run_is_neither_counted_nor_blamed(tmp_path: Path) -> None:
     # separately -- cannot reduce the missing set.
     impostor = ScenarioRun(
         identity=_identity(
-            "features/errors.feature",
+            f"{CANONICAL_DIRECTORY}/errors.feature",
             EXCLUDED_SCENARIO,
-            tmp_path / "features" / "errors.feature",
+            tmp_path / CANONICAL_DIRECTORY / "errors.feature",
         )
     )
     assert set(missing_canonical([vendor, impostor])) == canonical_scenarios()
 
 
 def test_a_missing_scenario_is_described_by_its_row() -> None:
-    assert describe(("features/x.feature", "A scenario", ())) == (
-        "features/x.feature: A scenario"
+    assert describe((f"{CANONICAL_DIRECTORY}/x.feature", "A scenario", ())) == (
+        f"{CANONICAL_DIRECTORY}/x.feature: A scenario"
     )
-    assert describe(("features/x.feature", "An outline", (("key", "a"),))) == (
-        "features/x.feature: An outline [key=a]"
-    )
+    assert describe(
+        (f"{CANONICAL_DIRECTORY}/x.feature", "An outline", (("key", "a"),))
+    ) == (f"{CANONICAL_DIRECTORY}/x.feature: An outline [key=a]")
 
 
 @pytest.mark.parametrize(
