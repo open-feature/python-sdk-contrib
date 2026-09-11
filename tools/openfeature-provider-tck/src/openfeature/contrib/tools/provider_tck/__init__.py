@@ -16,7 +16,7 @@ question is identical everywhere.
         Capability,
         InProcessControl,
         TckConfig,
-        features_path,
+        feature_paths,
     )
 
     @pytest.fixture(scope="session")
@@ -29,11 +29,14 @@ question is identical everywhere.
             capabilities={Capability.EVENTS, Capability.OBJECT},
         )
 
-    scenarios(features_path())
+    scenarios(*feature_paths())
 
 ``scenarios()`` is pytest-bdd's own, called directly rather than wrapped: it
 injects the generated tests into the *calling module* by walking the stack, so a
 convenience wrapper around it would deposit them inside this package instead.
+:func:`~.extensions.feature_paths` is the canonical assets plus a
+``tck-extensions`` directory beside the calling module, if there is one -- see
+:mod:`~.extensions`.
 
 The step definitions arrive through this package's pytest plugin, so there is
 nothing to import for them and no ``conftest.py`` to write. Everything else --
@@ -56,16 +59,23 @@ from .control import (
     ConnectionControl,
     UnsupportedControlError,
 )
+from .extensions import (
+    EXTENSIONS_DIRECTORY,
+    feature_paths,
+    features_path,
+)
 from .inprocess import InProcessControl
 from .provider import (
     CHANGING_FLAG_KEY,
     ControllableInMemoryProvider,
     canonical_flag_set,
 )
+from .state import TckState
 
 __all__ = [
     "CHANGING_FLAG_KEY",
     "DECLARABLE_CAPABILITIES",
+    "EXTENSIONS_DIRECTORY",
     "RESERVED_CAPABILITIES",
     "BackendControl",
     "Capability",
@@ -74,10 +84,12 @@ __all__ = [
     "InProcessControl",
     "KnownDeviation",
     "TckConfig",
+    "TckState",
     "UnsupportedControlError",
     "canonical_flag_set",
     "canonical_flags_json",
     "control_api_spec",
+    "feature_paths",
     "features_path",
 ]
 
@@ -101,21 +113,6 @@ __all__ = [
 # See https://github.com/open-feature/spec/issues/417.
 
 _PACKAGE = "openfeature.contrib.tools.provider_tck"
-
-
-def features_path() -> str:
-    """Return the directory holding the canonical feature files.
-
-    Packaged with this distribution, so a consumer needs no submodule and no
-    particular directory layout. Hand it to pytest-bdd's ``scenarios()``, which
-    accepts an absolute path::
-
-        scenarios(features_path())
-
-    pytest-bdd generates one test per scenario -- and one per row of a Scenario
-    Outline -- so failures name a scenario and ``-k`` selects one as usual.
-    """
-    return str(importlib.resources.files(_PACKAGE) / "features")
 
 
 def canonical_flags_json() -> str:
