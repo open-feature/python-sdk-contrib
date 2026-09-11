@@ -15,7 +15,7 @@ resolves step definitions through the fixture system, so a step defined in the
 adopter's ``conftest.py`` -- or in the test module itself -- is in scope for the
 scenarios ``scenarios()`` generates there. The only thing pytest cannot find by
 itself is the feature files, which is what this module finds: a directory named
-``tck-extensions`` beside the adopter's test module.
+``extensions`` beside the adopter's test module.
 
 That leaves one line, and it is the same line whether or not there are
 extensions::
@@ -26,13 +26,13 @@ extensions::
 apart by the uri each feature file is identified by, and this module derives that
 uri from where the file *is* rather than taking what the runner offers:
 
-* ``features/…`` is the packaged canonical assets, and nothing else;
+* ``gherkin/…`` is the packaged canonical assets, and nothing else;
 * ``extensions/…`` is a discovered extension, whatever the adopter's own
-  directory layout under ``tck-extensions`` looks like.
+  directory layout under ``extensions`` looks like.
 
 The derivation is not decoration. pytest-bdd names a feature file by its parent
-directory joined to its own name, so ``tck-extensions/features/errors.feature``
-arrives as ``features/errors.feature`` -- the same uri as a canonical file. A
+directory joined to its own name, so ``extensions/gherkin/errors.feature``
+arrives as ``gherkin/errors.feature`` -- the same uri as a canonical file. A
 record of what ran holds one copy of a feature file per uri, so the second file
 is never read and its scenarios are attributed to the first one's or to nothing
 at all. Java hit the same thing by a different route: a same-named feature file
@@ -70,23 +70,34 @@ __all__ = [
 
 _PACKAGE = "openfeature.contrib.tools.provider_tck"
 
-CANONICAL_DIRECTORY = "features"
+CANONICAL_DIRECTORY = "gherkin"
 """The packaged directory the canonical feature files live in.
 
 Also the uri prefix they are identified by, which is why it is reserved: anyone
-reading ``features/errors.feature`` is entitled to assume it is the
+reading ``gherkin/errors.feature`` is entitled to assume it is the
 specification's file rather than a local one that happened to land in a directory
 of that name.
+
+The name is no longer chosen here. Appendix F fixes it: a canonical feature is
+identified by its path **relative to the specification's asset directory**, and
+``gherkin`` is the directory it occupies there. This suite used to vendor those
+assets under a local name of its own and report that name instead, which is how
+it came to answer ``features/errors.feature`` where Go -- consuming the same
+assets as a module whose root *is* that directory -- answered
+``gherkin/errors.feature``. A consumer joining two languages' results keys on the
+uri and the scenario name, so the local name was the whole of the divergence.
 """
 
-EXTENSIONS_DIRECTORY = "tck-extensions"
+EXTENSIONS_DIRECTORY = "extensions"
 """Where an adopter puts feature files of their own, beside their test module.
 
-Deliberately not ``features``: a directory sharing the canonical name is how an
-extension comes to occupy a canonical file's identity, and a convention that
-cannot collide is worth more than one that reads slightly better. The name is
-the one Java's TCK scans for on the classpath, so an adopter who ships a provider
-in both languages puts the same directory in both repositories.
+Deliberately not the canonical name: a directory sharing it is how an extension
+comes to occupy a canonical file's identity, and a convention that cannot collide
+is worth more than one that reads slightly better. ``gherkin`` and ``extensions``
+are distinct, so that still holds. The name is the one Java's TCK scans for on the
+classpath -- renamed to ``extensions`` there in the same round as here -- so an
+adopter who ships a provider in both languages still puts the same directory in
+both repositories.
 """
 
 EXTENSIONS_URI_PREFIX = "extensions"
@@ -95,6 +106,12 @@ EXTENSIONS_URI_PREFIX = "extensions"
 The Go and JavaScript suites mount extensions under the same prefix, so a
 consumer holding reports from several languages applies one rule to tell an
 adopter's scenario from the specification's.
+
+Equal to :data:`EXTENSIONS_DIRECTORY` today, and still a constant of its own: the
+directory this suite scans and the prefix a report is keyed by are two separate
+facts, and only the second is fixed by Appendix F. Collapsing them is exactly what
+went wrong on the canonical half, where one name did both jobs and the reported
+uri inherited a local choice.
 """
 
 
@@ -111,7 +128,7 @@ def features_path() -> str:
 def feature_paths() -> tuple[str, ...]:
     """Return every feature directory this adoption should run.
 
-    The canonical set, always, and a ``tck-extensions`` directory beside the
+    The canonical set, always, and an ``extensions`` directory beside the
     calling module if there is one. Hand the result to pytest-bdd's
     ``scenarios()``::
 
@@ -185,8 +202,8 @@ def uri_for(path: Path) -> str | None:
 
     Derived from the file's location rather than from pytest-bdd's
     ``rel_filename``, which is the parent directory's name joined to the file's
-    own. That is what let ``tck-extensions/features/errors.feature`` present
-    itself as ``features/errors.feature``: the same uri as a canonical file, and
+    own. That is what let ``extensions/gherkin/errors.feature`` present
+    itself as ``gherkin/errors.feature``: the same uri as a canonical file, and
     a record of what ran holds one copy of a feature file per uri.
     """
     resolved = _resolve(path)
@@ -205,7 +222,7 @@ def reserved_prefix_problem(uri: str, path: Path) -> str | None:
     """Report a feature file claiming the canonical uri prefix without being canonical.
 
     The one thing the naming convention cannot rule out on its own: an adopter
-    who hands ``scenarios()`` a directory of their own named ``features``. The
+    who hands ``scenarios()`` a directory of their own named ``gherkin``. The
     file is then named exactly as a canonical one would be, and a reader has no
     way to tell that the specification did not write it.
 
@@ -232,9 +249,9 @@ def uri_collisions(
     Deriving the uri from the file's location removes the collision an adopter
     is actually likely to hit, but it does not make one impossible. Two
     extension roots contributing the same relative path to a single suite -- two
-    test modules sharing one ``tck_config`` from a conftest, each with a
-    ``tck-extensions/vendor.feature`` -- still land on ``extensions/vendor.feature``
-    twice, and so does a ``tck-extensions`` directory nested inside another one.
+    test modules sharing one ``tck_config`` from a conftest, each with an
+    ``extensions/vendor.feature`` -- still land on ``extensions/vendor.feature``
+    twice, and so does an ``extensions`` directory nested inside another one.
 
     That has to be refused rather than resolved. A record of what ran holds one
     copy of a feature file per uri, so the second file is never read: its

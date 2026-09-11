@@ -2,6 +2,6 @@
 # DO NOT EDIT the copies, and do not commit them: the canonical definitions live
 # in spec/specification/assets/provider-tck/, and the revision this package is
 # built against is recorded by the submodule pin.
-src/openfeature/contrib/tools/provider_tck/features/
+src/openfeature/contrib/tools/provider_tck/gherkin/
 src/openfeature/contrib/tools/provider_tck/flag_data/
 src/openfeature/contrib/tools/provider_tck/control-api.yaml
