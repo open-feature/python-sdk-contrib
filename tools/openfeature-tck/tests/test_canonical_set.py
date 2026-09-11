@@ -21,6 +21,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import re
 import subprocess
 import sys
 import typing
@@ -113,11 +114,25 @@ Feature: Vendor rules
     Then the resolved details value should be "hi"
 """
 
+_EXTENSION_SCENARIOS = 3
+"""How many scenarios ``_VENDOR_FEATURE`` contributes."""
+
+_OUTCOMES = re.compile(r"(\d+) (passed|failed|skipped|xfailed|xpassed)\b")
+"""The per-outcome counts of a ``-q`` summary line, which together are what ran."""
+
 # The canonical scenario the filtered runs below leave out. Named rather than
 # counted, so a change to the canonical assets cannot leave these passing while
 # they select nothing.
 EXCLUDED_SELECTOR = "unknown_flag_key"
 EXCLUDED_SCENARIO = "An unknown flag key returns the code default"
+
+# How many canonical scenarios there are, read from the packaged assets through
+# the same parser the guard itself uses. Appendix F makes that a rule: an
+# expectation about the canonical set that restates a number goes stale the next
+# time the specification adds a scenario, and a conformance suite whose own tests
+# have to be edited to follow the assets is a suite that will be edited to agree
+# with them.
+CANONICAL_COUNT = len(canonical_scenarios())
 
 
 @dataclasses.dataclass(frozen=True)
@@ -212,13 +227,16 @@ def test_the_whole_canonical_set_still_writes_a_report(complete: Run) -> None:
 def test_a_filtered_run_fails_and_writes_no_report(tmp_path: Path) -> None:
     """The Go hazard, at the point it would have produced the document.
 
-    A well-formed report covering one scenario of twenty-nine is worse than no
-    report, because nothing in it says which twenty-eight were never asked.
+    A well-formed report covering one scenario of the canonical set is worse than
+    no report, because nothing in it says which of the rest were never asked.
     """
     run = _run(tmp_path, "-k", EXCLUDED_SELECTOR)
 
     assert run.result.returncode != 0, run.stdout
-    assert "of 29 canonical scenarios did not run" in run.stdout
+    assert (
+        f"{CANONICAL_COUNT - 1} of {CANONICAL_COUNT} canonical scenarios did not run"
+        in run.stdout
+    )
     assert not run.envelopes, "a partial run must publish nothing"
     assert not list(run.reports.glob("*.ndjson"))
     # The message names scenarios rather than only counting them, and says how
@@ -248,15 +266,14 @@ def test_acknowledging_a_partial_run_does_not_make_it_publishable(
 def test_an_extension_cannot_close_a_gap(tmp_path: Path) -> None:
     """Three extension scenarios do not make up for one canonical one.
 
-    The adoption below runs thirty-one scenarios where the canonical set has
-    twenty-nine, and is still one short: an adopter's scenarios are theirs, and
-    counting them towards the specification's set would let any gap be filled by
-    adding a feature file.
+    The adoption below runs more scenarios than the canonical set contains and is
+    still one short: an adopter's scenarios are theirs, and counting them towards
+    the specification's set would let any gap be filled by adding a feature file.
     """
     run = _run(tmp_path, "-k", f"not {EXCLUDED_SELECTOR}", extension=True)
 
     assert run.result.returncode != 0, run.stdout
-    assert "1 of 29 canonical scenarios did not run" in run.stdout
+    assert f"1 of {CANONICAL_COUNT} canonical scenarios did not run" in run.stdout
     assert f"features/errors.feature: {EXCLUDED_SCENARIO}" in run.stdout
     assert not run.envelopes
 
@@ -264,10 +281,21 @@ def test_an_extension_cannot_close_a_gap(tmp_path: Path) -> None:
 # -- what the canonical set is -----------------------------------------------
 
 
-def test_the_canonical_set_is_read_from_the_packaged_assets() -> None:
-    """One entry per Scenario Outline row, which is what a runner generates."""
+def test_the_canonical_set_is_read_from_the_packaged_assets(complete: Run) -> None:
+    """One entry per Scenario Outline row, which is what a runner generates.
+
+    The number is not written down here. It is read off the unfiltered run --
+    pytest-bdd's own collection of the same packaged feature files, less the
+    three scenarios the adopter's extension contributes -- because an
+    expectation that restated a count would pin this file rather than the
+    assets, and go stale the next time the specification adds a scenario.
+    """
     scenarios = canonical_scenarios()
-    assert len(scenarios) == 29
+
+    summary = [line for line in complete.stdout.splitlines() if line.strip()][-1]
+    collected = sum(int(count) for count, _ in _OUTCOMES.findall(summary))
+
+    assert len(scenarios) == collected - _EXTENSION_SCENARIOS, summary
     assert all(is_canonical_uri(uri) for uri, _, _ in scenarios)
     # An outline contributes rows, not a single templated entry.
     assert any(row for _, _, row in scenarios)
