@@ -93,6 +93,19 @@ def tck_config() -> TckConfig:
       vacuously while the feature was gated on ``EVENTS``, which is precisely
       the failure mode the split of ``@lifecycle`` from ``@events`` exists to
       end. A skip with a reason is the honest outcome.
+    * ``NUMERIC_COERCION`` -- omitted because the SDK's in-memory provider does
+      not coerce. It hands each variant back untouched, and the client's type
+      check is ``isinstance``-based, so ``integral-float-flag`` (``10.0``)
+      requested as an integer is a ``TYPE_MISMATCH`` rather than ``10``, and
+      ``integer-flag`` (``10``) requested as a float is one rather than
+      ``10.0``. The lossy scenario passes for the wrong reason -- every float
+      is rejected -- which is exactly what the two lossless scenarios exist to
+      catch, and declaring the tag would have them catch it here. The
+      capability is optional, so this is a choice the provider is entitled to
+      rather than a deviation.
+
+    ``LARGE_INTEGERS`` is declared: a Python ``int`` is unbounded and nothing
+    in this provider routes a value through a float.
     """
     return TckConfig(
         name="in-memory",
@@ -101,7 +114,7 @@ def tck_config() -> TckConfig:
         capabilities={
             Capability.EVENTS,
             Capability.OBJECT,
-            Capability.NUMERIC_COERCION,
+            Capability.LARGE_INTEGERS,
         },
     )
 

@@ -93,14 +93,22 @@ def changing_flag(default_variant: str) -> InMemoryFlag[str]:
 def canonical_flag_set() -> FlagStorage:
     """Return the canonical flag set as SDK in-memory flags.
 
-    Mirrors ``flag_data/canonical-flags.json`` entry for entry. Two properties
-    of that file are load-bearing and hold here too:
+    Mirrors ``flag_data/canonical-flags.json`` entry for entry -- and the
+    self-tests check that it does, value for value and Python type for Python
+    type. Four properties of that file are load-bearing and hold here too:
 
     * ``missing-flag`` is absent, which is what the ``FLAG_NOT_FOUND`` scenario
       tests. Adding it turns that scenario green for the wrong reason.
     * no flag carries a ``context_evaluator``, so every evaluation reports reason
       ``STATIC`` -- the TCK tests a provider's mapping of a response, not a
       backend's evaluation logic.
+    * ``false-flag``, ``zero-flag`` and ``empty-string-flag`` resolve to
+      ``False``, ``0`` and ``""``. They are values, not absences, and the falsy
+      scenarios exist to catch a provider that cannot tell the difference.
+    * ``integral-float-flag`` is the ``float`` ``10.0`` and ``huge-integer-flag``
+      is the ``int`` ``9007199254740991``. Writing the first as ``10`` makes the
+      lossless-coercion scenario pass without coercing; nothing here goes
+      through a float, so the second cannot be rounded.
     """
     return {
         "boolean-flag": InMemoryFlag(
@@ -114,6 +122,29 @@ def canonical_flag_set() -> FlagStorage:
         ),
         "float-flag": InMemoryFlag(
             default_variant="half", variants={"tenth": 0.1, "half": 0.5}
+        ),
+        # 2^31 - 1: the largest value every language's integer accessor can ask for.
+        "large-integer-flag": InMemoryFlag(
+            default_variant="max-int32", variants={"one": 1, "max-int32": 2147483647}
+        ),
+        # 2^53 - 1: asked for only under @large-integers. A Python int is exact.
+        "huge-integer-flag": InMemoryFlag(
+            default_variant="max-safe",
+            variants={"one": 1, "max-safe": 9007199254740991},
+        ),
+        # A float with no fractional part, for the lossless half of
+        # @numeric-coercion. The trailing ``.0`` is the whole point.
+        "integral-float-flag": InMemoryFlag(
+            default_variant="ten", variants={"tenth": 0.1, "ten": 10.0}
+        ),
+        "false-flag": InMemoryFlag(
+            default_variant="off", variants={"on": True, "off": False}
+        ),
+        "zero-flag": InMemoryFlag(
+            default_variant="zero", variants={"one": 1, "zero": 0}
+        ),
+        "empty-string-flag": InMemoryFlag(
+            default_variant="empty", variants={"greeting": "hi", "empty": ""}
         ),
         "object-flag": InMemoryFlag(
             default_variant="template",
