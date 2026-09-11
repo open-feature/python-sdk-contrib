@@ -64,6 +64,11 @@ from .extensions import (
     feature_paths,
     features_path,
 )
+from .httpcontrol import (
+    DEFAULT_CONFIGURATION,
+    ControlApiError,
+    HttpControl,
+)
 from .inprocess import InProcessControl
 from .provider import (
     CHANGING_FLAG_KEY,
@@ -75,12 +80,15 @@ from .state import TckState
 __all__ = [
     "CHANGING_FLAG_KEY",
     "DECLARABLE_CAPABILITIES",
+    "DEFAULT_CONFIGURATION",
     "EXTENSIONS_DIRECTORY",
     "RESERVED_CAPABILITIES",
     "BackendControl",
     "Capability",
     "ConnectionControl",
+    "ControlApiError",
     "ControllableInMemoryProvider",
+    "HttpControl",
     "InProcessControl",
     "KnownDeviation",
     "TckConfig",
