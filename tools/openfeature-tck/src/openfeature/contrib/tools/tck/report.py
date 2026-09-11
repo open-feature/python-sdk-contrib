@@ -415,6 +415,32 @@ def control_api_of(control: object) -> str:
     return ""
 
 
+def control_api_gap(control: object) -> str:
+    """Describe a control that does not say how it drives the backend, or "".
+
+    The field is optional in the report and the attribute is optional here, both
+    so that introducing it made no existing control incomplete. Together they
+    make omission invisible: the suite passes, the report validates, and the
+    field is simply absent. That went unnoticed until reports from four
+    languages were compared side by side and two of them were silent about the
+    same kind of in-process backend.
+
+    Every control either drives a real backend over the normative HTTP API or
+    manipulates one in this process, so there is no third case an absent value
+    legitimately describes -- which makes the silence worth breaking, in the run
+    output where an adopter will see it rather than in the report where they
+    will not.
+    """
+    if control_api_of(control):
+        return ""
+    description = getattr(control, "description", "") or type(control).__name__
+    return (
+        f"{description} does not offer a control_api attribute, so the conformance "
+        f"report cannot say whether the backend was driven over HTTP or in process. "
+        f'Add one, returning "http" or "in-process".'
+    )
+
+
 def normalise_tags(tags: typing.Iterable[str]) -> tuple[str, ...]:
     """Turn Gherkin tags as pytest-bdd holds them into the form the schema wants.
 
