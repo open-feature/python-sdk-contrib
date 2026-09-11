@@ -74,6 +74,7 @@ from .provider import (
     CHANGING_FLAG_KEY,
     ControllableInMemoryProvider,
     canonical_flag_set,
+    canonical_flags_json,
 )
 from .state import TckState
 
@@ -121,22 +122,6 @@ __all__ = [
 # See https://github.com/open-feature/spec/issues/417.
 
 _PACKAGE = "openfeature.contrib.tools.provider_tck"
-
-
-def canonical_flags_json() -> str:
-    """Return the canonical flag set as raw JSON, in the flagd flag-definition format.
-
-    This is the flag set every scenario assumes, and a backend under test must
-    serve an equivalent one. The format is not what matters -- the keys, types,
-    variant names and resolved values are. Seed them however your backend seeds
-    flags.
-
-    Exposed so an adopting provider can seed a backend from the canonical
-    definition rather than transcribing it, transcription being the usual way
-    the two drift apart.
-    """
-    ref = importlib.resources.files(_PACKAGE) / "flag_data" / "canonical-flags.json"
-    return ref.read_text(encoding="utf-8")
 
 
 def control_api_spec() -> str:
