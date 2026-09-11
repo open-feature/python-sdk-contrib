@@ -61,20 +61,39 @@ class Capability(str, Enum):
     UNAVAILABLE_INIT = "unavailable"
     """Provider reports an error state promptly against a backend it cannot reach."""
 
-    STRICT_NUMERIC_TYPING = "strict-numeric-typing"
-    """Provider keeps the integer and float types distinct instead of coercing between them.
+    NUMERIC_COERCION = "numeric-coercion"
+    """Provider coerces between integer and float only when lossless, else ``TYPE_MISMATCH``.
 
-    Unlike every other entry here this is not an optional feature. The
-    specification requires a provider to report ``TYPE_MISMATCH`` when the
-    requested type cannot be satisfied, and narrowing ``0.5`` to ``0`` to satisfy
-    an integer request loses information silently -- the worst failure mode a
-    feature flag has, because the application sees a plausible value and no
-    error at all.
+    This is the one entry here that **the specification does not define**.
+    OpenFeature has a single numeric type on purpose -- ``number`` is "a numeric
+    value of unspecified type or size", and languages *may* differentiate between
+    integers and floats "as idioms dictate" -- so no requirement says what a
+    provider must do when a value does not fit the accessor it was asked through.
+    That gap is `open-feature/spec#430
+    <https://github.com/open-feature/spec/issues/430>`_.
 
-    It is a capability only so that a provider with this defect can adopt the
-    suite today and see the gap reported as an explicit skip, rather than being
-    unable to adopt at all. Not declaring it is an admission of a known bug, not
-    a design choice. Declare it as soon as the provider is fixed.
+    The rule this capability is tested against is therefore **borrowed, not
+    normative**: lossless coercion is permitted, lossy coercion must fail. An
+    integral float such as ``10.0`` requested as an integer must succeed; ``0.5``
+    must not. It comes from flagd's `numeric coercion ADR
+    <https://github.com/open-feature/flagd/blob/main/docs/architecture-decisions/numeric-coercion.md>`_,
+    which is scoped to flagd's own implementations, and the tag carries that name
+    -- it was ``@strict-numeric-typing`` -- because two vocabularies for one
+    observable property is worse than one borrowed name.
+
+    **A provider that behaves differently is not violating the specification.**
+    So this is genuinely optional, rather than optional as a concession to a
+    defect: withholding it may be a deliberate choice as readily as a known bug.
+    Where it is a bug, say so -- a report's ``knownDeviations`` is for exactly
+    that, and flagd's instance is tracked as `open-feature/flagd#1996
+    <https://github.com/open-feature/flagd/issues/1996>`_.
+
+    Only the lossy half has a scenario. The canonical flag set has no integral
+    float to ask the lossless half of, and adding one changes the flag set for
+    every language at once, so a provider that wrongly rejects ``10.0`` as an
+    integer still passes. Appendix F records that as an open gap, along with a
+    second one: the width of a language's integer accessor is not modelled here
+    at all.
     """
 
     TARGETING = "targeting"
