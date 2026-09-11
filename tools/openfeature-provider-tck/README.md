@@ -148,7 +148,7 @@ suite at all, so `pytest.skip` carries the reason into the report:
 
 ```
 SKIPPED provider does not declare capability @stale.
-        Declared: @events @numeric-coercion @object
+        Declared: @events @large-integers @object
 ```
 
 | Capability | Tag | Meaning |
@@ -160,6 +160,7 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.OBJECT` | `@object` | supports structured flag values |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
+| `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly; undeclarable where the SDK's integer accessor is 32-bit |
 | `Capability.TARGETING` | `@targeting` | reserved; **not declarable** — no scenarios yet |
 | `Capability.CACHING` | `@caching` | reserved; **not declarable** — no scenarios yet |
 
@@ -198,10 +199,32 @@ which is scoped to flagd's own implementations, and the tag carries that name �
 borrowed name. **A provider that behaves differently is not violating the specification**, so
 withholding this capability may be a deliberate choice as readily as a defect.
 
-Only the lossy half is tested. The canonical flag set has no integral float to ask the lossless half
-of, so a provider that wrongly rejects `10.0` as an integer still passes; adding one changes the flag
-set for every language at once. Appendix F records that as an open gap, together with a second one:
-the width of a language's integer accessor — 64-bit against 32-bit — is not modelled at all.
+Both halves are tested, and a provider declaring the tag must satisfy all three scenarios: `float-flag`
+(`0.5`) requested as an integer is a `TYPE_MISMATCH`; `integral-float-flag` (`10.0`) requested as an
+integer is `10`; `integer-flag` (`10`) requested as a float is `10.0`. Rejecting every float is an easy
+way to pass the first, and the other two are what stop it.
+
+The width of the integer accessor is the related property, and it is a capability of its own because
+it belongs to the SDK rather than to the provider. Every language can ask for 2^31 − 1, so that
+precision scenario is untagged; only the one asking for 2^53 − 1 carries `@large-integers`. A Python
+`int` is unbounded, so a Python provider declares it unless something of its own — a 32-bit field in
+its wire format, a float on the way through — narrows the value.
+
+### Steps that reach the provider directly
+
+Everything the suite asks of a provider goes through an OpenFeature client, as an application's
+would — except three steps. `the provider is shut down` and `the provider is initialized again` call
+the provider's own `shutdown()` and `initialize()` on the registered instance, and
+`the provider metadata name should not be empty` asks it for `get_metadata()`. Going through the SDK
+would test the registry's bookkeeping as much as the provider, and Appendix B already does that; it
+would also make a double shutdown impossible to express, since the registry calls `shutdown` once
+per registration.
+
+The registry is not told. The client keeps pointing at the same instance, so an evaluation after
+re-initialising reaches the very object that was shut down and brought back. When the scenario ends,
+the SDK shuts the provider down once more on its own — requirement 2.5.3 makes that second call
+harmless, and the suite relies on it. A direct call that outlasts `TckConfig.ready_timeout` is given
+up on and fails its scenario with a message rather than hanging the session.
 
 ### Declaring more than a capability set
 
@@ -257,7 +280,7 @@ those scenarios are skipped with their reason.
 
 ## Findings
 
-Two, both confirmed by running the suite rather than by reading code.
+Three, all confirmed by running the suite rather than by reading code.
 
 ### 1. A boolean satisfies an Integer request
 
@@ -282,6 +305,18 @@ exposes nothing to change it. Tracked as
 Only half the machinery is missing — `AbstractProvider` already supplies
 `emit_provider_configuration_changed` — which is why `ControllableInMemoryProvider` here is a small
 subclass rather than a reimplementation, and why it should port back to the SDK as a method.
+
+### 3. The in-memory provider does not coerce numbers
+
+`integral-float-flag` (`10.0`) requested as an integer returns the code default with `TYPE_MISMATCH`,
+and `integer-flag` (`10`) requested as a float does the same. The provider hands each variant back
+untouched and the client's type check is `isinstance`-based, so neither lossless direction happens.
+The lossy scenario passes — every float is rejected — which is exactly the shortcut the two lossless
+scenarios exist to catch.
+
+This is not a defect: `@numeric-coercion` is optional, and the specification does not define the
+behaviour. So neither in-memory self-test declares the tag, and the three scenarios are skipped with
+that reason rather than failing.
 
 ## Where the assets come from
 
@@ -316,21 +351,24 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | --- | --- | --- |
 | `test_in_memory_conformance` | the SDK's `InMemoryProvider` | reference adoption for a backend-less provider |
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
-| `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
+| `test_in_process_control` | `InProcessControl` and the canonical flag set | pins what the Gherkin cannot assert about itself, including that the in-memory flag set mirrors `canonical-flags.json` type for type |
+| `test_lifecycle_steps` | the steps that call the provider directly | the in-memory suites skip `@lifecycle`, so the shutdown, re-initialise and metadata steps are driven against a recording provider instead |
 | `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
 | `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot take a canonical scenario's identity |
 
 ```
-84 passed, 9 skipped, 2 xfailed
+106 passed, 21 skipped, 2 xfailed
 ```
 
 No Docker and no network. The conformance suites take under a second; `test_extensions` takes most
 of the rest, because the properties it checks are properties of a whole pytest session and it runs a
 generated adoption in a subprocess to check them.
 
-Neither in-memory suite declares `@lifecycle`, so the three lifecycle scenarios are skipped in both.
-That is the point: with no backend to reach, they would pass without testing anything — which is
-what they did while the feature was gated on `@events`.
+Neither in-memory suite declares `@lifecycle`, so the six lifecycle scenarios — three about
+initialisation, three about shutdown — are skipped in both. That is the point: with no backend to
+reach, the initialisation ones would pass without testing anything — which is what they did while the
+feature was gated on `@events`. Neither declares `@numeric-coercion` either, for the reason in
+finding 3, so its three scenarios are skipped too.
 
 ## Known gaps
 
