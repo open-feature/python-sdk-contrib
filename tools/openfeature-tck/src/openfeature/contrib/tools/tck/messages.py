@@ -55,12 +55,22 @@ __all__ = [
     "MESSAGES_FORMAT",
     "FeatureCatalog",
     "ScenarioIdentity",
+    "ScenarioKey",
     "ScenarioRun",
     "Status",
     "StepRun",
     "worse",
     "write_stream",
 ]
+
+ScenarioKey = tuple[str, str, tuple[tuple[str, str], ...]]
+"""What names one scenario: its feature file's uri, its name, and its Examples row.
+
+The one description of a scenario that a pytest-bdd node and a Gherkin pickle
+can each produce without consulting the other, which is what makes it usable
+both as the join key inside :class:`FeatureCatalog` and as the currency of a
+comparison between the scenarios that ran and the ones that were shipped.
+"""
 
 MESSAGES_FORMAT = "cucumber-messages"
 """The ``results.format`` value the envelope carries for this payload."""
@@ -224,26 +234,46 @@ class FeatureCatalog:
         self._sources: dict[str, str] = {}
         self._documents: dict[str, dict[str, typing.Any]] = {}
         self._pickles: dict[str, list[_Pickle]] = {}
-        self._index: dict[tuple[str, str, tuple[tuple[str, str], ...]], _Pickle] = {}
+        self._index: dict[ScenarioKey, _Pickle] = {}
 
     @property
     def uris(self) -> list[str]:
         return sorted(self._documents)
 
+    @property
+    def scenario_keys(self) -> frozenset[ScenarioKey]:
+        """Every scenario the loaded feature files define, row by row.
+
+        What a feature file *asks*, as opposed to what a run executed. Taken
+        from the compiled pickles rather than from the AST so that a Scenario
+        Outline contributes one entry per row, which is what the runner
+        generates and therefore what a comparison has to be made in.
+        """
+        return frozenset(self._index)
+
     def load(self, identity: ScenarioIdentity) -> None:
         """Parse the feature file this scenario came from, once."""
-        if identity.uri in self._documents:
+        self.load_file(identity.uri, identity.path)
+
+    def load_file(self, uri: str, path: Path) -> None:
+        """Parse one feature file under the uri it will be reported by, once.
+
+        Separate from :meth:`load` because the canonical set has to be parsed
+        with no run in hand: the question "did every shipped scenario execute"
+        is asked of feature files, not of outcomes.
+        """
+        if uri in self._documents:
             return
-        source = identity.path.read_text(encoding="utf-8")
+        source = path.read_text(encoding="utf-8")
         document: dict[str, typing.Any] = Parser(
             ast_builder=AstBuilder(self._ids)
         ).parse(source)
-        document["uri"] = identity.uri
+        document["uri"] = uri
         pickles: list[dict[str, typing.Any]] = Compiler(self._ids).compile(document)
 
-        self._sources[identity.uri] = source
-        self._documents[identity.uri] = document
-        self._pickles[identity.uri] = [
+        self._sources[uri] = source
+        self._documents[uri] = document
+        self._pickles[uri] = [
             _Pickle(
                 id=str(pickle["id"]),
                 step_ids=tuple(str(step["id"]) for step in pickle.get("steps") or ()),
@@ -251,7 +281,7 @@ class FeatureCatalog:
             )
             for pickle in pickles
         ]
-        self._index_pickles(identity.uri, document, pickles)
+        self._index_pickles(uri, document, pickles)
 
     def _index_pickles(
         self,

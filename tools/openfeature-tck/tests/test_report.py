@@ -44,6 +44,7 @@ import pytest
 
 from openfeature.contrib.tools.tck import (
     DECLARABLE_CAPABILITIES,
+    EXTENSIONS_DIRECTORY,
     RESERVED_CAPABILITIES,
     Capability,
     KnownDeviation,
@@ -195,9 +196,11 @@ Feature: Per-Examples tags
 """
 
 _TAGGED_SUITE = '''\
-"""A suite over the feature file beside it, which tags one Examples block."""
+"""A suite whose extension feature file tags one Examples block of an outline.
 
-import pathlib
+The canonical set runs alongside it, because a suite that leaves the canonical
+set out writes no report at all -- see ``_canonical_set_ran``.
+"""
 
 import pytest
 from pytest_bdd import scenarios
@@ -206,6 +209,7 @@ from openfeature.contrib.tools.tck import (
     Capability,
     InProcessControl,
     TckConfig,
+    feature_paths,
 )
 
 
@@ -220,7 +224,7 @@ def tck_config():
     )
 
 
-scenarios(str(pathlib.Path(__file__).parent))
+scenarios(*feature_paths())
 '''
 
 
@@ -770,11 +774,14 @@ def test_a_row_gated_by_its_examples_block_is_the_only_one_skipped(
     no capability -- leaving the envelope's declaration unable to explain the
     skip, which is the one derivation this format asks a consumer to make.
 
-    No canonical feature file does this yet, so the feature file is written here.
+    No canonical feature file does this yet, so the feature file is written here
+    -- as an extension, because a suite that leaves the canonical set out writes
+    no report to read back.
     """
     directory = tmp_path / "suite"
-    directory.mkdir(parents=True)
-    (directory / "tagged.feature").write_text(_TAGGED_FEATURE, encoding="utf-8")
+    extensions = directory / EXTENSIONS_DIRECTORY
+    extensions.mkdir(parents=True)
+    (extensions / "tagged.feature").write_text(_TAGGED_FEATURE, encoding="utf-8")
     (directory / "test_tagged.py").write_text(_TAGGED_SUITE, encoding="utf-8")
 
     reports = tmp_path / "reports"
@@ -784,7 +791,11 @@ def test_a_row_gated_by_its_examples_block_is_the_only_one_skipped(
 
     envelope = json.loads(path.read_text(encoding="utf-8"))
     stream = _read_stream(path.parent / envelope["results"]["location"])
-    by_row = {dict(case.row)["requested"]: case for case in stream.cases}
+    by_row = {
+        dict(case.row)["requested"]: case
+        for case in stream.cases
+        if case.uri == "extensions/tagged.feature"
+    }
 
     # Every row is still reported: nothing about gating one row of an outline may
     # drop its siblings from the payload.
