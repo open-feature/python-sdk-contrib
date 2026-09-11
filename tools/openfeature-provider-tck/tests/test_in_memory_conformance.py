@@ -83,8 +83,17 @@ def tck_config() -> TckConfig:
       ``ConnectionControl`` for the same reason, and the two omissions keep each
       other honest: the scenarios are skipped before any step can reach an
       operation the control cannot perform.
-    * ``TARGETING`` and ``CACHING`` -- omitted because no scenario carries their
-      tags yet, so leaving them out skips nothing.
+    * ``TARGETING`` -- omitted because this flag set has no targeting rule to
+      resolve. ``canonical-flags.json`` gives ``targeting-key-flag`` one, and
+      ``_decode_canonical_flags`` deliberately ignores the member: decoding a
+      rule language would make this package a second implementation of somebody
+      else's evaluator. So the flag is served at its ``miss`` default whatever
+      the context, the matching-context scenario would fail, and withholding
+      the capability is the honest report. That is a property of this in-memory
+      flag set rather than a defect in the SDK's provider, which is why nothing
+      here is a ``KnownDeviation``.
+    * ``CACHING`` -- omitted because no scenario carries the tag yet, so leaving
+      it out skips nothing. It is also reserved, so declaring it is refused.
     * ``LIFECYCLE`` -- omitted because there is no backend to reach. The
       capability asserts that initialisation actually contacts a backend and
       that the outcome is observable; this provider's ``initialize`` is a no-op
@@ -105,7 +114,9 @@ def tck_config() -> TckConfig:
       rather than a deviation.
 
     ``LARGE_INTEGERS`` is declared: a Python ``int`` is unbounded and nothing
-    in this provider routes a value through a float.
+    in this provider routes a value through a float. ``VARIANTS`` is declared
+    too: the in-memory flag set is keyed by variant name, so the provider has
+    one to report for every flag and does.
     """
     return TckConfig(
         name="in-memory",
@@ -114,6 +125,7 @@ def tck_config() -> TckConfig:
         capabilities={
             Capability.EVENTS,
             Capability.OBJECT,
+            Capability.VARIANTS,
             Capability.LARGE_INTEGERS,
         },
     )

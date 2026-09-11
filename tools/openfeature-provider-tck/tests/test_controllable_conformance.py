@@ -44,6 +44,10 @@ def tck_config() -> TckConfig:
     inherits the SDK provider's refusal to coerce: ``10.0`` requested as an
     integer is a ``TYPE_MISMATCH`` rather than ``10``. ``LARGE_INTEGERS`` is
     declared, since a Python ``int`` is exact at 2^53 - 1.
+
+    ``TARGETING`` stays undeclared for the reason given there as well: this is
+    the same decoded flag set, and it ignores ``targeting-key-flag``'s rule.
+    ``VARIANTS`` is declared, since the flag set is keyed by variant name.
     """
     control = InProcessControl()
     return TckConfig(
@@ -54,6 +58,7 @@ def tck_config() -> TckConfig:
             Capability.EVENTS,
             Capability.CONFIGURATION_CHANGE,
             Capability.OBJECT,
+            Capability.VARIANTS,
             Capability.LARGE_INTEGERS,
         },
     )
