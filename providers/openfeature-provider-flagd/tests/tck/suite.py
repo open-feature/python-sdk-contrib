@@ -105,10 +105,13 @@ class ResolverSuite:
     resolver_type: ResolverType
 
     capabilities: frozenset[Capability]
-    """Derived from reading the resolver's event emission, not from running the suite.
+    """What this resolver was run against the suite and seen to satisfy.
 
-    See each suite module for the evidence behind every entry, and behind every
-    omission.
+    Evidence from a run rather than from reading the resolver, which is Appendix
+    F's rule and not merely a preference: source inspection has been wrong in
+    both directions here, and the two resolvers differ on reuse in a way that
+    reading them does not show. See each suite module for the evidence behind
+    every entry, and behind every omission.
     """
 
     ready_timeout: float
