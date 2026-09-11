@@ -28,11 +28,17 @@ __all__ = [
 def a_stable_provider(tck_state: TckState) -> None:
     """Register the provider under test against the running, seeded backend.
 
-    ``api.set_provider`` initialises synchronously and dispatches
-    ``PROVIDER_READY``, so by the time this step returns the provider is ready
-    and every scenario that follows can assume it. A suite that started
+    ``api.set_provider_and_wait`` initialises the provider before it returns and
+    dispatches ``PROVIDER_READY``, so by the time this step returns the provider
+    is ready and every scenario that follows can assume it. A suite that started
     evaluating before that would report races in the TCK as defects in the
     provider.
+
+    It has to be the waiting variant. Plain ``api.set_provider`` registers and
+    initialises on a worker thread, returning long before the provider is up, so
+    the very first evaluation of every scenario answers ``PROVIDER_NOT_READY`` --
+    a TCK defect that reads exactly like a provider that cannot resolve
+    anything.
     """
     config = tck_state.config
     provider = config.new_provider()
@@ -42,7 +48,8 @@ def a_stable_provider(tck_state: TckState) -> None:
 
     try:
         _call_within(
-            lambda: api.set_provider(provider, config.domain), config.ready_timeout
+            lambda: api.set_provider_and_wait(provider, config.domain),
+            config.ready_timeout,
         )
     except TimeoutError:
         msg = (
@@ -92,12 +99,18 @@ def an_unavailable_provider(tck_state: TckState) -> None:
         msg = "TckConfig.new_unavailable_provider returned None"
         raise AssertionError(msg)
 
+    # The waiting variant for the same reason as the stable provider: plain
+    # set_provider initialises on a worker thread, so registration would return
+    # before the provider had even tried to reach its backend, and the scenario
+    # would assert an error state that had not happened yet.
+    #
     # A raising initialize is already converted to PROVIDER_ERROR by the SDK's
-    # registry, so this is belt and braces: a provider that raises anyway must
-    # not take the scenario down with it, because the contract is about the
-    # observable error state rather than about how registration returned.
+    # registry, so the suppression is belt and braces: a provider that raises
+    # anyway must not take the scenario down with it, because the contract is
+    # about the observable error state rather than about how registration
+    # returned.
     with contextlib.suppress(Exception):
-        api.set_provider(provider, config.domain)
+        api.set_provider_and_wait(provider, config.domain)
 
     tck_state.provider = provider
     tck_state.client = api.get_client(config.domain)
@@ -218,9 +231,9 @@ def _record_lifecycle_call(
 def _call_within(call: Callable[[], object], timeout: float) -> None:
     """Make a call into the provider, giving up if it has not returned in time.
 
-    Neither ``api.set_provider`` nor a provider's own ``shutdown`` has a timeout
-    of its own, so one that hangs while talking to its backend would hang the
-    whole session with no useful message. Running it on a worker thread bounds
+    Neither ``api.set_provider_and_wait`` nor a provider's own ``shutdown`` has a
+    timeout of its own, so one that hangs while talking to its backend would hang
+    the whole session with no useful message. Running it on a worker thread bounds
     it.
 
     The worker is deliberately not cancelled on timeout -- Python cannot interrupt a
