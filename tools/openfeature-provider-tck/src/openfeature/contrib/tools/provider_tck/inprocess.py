@@ -63,6 +63,16 @@ class InProcessControl:
     def description(self) -> str:
         return "in-process control of an in-memory provider"
 
+    @property
+    def control_api(self) -> str:
+        """Report how this backend was driven, for the conformance report.
+
+        ``in-process`` is the narrow allowance for providers with no backend,
+        which is exactly what this control exists for. A provider that does have
+        a backend and reports this is claiming something it should not.
+        """
+        return "in-process"
+
     def new_provider(self) -> FeatureProvider:
         """Create the provider for the scenario about to run, at the baseline.
 
