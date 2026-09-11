@@ -14,7 +14,7 @@ the launchpad already implements, and reuses the container lifecycle already in
 ``tests/e2e``.
 
 **The testbed does not yet serve the whole canonical flag set.** The
-conformance assets at spec@ba002ce8 ask for three flags that flagd-testbed
+conformance assets at spec@fc99d5ac ask for three flags that flagd-testbed
 v3.8.0 (``openfeature/test-harness/version.txt``) does not seed:
 ``large-integer-flag``, ``huge-integer-flag`` and ``integral-float-flag``.
 Until open-feature/flagd-testbed catches up, both suites fail these scenarios

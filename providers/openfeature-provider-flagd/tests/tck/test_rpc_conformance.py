@@ -85,6 +85,37 @@ from tests.tck.suite import ResolverSuite, build_config
 #     coercion, tracked as open-feature/flagd#1996; this is declared again once
 #     the testbed ships a flagd that implements it.
 #
+#   REINITIALIZATION
+#     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
+#     down can be initialized again" that had been untagged before it. Withheld
+#     for two independent reasons, either of which is sufficient.
+#
+#     First, RPC genuinely does not support reuse, which was measured rather
+#     than reasoned about: declaring LIFECYCLE and REINITIALIZATION together
+#     locally makes the scenario run, and it fails with `boolean-flag` resolving
+#     to the code default because grpc.py:420 raises "Cannot invoke RPC on
+#     closed channel!". shutdown() closes the channel and the second initialize()
+#     does not rebuild it, so the provider evaluates against a closed connection
+#     rather than failing outright -- exactly the shape the specification's own
+#     note on this capability describes. Requirement 2.5.2 says a provider
+#     SHOULD revert to its uninitialized state and that "some providers MAY
+#     allow reinitialization", so reuse is permitted rather than required and
+#     declining it is a choice the specification offers. Hence no
+#     KnownDeviation entry: there is no requirement to deviate from.
+#
+#     Second, and why this cannot be declared even where reuse does work: the
+#     scenario lives in lifecycle.feature, which carries @lifecycle at the
+#     feature level, so it inherits that tag and carries both. The gate skips a
+#     scenario when any capability gating it is undeclared, and neither resolver
+#     declares LIFECYCLE. Declaring REINITIALIZATION alone would leave the
+#     scenario skipped on @lifecycle and the claim unexamined -- a vacuous
+#     declaration of the kind the reserved tags below are kept out for.
+#
+#     Worth recording that this scenario never ran here, at this pin or the one
+#     before it: it is one of the six @lifecycle skips each resolver reports,
+#     not a scenario that used to pass. Reading its absence from the failure
+#     list as evidence of support is the mistake this note exists to prevent.
+#
 #   TARGETING, CACHING
 #     Reserved in the Capability enum; no scenario carries either tag. Declaring
 #     a capability nothing exercises would be a claim with no evidence behind it,
