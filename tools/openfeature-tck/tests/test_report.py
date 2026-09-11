@@ -133,9 +133,7 @@ def tck_config():
 scenarios(features_path())
 '''
 
-CAPABILITIES = (
-    "{Capability.EVENTS, Capability.OBJECT, Capability.STRICT_NUMERIC_TYPING}"
-)
+CAPABILITIES = "{Capability.EVENTS, Capability.OBJECT, Capability.NUMERIC_COERCION}"
 """What the main generated suite declares: enough to produce a skip and a pass."""
 
 NOT_APPLICABLE = '{Capability.STALE: "this provider has no connection to lose"}'
@@ -567,7 +565,7 @@ def narrow_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
         tmp_path_factory,
         file_name="narrow.json",
         name="narrow",
-        capabilities="{Capability.STRICT_NUMERIC_TYPING, Capability.TARGETING}",
+        capabilities="{Capability.NUMERIC_COERCION, Capability.TARGETING}",
         not_applicable="{}",
         deviations=False,
     )
@@ -845,8 +843,8 @@ def test_the_declaration_is_an_input_not_a_summary(run: Run) -> None:
     declaration = run.envelope["declaration"]
     assert declaration["declared"] == [
         Capability.EVENTS.tag,
+        Capability.NUMERIC_COERCION.tag,
         Capability.OBJECT.tag,
-        Capability.STRICT_NUMERIC_TYPING.tag,
     ]
     assert declaration["notApplicable"] == {
         Capability.STALE.tag: "this provider has no connection to lose"
@@ -989,12 +987,12 @@ def test_a_not_applicable_capability_is_reported_with_its_reason() -> None:
     suite = SuiteReport(
         config=_config(
             capabilities={Capability.EVENTS},
-            not_applicable={Capability.STRICT_NUMERIC_TYPING: "no integer type"},
+            not_applicable={Capability.NUMERIC_COERCION: "no integer type"},
         )
     )
     declaration = suite.build(_results())["declaration"]
     assert declaration["notApplicable"] == {
-        Capability.STRICT_NUMERIC_TYPING.tag: "no integer type"
+        Capability.NUMERIC_COERCION.tag: "no integer type"
     }
 
 
@@ -1023,7 +1021,7 @@ def test_known_deviations_are_omitted_rather_than_emitted_empty() -> None:
                 KnownDeviation(
                     issue=DEVIATION_ISSUE,
                     summary="a boolean satisfies an Integer request",
-                    capability=Capability.STRICT_NUMERIC_TYPING,
+                    capability=Capability.NUMERIC_COERCION,
                 ),
             )
         )
@@ -1032,7 +1030,7 @@ def test_known_deviations_are_omitted_rather_than_emitted_empty() -> None:
         {
             "issue": DEVIATION_ISSUE,
             "summary": "a boolean satisfies an Integer request",
-            "capability": Capability.STRICT_NUMERIC_TYPING.tag,
+            "capability": Capability.NUMERIC_COERCION.tag,
         }
     ]
 

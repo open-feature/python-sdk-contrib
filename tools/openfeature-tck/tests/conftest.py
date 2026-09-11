@@ -46,7 +46,7 @@ KNOWN_DEVIATIONS = (KnownDeviation(issue=_ISSUE, summary=_REASON),)
 """What the report acknowledges.
 
 No ``capability``: the scenario carries no capability tag, because returning the
-code default on a type mismatch is mandatory. ``@strict-numeric-typing`` is a
+code default on a type mismatch is mandatory. ``@numeric-coercion`` is a
 neighbouring question -- whether 0.5 satisfies an integer request -- and this
 provider satisfies it, so attributing the deviation there would be wrong twice
 over.
