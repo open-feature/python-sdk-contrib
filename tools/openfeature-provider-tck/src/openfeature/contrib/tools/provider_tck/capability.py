@@ -119,6 +119,45 @@ class Capability(str, Enum):
     `open-feature/spec#430 <https://github.com/open-feature/spec/issues/430>`_.
     """
 
+    REINITIALIZATION = "reinitialization"
+    """Provider can be initialised again after ``shutdown``, and serves flags afterwards.
+
+    Gated rather than mandatory because the specification permits reuse without
+    requiring it. `Requirement 2.5.2
+    <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
+    says a provider **SHOULD** revert to its uninitialized state after
+    ``shutdown``, and its supporting text adds that "some providers **may**
+    allow reinitialization from this state". A provider that releases its client
+    on shutdown and declines to be started again is exercising a choice the
+    specification offers it, not exhibiting a defect -- so withholding this
+    capability needs no :class:`~.config.KnownDeviation` entry.
+
+    The scenario was untagged until spec revision ``fc99d5ac``, on the reading
+    that reverting to the uninitialized state is observable as exactly one thing
+    -- being initialisable again. That inference does not hold, and asserting it
+    unconditionally reported a permitted choice as a conformance failure. A false
+    failure is the mirror image of a vacuous pass.
+
+    Reverting the state is not separately observable either: a provider that
+    reverts but refuses reuse presents identically to one that did neither. So
+    the gated reuse scenario is the only assertion the requirement admits, and it
+    is worth keeping for the providers that do offer reuse -- releasing the client
+    on shutdown while leaving an initialised flag set behind is easy to write,
+    and leaves the provider evaluating against a closed connection rather than
+    failing outright.
+
+    **This tag narrows :attr:`LIFECYCLE` rather than standing beside it.** The
+    scenario lives in ``lifecycle.feature``, which carries ``@lifecycle`` at the
+    feature level, so the scenario inherits that tag and carries both. The gate
+    skips a scenario if *any* capability gating it is undeclared, so reuse is
+    exercised only by an adoption declaring :attr:`LIFECYCLE` **and** this --
+    declaring this one alone leaves the scenario skipped on ``@lifecycle``, and
+    the declaration unverified. Which is the trap worth naming: a provider that
+    withholds ``LIFECYCLE`` never ran this scenario, at this pin or the one
+    before it, so nothing about its behaviour on reuse has been observed either
+    way and there is no evidence on which to declare this.
+    """
+
     TARGETING = "targeting"
     """Reserved, and **not declarable**. No scenario carries this tag: targeting
     is backend evaluation logic."""
