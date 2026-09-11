@@ -73,6 +73,20 @@ class BackendControl(typing.Protocol):
     def description(self) -> str:
         """A short description of what is being controlled, for messages a human reads."""
 
+    # OPTIONAL: ``control_api``
+    #
+    # A control may also offer a ``control_api`` property returning ``"http"``
+    # for the normative HTTP control API, or ``"in-process"`` for the narrow
+    # allowance made for providers with no backend. The conformance report
+    # records it, so that a claim of in-process control by a provider that does
+    # have a backend can be treated with the suspicion it deserves.
+    #
+    # It is deliberately not a member of this protocol. Adding one would make
+    # every existing control incomplete for the sake of one string, and there is
+    # nothing useful the TCK can do with a control that has not said: it cannot
+    # tell from the outside whether a control spoke HTTP or reached into the
+    # process, so the field is simply omitted. See ``report.control_api_of``.
+
 
 @typing.runtime_checkable
 class ConnectionControl(typing.Protocol):

@@ -97,29 +97,62 @@ class Capability(str, Enum):
     """
 
     TARGETING = "targeting"
-    """Reserved. No scenario carries this tag: targeting is backend evaluation logic."""
+    """Reserved, and **not declarable**. No scenario carries this tag: targeting
+    is backend evaluation logic."""
 
     CACHING = "caching"
-    """Reserved; no scenario carries this tag yet."""
+    """Reserved, and **not declarable**. No scenario carries this tag yet."""
 
     @property
     def tag(self) -> str:
         """Return the Gherkin tag, with its leading at-sign, that gates this capability."""
         return f"@{self.value}"
 
+    @property
+    def reserved(self) -> bool:
+        """Whether this capability exists in the vocabulary but gates no scenario."""
+        return self in RESERVED_CAPABILITIES
+
     def __str__(self) -> str:
         return self.tag
 
 
-ALL_CAPABILITIES: frozenset[Capability] = frozenset(Capability)
-"""Every capability the TCK recognises.
+RESERVED_CAPABILITIES: frozenset[Capability] = frozenset(
+    {Capability.TARGETING, Capability.CACHING}
+)
+"""Capabilities that exist in the vocabulary and gate no scenario.
+
+They are documented so the vocabulary has a place for them when scenarios exist,
+and until then they **must not be declared** and must not appear in a conformance
+report's declaration. Nothing carries the tag, so declaring it cannot be
+verified, cannot produce a skip, and tells a reader of the report only that
+something was claimed and nothing examined.
+
+Listed once, here, and read everywhere else -- by
+:data:`DECLARABLE_CAPABILITIES`, by :attr:`Capability.reserved` and by the
+validation in :class:`~.config.TckConfig` -- so that the set and the rule cannot
+drift apart.
+"""
+
+DECLARABLE_CAPABILITIES: frozenset[Capability] = (
+    frozenset(Capability) - RESERVED_CAPABILITIES
+)
+"""Every capability an adoption may declare: the vocabulary minus the reserved tags.
 
 A reasonable starting point for a new adoption: declare everything, run the
-suite, and remove only what the provider genuinely cannot do. Narrowing from the
-full set surfaces gaps; widening towards it hides them.
+suite, and remove only what the provider genuinely cannot do. Narrowing from this
+set surfaces gaps; widening towards it hides them.
+
+It excludes the reserved capabilities rather than spanning the whole enum, and it
+is named for what it is rather than for "all", because the declare-everything
+convenience is exactly how a reserved tag reaches a report by accident: an
+adopter writing "every capability except X" picks up every reserved tag on the
+way past, which is how one implementation came to report ``@targeting`` and
+``@caching`` as declared without anyone deciding to claim them.
 """
 
 _BY_MARKER: dict[str, Capability] = {c.value: c for c in Capability}
+_BY_TAG: dict[str, Capability] = {c.tag: c for c in Capability}
 
 
 def capability_for_marker(name: str) -> Capability | None:
@@ -129,3 +162,14 @@ def capability_for_marker(name: str) -> Capability | None:
     the canonical feature files carry organisational tags freely.
     """
     return _BY_MARKER.get(name)
+
+
+def capability_for_tag(tag: str) -> Capability | None:
+    """Map a Gherkin tag, leading at-sign included, onto the capability it gates.
+
+    The tag form rather than the marker form because that is what the
+    conformance report carries: the report records a scenario's tags as the
+    feature files spell them, and deciding whether a failure counts against a
+    capability means reading them back.
+    """
+    return _BY_TAG.get(tag)

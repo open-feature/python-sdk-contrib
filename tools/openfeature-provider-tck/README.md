@@ -94,8 +94,8 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.OBJECT` | `@object` | supports structured flag values |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
-| `Capability.TARGETING` | `@targeting` | reserved; no scenarios yet |
-| `Capability.CACHING` | `@caching` | reserved; no scenarios yet |
+| `Capability.TARGETING` | `@targeting` | reserved; **not declarable** — no scenarios yet |
+| `Capability.CACHING` | `@caching` | reserved; **not declarable** — no scenarios yet |
 
 `@lifecycle` and `@events` are deliberately separate, and the split matters in both directions. An
 SDK dispatches `PROVIDER_READY` around `initialize` for *any* provider, so a provider declaring only
@@ -104,9 +104,18 @@ identically. Meanwhile a stateless provider has a real initialisation to verify 
 of its own to declare `@events` for, and gating on `@events` shut it out of a scenario it should be
 held to.
 
-Untagged scenarios are mandatory and always run. `capabilities` defaults to everything — narrow it
-rather than widening it: start from the default, run the suite, and remove only what your provider
-genuinely cannot do.
+Untagged scenarios are mandatory and always run. `capabilities` defaults to every *declarable*
+capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
+the default, run the suite, and remove only what your provider genuinely cannot do.
+
+A reserved capability is documented so the vocabulary has a place for it once scenarios exist, and
+until then it **must not be declared**. Nothing carries the tag, so declaring it cannot be verified,
+cannot produce a skip, and tells anyone reading the declaration only that something was claimed and
+nothing examined. `TckConfig` raises if you name one in `capabilities` or in `not_applicable`, and
+`DECLARABLE_CAPABILITIES` excludes them — which is the case that matters, because "every capability
+except X" is how a reserved tag gets declared by accident rather than by decision. One
+implementation's published conformance report asserts `@targeting` and `@caching` for exactly that
+reason.
 
 `@numeric-coercion` deserves a note, because it is the one capability here that **the specification
 does not define**. OpenFeature has a single numeric type on purpose — `number` is "a numeric value of
@@ -127,6 +136,23 @@ Only the lossy half is tested. The canonical flag set has no integral float to a
 of, so a provider that wrongly rejects `10.0` as an integer still passes; adding one changes the flag
 set for every language at once. Appendix F records that as an open gap, together with a second one:
 the width of a language's integer accessor — 64-bit against 32-bit — is not modelled at all.
+
+### Declaring more than a capability set
+
+Two further fields on `TckConfig` say things a capability set cannot, and both are declarations
+rather than switches: neither changes which scenarios run or what they assert.
+
+`not_applicable={Capability.X: "why"}` is for a capability that *cannot* hold rather than one you
+chose not to declare. The suite treats the two identically — the scenarios are skipped either way,
+with the reason — but collapsing them misrepresents a provider, and whole languages with it:
+`@numeric-coercion` is unsatisfiable in JavaScript because the language has no integer type, and
+recording that as a choice would show every JavaScript provider as declining something none of them
+can have. Declining an optional feature is a choice; an impossibility is not.
+
+`known_deviations=(KnownDeviation(issue=..., summary=...),)` acknowledges a gap against something the
+specification does *not* treat as optional, with somewhere it is tracked. It is an acknowledgement
+and not an excuse: the scenario still fails and the suite still fails with it. What the declaration
+adds is that the gap was known rather than a surprise.
 
 ## Controlling the backend
 
@@ -225,9 +251,10 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_in_memory_conformance` | the SDK's `InMemoryProvider` | reference adoption for a backend-less provider |
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
 | `test_in_process_control` | `InProcessControl` | pins what the Gherkin cannot assert about itself |
+| `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
 
 ```
-54 passed, 9 skipped, 2 xfailed
+70 passed, 9 skipped, 2 xfailed
 ```
 
 No Docker, no network, under a second.
