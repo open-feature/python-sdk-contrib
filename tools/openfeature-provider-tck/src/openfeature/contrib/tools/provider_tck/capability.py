@@ -58,6 +58,34 @@ class Capability(str, Enum):
     OBJECT = "object"
     """Provider supports structured (object) flag values."""
 
+    VARIANTS = "variants"
+    """Provider names the variant it resolved.
+
+    Gated because a variant is optional rather than required. `Requirement 2.2.4
+    <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
+    is a **SHOULD** -- in normal execution a provider "SHOULD populate the
+    resolution details structure's variant field" -- and ``types.md`` types the
+    field ``variant (string, optional)``. The same section adds that the value
+    "might only be meaningful in the context of the flag management system
+    associated with the provider".
+
+    Some backends have no variant concept for a plain flag at all. Their
+    evaluation response carries no such key, so the provider never receives one
+    and no amount of seeding can produce one. Asserting a variant in every
+    evaluation scenario failed such a backend ten times over for something that
+    is not a defect and that no provider author can fix -- and left nothing to
+    record as a :class:`~.config.KnownDeviation`, because there was no
+    capability to hang one on.
+
+    Declaring it runs one Scenario Outline that asserts the variant for each of
+    the eight flags whose variant name the canonical set fixes. Withholding it
+    skips those rows with the reason and changes nothing else: the value and
+    reason assertions live in untagged scenarios, because
+    `Requirement 2.2.3
+    <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
+    makes the value a **MUST**.
+    """
+
     UNAVAILABLE_INIT = "unavailable"
     """Provider reports an error state promptly against a backend it cannot reach."""
 
@@ -159,8 +187,35 @@ class Capability(str, Enum):
     """
 
     TARGETING = "targeting"
-    """Reserved, and **not declarable**. No scenario carries this tag: targeting
-    is backend evaluation logic."""
+    """Provider resolves a flag differently for a matching evaluation context.
+
+    Reserved and undeclarable until spec revision ``26362f85``, on the reading
+    that targeting is backend evaluation logic and therefore out of scope. The
+    scope argument still holds -- what the three scenarios test is not how a
+    backend evaluates a rule -- but the conclusion did not: they exist to show
+    that the **context reached the backend at all**, which is a property of the
+    provider and of nothing else.
+
+    ``targeting-key-flag`` is the one flag in the canonical set with a rule, and
+    it is what makes passthrough observable without an echo endpoint on the
+    control API: a matching context resolves ``hit`` where anything else
+    resolves ``miss``, so a provider that drops the context on the floor is
+    caught by the resolved value itself. The rule is specified by behaviour
+    rather than by syntax -- resolve ``hit`` when the targeting key is exactly
+    ``5c3d8535-f81a-4478-a6d3-afaa4d51199e`` -- so a backend expresses it
+    however it expresses targeting.
+
+    The three scenarios are the matching context, the non-matching one and no
+    context at all. The second and third are not padding: a provider that always
+    returned the targeted value would pass the first, and one that refuses to
+    evaluate a rule with no targeting key present is caught by the third.
+
+    Declare it if the backend under test can express that rule and the provider
+    forwards the targeting key. A backend with no targeting at all leaves it
+    undeclared and the three scenarios are skipped with the reason -- which is
+    also the right answer for an in-memory flag set whose decoder ignores the
+    ``targeting`` member, as this package's own does.
+    """
 
     CACHING = "caching"
     """Reserved, and **not declarable**. No scenario carries this tag yet."""
@@ -179,9 +234,7 @@ class Capability(str, Enum):
         return self.tag
 
 
-RESERVED_CAPABILITIES: frozenset[Capability] = frozenset(
-    {Capability.TARGETING, Capability.CACHING}
-)
+RESERVED_CAPABILITIES: frozenset[Capability] = frozenset({Capability.CACHING})
 """Capabilities that exist in the vocabulary and gate no scenario.
 
 They are documented so the vocabulary has a place for them when scenarios exist,
@@ -194,6 +247,11 @@ Listed once, here, and read everywhere else -- by
 :data:`DECLARABLE_CAPABILITIES`, by :attr:`Capability.reserved` and by the
 validation in :class:`~.config.TckConfig` -- so that the set and the rule cannot
 drift apart.
+
+``@caching`` is the only one left. :attr:`Capability.TARGETING` was here until
+spec revision ``26362f85`` gave it scenarios, and leaving a tag reserved once it
+has them would be the mirror of the mistake this set exists to prevent: a
+capability that *can* be verified and is refused the chance.
 """
 
 DECLARABLE_CAPABILITIES: frozenset[Capability] = (
@@ -210,7 +268,8 @@ is named for what it is rather than for "all", because the declare-everything
 convenience is exactly how a reserved tag reaches a report by accident: an
 adopter writing "every capability except X" picks up every reserved tag on the
 way past, which is how one implementation came to report ``@targeting`` and
-``@caching`` as declared without anyone deciding to claim them.
+``@caching`` as declared without anyone deciding to claim them -- back when both
+were reserved.
 """
 
 _BY_MARKER: dict[str, Capability] = {c.value: c for c in Capability}

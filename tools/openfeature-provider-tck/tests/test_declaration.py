@@ -110,9 +110,15 @@ def test_a_reserved_capability_is_one_no_canonical_scenario_carries() -> None:
     """The fact the rule rests on, read off the assets rather than asserted.
 
     "Reserved" claims that nothing carries the tag, so declaring it cannot be
-    verified. If the specification adds a scenario for ``@targeting``, that
-    stops being true and this fails -- which is the moment the capability should
-    become declarable, and the moment somebody has to notice.
+    verified. When the specification gives a reserved tag a scenario, that stops
+    being true and this fails -- which is the moment the capability should become
+    declarable, and the moment somebody has to notice. It has already happened
+    once: ``@targeting`` gained three scenarios at spec revision ``26362f85``
+    and moved out of the reserved set, which is what this half is for.
+
+    The other half is the converse, and it is the half that catches a tag added
+    to the enum and never wired to anything: every declarable capability must be
+    carried by some canonical scenario, or declaring it examines nothing.
     """
     carried = _canonical_tags()
     for capability in RESERVED_CAPABILITIES:
@@ -154,7 +160,7 @@ def test_the_default_is_every_declarable_capability() -> None:
     "Declare everything, then narrow it" is the advice, which makes the default
     the one place a reserved tag would otherwise get declared by accident. One
     implementation's published report asserts ``@targeting`` and ``@caching``
-    for precisely that reason.
+    for precisely that reason -- back when both were reserved.
     """
     # Not routed through ``_config``, which narrows the set: the field default is
     # the whole point of this one. It needs an unavailable-provider factory
@@ -203,9 +209,17 @@ def test_a_reserved_capability_cannot_be_declared() -> None:
 
 
 def test_the_refusal_says_what_may_be_declared_instead() -> None:
-    """A message that names the rule and not just the violation."""
+    """A message that names the rule and not just the violation.
+
+    The offending capability is taken from ``RESERVED_CAPABILITIES`` rather than
+    named, because naming one is how this test went stale: it asked about
+    ``@targeting``, which stopped being reserved the moment the specification
+    gave it scenarios, and the refusal it was asserting became correct
+    behaviour's absence.
+    """
+    reserved = next(iter(sorted(RESERVED_CAPABILITIES, key=lambda c: c.tag)))
     with pytest.raises(ValueError) as raised:
-        _config(capabilities={Capability.TARGETING})
+        _config(capabilities={reserved})
     message = str(raised.value)
     assert "DECLARABLE_CAPABILITIES" in message
     for capability in DECLARABLE_CAPABILITIES:

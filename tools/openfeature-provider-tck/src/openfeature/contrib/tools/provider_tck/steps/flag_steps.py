@@ -7,12 +7,15 @@ from collections.abc import Callable
 
 from pytest_bdd import given, parsers, then, when
 
+from openfeature.evaluation_context import EvaluationContext
 from openfeature.flag_evaluation import FlagType
 
+from ..capability import Capability
 from ..state import EvaluationRecord, TckState
 from ..values import describe, parse_flag_type, parse_value, values_equal
 
 __all__ = [
+    "a_context_containing_a_targeting_key",
     "a_flag_with_key_and_default",
     "no_exception_should_have_been_thrown",
     "the_error_code_should_be",
@@ -48,6 +51,30 @@ def a_flag_with_key_and_default(
     tck_state.default_value = parse_value(parsed_type, default)
 
 
+@given(
+    parsers.re(r'^a context containing a targeting key with value "(?P<value>[^"]*)"$')
+)
+def a_context_containing_a_targeting_key(tck_state: TckState, value: str) -> None:
+    """Supply the evaluation context the resolve call is made with.
+
+    The wording is `Appendix B
+    <https://github.com/open-feature/spec/blob/main/specification/assets/gherkin/evaluation.feature>`_'s,
+    which the flagd testkit in this repository already carries a step definition
+    for, because a second way to say "a context containing a targeting key" is
+    the divergence Appendix F exists to prevent.
+
+    Only the targeting key, for now. ``targeting-key-flag``'s rule keys on it,
+    so it is what the canonical set can observe arriving; a custom attribute
+    would need a second flag whose rule keys on one, which Appendix F lists as
+    a known gap.
+    """
+    context = tck_state.evaluation_context
+    if context is None:
+        tck_state.evaluation_context = EvaluationContext(targeting_key=value)
+    else:
+        context.targeting_key = value
+
+
 @when("the flag was evaluated with details")
 def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
     """Resolve the declared flag through the typed client call matching its type."""
@@ -56,7 +83,9 @@ def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
 
     # Annotated explicitly: the five typed getters have different signatures, so
     # an unannotated mapping infers a value type mypy will not let us call.
-    calls: dict[FlagType, Callable[[str, typing.Any], typing.Any]] = {
+    calls: dict[
+        FlagType, Callable[[str, typing.Any, EvaluationContext | None], typing.Any]
+    ] = {
         FlagType.BOOLEAN: client.get_boolean_details,
         FlagType.STRING: client.get_string_details,
         FlagType.INTEGER: client.get_integer_details,
@@ -66,7 +95,14 @@ def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
 
     record = EvaluationRecord()
     try:
-        details = calls[flag_type](key, default)
+        # Passed positionally and unconditionally, ``None`` included: the SDK's
+        # own default for the parameter is ``None``, so a scenario that declared
+        # no context sends what a two-argument call would. Requirement 2.2.1
+        # makes the context a parameter of every resolve method, and until the
+        # evaluation-context scenarios landed no scenario supplied one -- so a
+        # provider that threw on any context, or serialised it into a malformed
+        # request, passed the whole suite.
+        details = calls[flag_type](key, default, tck_state.evaluation_context)
     except BaseException as exc:  # recorded here, asserted on by its own step
         record.raised = exc
         record.value = default
@@ -103,12 +139,21 @@ def the_resolved_value_should_be(tck_state: TckState, expected: str) -> None:
 
 @then(parsers.re(r'^the variant should be "(?P<expected>[^"]*)"$'))
 def the_variant_should_be(tck_state: TckState, expected: str) -> None:
+    """Assert the resolved variant, for an adoption that declared ``@variants``.
+
+    Reached only through the gated scenario, so the failure message says which
+    of the two readings applies: a variant lost in transit is a defect, while a
+    backend with no variant concept at all should withhold the capability rather
+    than fail here. Requirement 2.2.4 is a ``SHOULD``.
+    """
     record = tck_state.require_evaluation()
     if record.variant != expected:
         msg = (
             f"variant was {record.variant!r}, expected {expected!r}. A variant that "
             f"does not survive the trip from the backend is one of the easiest parts "
-            f"of the contract to drop"
+            f"of the contract to drop -- but if this backend has no variant concept "
+            f"for a plain flag, withhold {Capability.VARIANTS.tag} instead: "
+            f"requirement 2.2.4 is a SHOULD and types.md types the field as optional"
         )
         raise AssertionError(msg)
 

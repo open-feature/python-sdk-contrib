@@ -160,14 +160,22 @@ def canonical_flag_set() -> FlagStorage:
     * ``missing-flag`` is absent, which is what the ``FLAG_NOT_FOUND`` scenario
       tests. Adding it turns that scenario green for the wrong reason.
     * no flag carries a ``context_evaluator``, so every evaluation reports reason
-      ``STATIC`` -- the TCK tests a provider's mapping of a response, not a
-      backend's evaluation logic. Nothing here can add one: the file has no way
-      to express targeting that this decoder reads.
+      ``STATIC``. ``targeting-key-flag`` is the one flag in the file with a
+      ``targeting`` member, and this decoder reads only ``state``, ``variants``
+      and ``defaultVariant`` -- so that flag is served at its ``miss`` default
+      whatever the context, like every other. That is deliberate rather than
+      pending: decoding a rule language would make this package a second
+      implementation of somebody else's evaluator, and the untargeted scenarios
+      are the ones it exists to serve. The consequence is that an in-memory
+      adoption must leave :attr:`~.capability.Capability.TARGETING` undeclared,
+      and its three scenarios are skipped with that reason.
     * ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``
       resolve to ``False``, ``0`` and ``""``. They are values, not absences, and
       the falsy scenarios exist to catch a provider that cannot tell the
       difference. Their ``zero``/``non-zero`` variant names are load-bearing
-      too: the scenarios assert the variant, not only the value.
+      too, for an adoption declaring
+      :attr:`~.capability.Capability.VARIANTS`: the gated variant scenario
+      asserts the variant, where the falsy scenarios assert only the value.
     * a number keeps the type it was written with. ``json.loads`` gives ``int``
       for ``10``, ``float`` for ``10.0`` and an arbitrary-precision ``int`` for
       2^53 - 1, and nothing here normalises either way, so
