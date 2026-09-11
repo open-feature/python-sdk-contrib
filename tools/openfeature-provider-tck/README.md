@@ -280,11 +280,31 @@ definitions never talk to a backend directly, which is why the same Gherkin runs
 containerised backend and against a provider manipulated in-process.
 
 **If your provider talks to a backend, drive it over the HTTP control API** — the document is
-available as `control_api_spec()`. That API is the normative contract for those providers, and it is
-what makes a conformance claim portable: another language's TCK drives the same endpoints against
-the same stack and must get the same answers.
+available as `control_api_spec()`, and `HttpControl` is the client for it. That API is the normative
+contract for those providers, and it is what makes a conformance claim portable: another language's
+TCK drives the same endpoints against the same stack and must get the same answers.
 
-Two of its requirements are easy to get wrong:
+```python
+control = HttpControl(f"http://localhost:{container.get_launchpad_port()}")
+```
+
+`HttpControl` is built on `urllib.request` alone, so the TCK gains no HTTP client and no container
+dependency. **Orchestrating the stack stays with you**, where the vendor-specific knowledge already
+lives — which compose file, which services, which internal ports. That is a deliberate trade against
+the "provider authors write no test infrastructure" goal, and worth revisiting once a second
+containerised adopter shows what is actually common.
+
+Two of its behaviours are worth knowing about:
+
+- **`/reset` is optional and the fallback is automatic.** `prepare_scenario()` prefers `POST /reset`,
+  which restores the flag baseline with no availability blip; a backend without it answers 404 or
+  501 and the client falls back to `POST /start?config=default`. The probe happens once per suite.
+  flagd-testbed's launchpad registers only `/start`, `/restart`, `/stop` and `/change`, so that
+  fallback is the normal path today.
+- **After a disconnect it starts rather than resets.** `/reset` restores flag *state*; it is not
+  specified to bring a stopped backend back up.
+
+Two of the API's requirements are easy to get wrong:
 
 - **Containers are never stopped or restarted mid-suite.** Unavailability is simulated *inside* the
   running stack. Container orchestrators assign host ports dynamically and cannot reliably preserve
@@ -385,14 +405,15 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_lifecycle_steps` | the steps that call the provider directly | the in-memory suites skip `@lifecycle`, so the shutdown, re-initialise and metadata steps are driven against a recording provider instead |
 | `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
 | `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot take a canonical scenario's identity |
+| `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping and the control-API it reports, against a stubbed control API |
 
 ```
-106 passed, 21 skipped, 2 xfailed
+125 passed, 21 skipped, 2 xfailed
 ```
 
-No Docker and no network. The conformance suites take under a second; `test_extensions` takes most
-of the rest, because the properties it checks are properties of a whole pytest session and it runs a
-generated adoption in a subprocess to check them.
+No Docker and no network beyond loopback. The conformance suites take under a second;
+`test_extensions` takes most of the rest, because the properties it checks are properties of a whole
+pytest session and it runs a generated adoption in a subprocess to check them.
 
 Neither in-memory suite declares `@lifecycle`, so the six lifecycle scenarios — three about
 initialisation, three about shutdown — are skipped in both. That is the point: with no backend to
@@ -404,7 +425,9 @@ finding 3, so its three scenarios are skipped too.
 
 - **Evaluation context passthrough is unverifiable.** The scenarios build evaluation contexts but
   cannot assert one *reached* the backend. That needs an echo operation on the control API.
-- **No HTTP control client yet.** It arrives with the first containerised adopter.
+- **No shared containerised-backend helper.** `HttpControl` drives the control API, but starting the
+  stack and discovering its mapped ports is still each adopter's own code. Abstracting that from a
+  single example tends to produce the wrong abstraction; it should wait for a second adopter.
 - **Caching, hooks and flag metadata** are not covered.
 
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
