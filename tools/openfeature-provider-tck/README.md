@@ -82,7 +82,7 @@ suite at all, so `pytest.skip` carries the reason into the report:
 
 ```
 SKIPPED provider does not declare capability @stale.
-        Declared: @events @object @strict-numeric-typing
+        Declared: @events @numeric-coercion @object
 ```
 
 | Capability | Tag | Meaning |
@@ -93,7 +93,7 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.CONFIGURATION_CHANGE` | `@configuration-change` | detects configuration changes and emits `PROVIDER_CONFIGURATION_CHANGED` |
 | `Capability.OBJECT` | `@object` | supports structured flag values |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
-| `Capability.STRICT_NUMERIC_TYPING` | `@strict-numeric-typing` | does not coerce between integer and float |
+| `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
 | `Capability.TARGETING` | `@targeting` | reserved; no scenarios yet |
 | `Capability.CACHING` | `@caching` | reserved; no scenarios yet |
 
@@ -108,11 +108,25 @@ Untagged scenarios are mandatory and always run. `capabilities` defaults to ever
 rather than widening it: start from the default, run the suite, and remove only what your provider
 genuinely cannot do.
 
-`@strict-numeric-typing` deserves a note, because unlike the others it is **not** an optional
-feature. The specification requires `TYPE_MISMATCH` when the requested type cannot be satisfied, and
-narrowing `0.5` to `0` loses information silently. It is a capability only so a provider with the
-defect can adopt today and see the gap reported explicitly rather than being unable to adopt at all.
-Not declaring it is an admission of a known bug.
+`@numeric-coercion` deserves a note, because it is the one capability here that **the specification
+does not define**. OpenFeature has a single numeric type on purpose — `number` is "a numeric value of
+unspecified type or size", and languages **may** differentiate between integers and floats "as idioms
+dictate" — so no requirement says what a provider must do when a value does not fit the accessor it
+was asked through. That gap is [open-feature/spec#430](https://github.com/open-feature/spec/issues/430).
+
+The rule this tag is tested against is therefore **borrowed, not normative**: lossless coercion is
+permitted, lossy coercion must fail — `10.0` requested as an integer must succeed, `0.5` must not.
+It comes from flagd's
+[numeric coercion ADR](https://github.com/open-feature/flagd/blob/main/docs/architecture-decisions/numeric-coercion.md),
+which is scoped to flagd's own implementations, and the tag carries that name — it was
+`@strict-numeric-typing` — because two vocabularies for one observable property is worse than one
+borrowed name. **A provider that behaves differently is not violating the specification**, so
+withholding this capability may be a deliberate choice as readily as a defect.
+
+Only the lossy half is tested. The canonical flag set has no integral float to ask the lossless half
+of, so a provider that wrongly rejects `10.0` as an integer still passes; adding one changes the flag
+set for every language at once. Appendix F records that as an open gap, together with a second one:
+the width of a language's integer accessor — 64-bit against 32-bit — is not modelled at all.
 
 ## Controlling the backend
 
