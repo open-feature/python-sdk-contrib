@@ -161,6 +161,7 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
 | `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly; undeclarable where the SDK's integer accessor is 32-bit |
+| `Capability.REINITIALIZATION` | `@reinitialization` | can be initialised again after `shutdown`, which [Requirement 2.5.2](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md) permits rather than requires |
 | `Capability.TARGETING` | `@targeting` | reserved; **not declarable** — no scenarios yet |
 | `Capability.CACHING` | `@caching` | reserved; **not declarable** — no scenarios yet |
 
@@ -170,6 +171,33 @@ SDK dispatches `PROVIDER_READY` around `initialize` for *any* provider, so a pro
 identically. Meanwhile a stateless provider has a real initialisation to verify but no event stream
 of its own to declare `@events` for, and gating on `@events` shut it out of a scenario it should be
 held to.
+
+`@reinitialization` is separate from `@lifecycle` for a subtler reason.
+[Requirement 2.5.2](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md)
+says a provider **SHOULD** revert to its uninitialized state after `shutdown`, and its supporting
+text adds that *"some providers **may** allow reinitialization from this state"*. Reuse is therefore
+permitted, not required: a provider that releases its client on shutdown and declines to be started
+again is exercising a choice the specification offers it, so withholding this capability needs no
+`KnownDeviation` entry.
+
+The scenario was untagged until spec revision `fc99d5ac`, on the reading that reverting to the
+uninitialized state is observable as exactly one thing — being initialisable again. That inference
+does not hold, and asserting it unconditionally reported a permitted choice as a conformance failure.
+A false failure is the mirror image of a vacuous pass, and this suite cares about both. Reverting the
+state is not separately observable either — a provider that reverts but refuses reuse presents
+identically to one that did neither — so the gated reuse scenario is the only assertion the
+requirement admits. It is worth keeping for the providers that do offer reuse, because releasing the
+client on shutdown while leaving an initialised flag set behind is easy to write and leaves the
+provider evaluating against a closed connection rather than failing outright.
+
+One practical note, because it is easy to get wrong: `@reinitialization` **narrows** `@lifecycle`
+rather than standing beside it. The scenario lives in `lifecycle.feature`, which carries `@lifecycle`
+at the feature level, so the scenario inherits it and carries both tags — and the gate skips a
+scenario when *any* capability gating it is undeclared. Reuse is therefore exercised only by an
+adoption declaring `Capability.LIFECYCLE` **and** `Capability.REINITIALIZATION`; declaring the latter
+alone leaves the scenario skipped on `@lifecycle` and the declaration unverified. So a provider that
+withholds `LIFECYCLE` has never run this scenario, and has no evidence either way on which to declare
+reuse.
 
 Untagged scenarios are mandatory and always run. `capabilities` defaults to every *declarable*
 capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
