@@ -53,7 +53,7 @@ from tests.tck.suite import ResolverSuite, build_config
 #     passes without a connection, which the SDK's registry turns into
 #     PROVIDER_ERROR.
 #
-#   STRICT_NUMERIC_TYPING
+#   NUMERIC_COERCION
 #     RPC does not type-check locally; it asks flagd for an Int and flagd answers
 #     INVALID_ARGUMENT for a float-valued flag, which grpc.py:461-462 maps to
 #     TypeMismatchError. So 0.5 is never narrowed to 0.
@@ -71,7 +71,7 @@ RPC_CAPABILITIES = frozenset(
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
         Capability.UNAVAILABLE_INIT,
-        Capability.STRICT_NUMERIC_TYPING,
+        Capability.NUMERIC_COERCION,
     }
 )
 
