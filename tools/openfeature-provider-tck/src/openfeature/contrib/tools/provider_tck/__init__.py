@@ -49,7 +49,7 @@ from __future__ import annotations
 
 import importlib.resources
 
-from .capability import ALL_CAPABILITIES, Capability
+from .capability import DECLARABLE_CAPABILITIES, RESERVED_CAPABILITIES, Capability
 from .config import KnownDeviation, TckConfig
 from .control import (
     BackendControl,
@@ -66,10 +66,11 @@ from .provider import (
 from .report import REPORT_DIR_ENV, SCHEMA_VERSION
 
 __all__ = [
-    "ALL_CAPABILITIES",
     "CHANGING_FLAG_KEY",
+    "DECLARABLE_CAPABILITIES",
     "MESSAGES_FORMAT",
     "REPORT_DIR_ENV",
+    "RESERVED_CAPABILITIES",
     "SCHEMA_VERSION",
     "BackendControl",
     "Capability",

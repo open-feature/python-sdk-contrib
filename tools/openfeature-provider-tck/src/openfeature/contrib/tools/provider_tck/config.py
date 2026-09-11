@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from openfeature.provider import FeatureProvider
 
-from .capability import ALL_CAPABILITIES, Capability
+from .capability import DECLARABLE_CAPABILITIES, Capability
 from .control import BackendControl
 
 __all__ = ["KnownDeviation", "ProviderFactory", "TckConfig"]
@@ -120,7 +120,7 @@ class TckConfig:
     skipped with the reason reported.
     """
 
-    capabilities: Collection[Capability] = field(default=ALL_CAPABILITIES)
+    capabilities: Collection[Capability] = field(default=DECLARABLE_CAPABILITIES)
     """Which optional parts of the provider contract this provider supports.
 
     Typed as a ``Collection`` rather than a ``frozenset`` so that the obvious
@@ -129,8 +129,13 @@ class TckConfig:
     construction, so a list, a set or a generator all behave identically.
 
     Scenarios tagged with an undeclared capability are reported as skipped with
-    the reason, never as passed. Defaults to everything; narrow it rather than
-    widening it.
+    the reason, never as passed. Defaults to every *declarable* capability --
+    :data:`~.capability.DECLARABLE_CAPABILITIES`, which excludes the reserved
+    tags no scenario carries -- and narrowing it surfaces gaps where widening
+    towards it hides them.
+
+    Naming a reserved capability here is rejected at construction rather than
+    passed into a report. See :data:`~.capability.RESERVED_CAPABILITIES`.
     """
 
     not_applicable: Mapping[Capability, str] = field(default_factory=dict)
@@ -229,6 +234,10 @@ class TckConfig:
                 f"both leaves a consumer to guess which"
             )
 
+        problems.extend(
+            reserved_problems(self.capabilities, self.not_applicable.keys())
+        )
+
         unreasoned = sorted(
             capability.tag
             for capability, reason in self.not_applicable.items()
@@ -276,6 +285,41 @@ class TckConfig:
     @property
     def sorted_capabilities(self) -> list[str]:
         return sorted(c.tag for c in self.capabilities)
+
+
+def reserved_problems(*named: Iterable[Capability]) -> list[str]:
+    """Refuse a reserved capability named anywhere in a configuration.
+
+    A reserved capability gates no scenario, so naming it cannot be verified
+    either way: declaring it claims something nothing examined, and calling it
+    not-applicable records an impossibility about a question that was never
+    asked. Either would reach the report's declaration, which the schema
+    forbids.
+
+    Refused rather than dropped quietly. The adopter wrote it down and meant
+    something by it, so a configuration silently different from the one they
+    wrote is worse than one that will not build -- and construction is where
+    their own code is still on the stack to say which line to fix. The
+    alternative, a warning, is a line of CI output nobody reads while an
+    untested capability goes on being asserted in a published report, which is
+    how this got into one in the first place.
+    """
+    reserved = sorted(
+        capability.tag
+        for group in named
+        for capability in group
+        if isinstance(capability, Capability) and capability.reserved
+    )
+    if not reserved:
+        return []
+    declarable = " ".join(sorted(c.tag for c in DECLARABLE_CAPABILITIES))
+    return [
+        f"reserved capabilities {' '.join(sorted(set(reserved)))} cannot be declared "
+        f"or called not-applicable: no scenario carries them, so the claim cannot be "
+        f"verified, cannot produce a skip, and would tell a reader of the report only "
+        f"that something was claimed and nothing examined. The declarable "
+        f"capabilities, which is what DECLARABLE_CAPABILITIES holds, are {declarable}"
+    ]
 
 
 def capabilities_of(values: Iterable[Capability]) -> frozenset[Capability]:

@@ -43,6 +43,8 @@ from pathlib import Path
 import pytest
 
 from openfeature.contrib.tools.provider_tck import (
+    DECLARABLE_CAPABILITIES,
+    RESERVED_CAPABILITIES,
     Capability,
     KnownDeviation,
     TckConfig,
@@ -420,6 +422,23 @@ class _HttpControl(_StubControl):
         return "http"
 
 
+def _config_leaving_capabilities_to_their_default() -> TckConfig:
+    """A config that does not narrow ``capabilities``, so the field default runs.
+
+    Written out rather than routed through ``_config``, which supplies a narrow
+    set of its own: the default is the whole point of this one. It needs an
+    unavailable-provider factory because ``@unavailable`` is declarable and the
+    default therefore declares it.
+    """
+    settings: dict[str, typing.Any] = {
+        "name": "stub",
+        "control": _StubControl(),
+        "new_provider": lambda: None,
+        "new_unavailable_provider": lambda: None,
+    }
+    return TckConfig(**settings)
+
+
 def _config(**overrides: typing.Any) -> TckConfig:
     settings: dict[str, typing.Any] = {
         "name": "stub",
@@ -565,7 +584,7 @@ def narrow_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
         tmp_path_factory,
         file_name="narrow.json",
         name="narrow",
-        capabilities="{Capability.NUMERIC_COERCION, Capability.TARGETING}",
+        capabilities="{Capability.NUMERIC_COERCION}",
         not_applicable="{}",
         deviations=False,
     )
@@ -1009,6 +1028,47 @@ def test_a_not_applicable_capability_must_say_why() -> None:
         _config(
             capabilities={Capability.EVENTS}, not_applicable={Capability.STALE: " "}
         )
+
+
+def test_a_reserved_capability_cannot_be_declared() -> None:
+    """A tag no scenario carries is a claim nothing can check, so it is refused.
+
+    Refused at construction rather than dropped at emission time, for the same
+    reason a capability claimed as both declared and impossible is: the adopter
+    wrote it down and meant something by it, and a config silently different
+    from the one they wrote is worse than one that will not build. This is also
+    where their own code is still on the stack.
+    """
+    for reserved in RESERVED_CAPABILITIES:
+        with pytest.raises(ValueError, match=f"reserved capabilities {reserved.tag}"):
+            _config(capabilities={Capability.EVENTS, reserved})
+        with pytest.raises(ValueError, match=f"reserved capabilities {reserved.tag}"):
+            _config(
+                capabilities={Capability.EVENTS},
+                not_applicable={reserved: "no scenario asks"},
+            )
+
+
+def test_a_reserved_capability_cannot_reach_the_declaration() -> None:
+    """Including by the route that actually caused it: declaring everything.
+
+    The schema forbids a capability no executed scenario carries from appearing
+    in ``declaration.declared``, because such a tag cannot produce a skip and so
+    plays no part in reading the results -- it only invites a reader to believe
+    something was verified when nothing examined it. A real report from another
+    implementation asserts ``@targeting`` and ``@caching`` for exactly this
+    reason: that adoption declares "every capability except X" and collected the
+    reserved tags on the way past. So the default is the declarable set rather
+    than the whole enum.
+    """
+    declared = SuiteReport(
+        config=_config_leaving_capabilities_to_their_default()
+    ).build(_results())["declaration"]["declared"]
+
+    assert declared == sorted(capability.tag for capability in DECLARABLE_CAPABILITIES)
+    assert RESERVED_CAPABILITIES, "the rule is vacuous if nothing is reserved"
+    for reserved in RESERVED_CAPABILITIES:
+        assert reserved.tag not in declared
 
 
 def test_known_deviations_are_omitted_rather_than_emitted_empty() -> None:

@@ -94,8 +94,8 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.OBJECT` | `@object` | supports structured flag values |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
-| `Capability.TARGETING` | `@targeting` | reserved; no scenarios yet |
-| `Capability.CACHING` | `@caching` | reserved; no scenarios yet |
+| `Capability.TARGETING` | `@targeting` | reserved; **not declarable** — no scenarios yet |
+| `Capability.CACHING` | `@caching` | reserved; **not declarable** — no scenarios yet |
 
 `@lifecycle` and `@events` are deliberately separate, and the split matters in both directions. An
 SDK dispatches `PROVIDER_READY` around `initialize` for *any* provider, so a provider declaring only
@@ -104,9 +104,18 @@ identically. Meanwhile a stateless provider has a real initialisation to verify 
 of its own to declare `@events` for, and gating on `@events` shut it out of a scenario it should be
 held to.
 
-Untagged scenarios are mandatory and always run. `capabilities` defaults to everything — narrow it
-rather than widening it: start from the default, run the suite, and remove only what your provider
-genuinely cannot do.
+Untagged scenarios are mandatory and always run. `capabilities` defaults to every *declarable*
+capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
+the default, run the suite, and remove only what your provider genuinely cannot do.
+
+A reserved capability is documented so the vocabulary has a place for it once scenarios exist, and
+until then it **must not be declared**. Nothing carries the tag, so declaring it cannot be verified,
+cannot produce a skip, and tells a reader of a conformance report only that something was claimed and
+nothing examined. `TckConfig` raises if you name one in `capabilities` or in `not_applicable`, and
+`DECLARABLE_CAPABILITIES` excludes them — which is the case that matters, because "every capability
+except X" is how a reserved tag reaches a report by accident rather than by decision. One
+implementation's published report asserts `@targeting` and `@caching` as declared for exactly that
+reason.
 
 `@numeric-coercion` deserves a note, because it is the one capability here that **the specification
 does not define**. OpenFeature has a single numeric type on purpose — `number` is "a numeric value of
