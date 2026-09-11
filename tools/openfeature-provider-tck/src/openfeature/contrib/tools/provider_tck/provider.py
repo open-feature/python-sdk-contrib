@@ -102,9 +102,11 @@ def canonical_flag_set() -> FlagStorage:
     * no flag carries a ``context_evaluator``, so every evaluation reports reason
       ``STATIC`` -- the TCK tests a provider's mapping of a response, not a
       backend's evaluation logic.
-    * ``false-flag``, ``zero-flag`` and ``empty-string-flag`` resolve to
-      ``False``, ``0`` and ``""``. They are values, not absences, and the falsy
-      scenarios exist to catch a provider that cannot tell the difference.
+    * ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``
+      resolve to ``False``, ``0`` and ``""``. They are values, not absences, and
+      the falsy scenarios exist to catch a provider that cannot tell the
+      difference. Their ``zero``/``non-zero`` variant names are load-bearing
+      too: the scenarios assert the variant, not only the value.
     * ``integral-float-flag`` is the ``float`` ``10.0`` and ``huge-integer-flag``
       is the ``int`` ``9007199254740991``. Writing the first as ``10`` makes the
       lossless-coercion scenario pass without coercing; nothing here goes
@@ -137,14 +139,14 @@ def canonical_flag_set() -> FlagStorage:
         "integral-float-flag": InMemoryFlag(
             default_variant="ten", variants={"tenth": 0.1, "ten": 10.0}
         ),
-        "false-flag": InMemoryFlag(
-            default_variant="off", variants={"on": True, "off": False}
+        "boolean-zero-flag": InMemoryFlag(
+            default_variant="zero", variants={"zero": False, "non-zero": True}
         ),
-        "zero-flag": InMemoryFlag(
-            default_variant="zero", variants={"one": 1, "zero": 0}
+        "integer-zero-flag": InMemoryFlag(
+            default_variant="zero", variants={"zero": 0, "non-zero": 1}
         ),
-        "empty-string-flag": InMemoryFlag(
-            default_variant="empty", variants={"greeting": "hi", "empty": ""}
+        "string-zero-flag": InMemoryFlag(
+            default_variant="zero", variants={"zero": "", "non-zero": "str"}
         ),
         "object-flag": InMemoryFlag(
             default_variant="template",
