@@ -9,7 +9,7 @@ consumer actually reads:
   which is not presentational -- a report is written per ``TckConfig``, so
   appearing in one is appearing in the same provider registration;
 * it appears under the ``extensions/`` uri prefix and never the reserved
-  ``features/`` one, which is the only thing telling a consumer whose question a
+  ``gherkin/`` one, which is the only thing telling a consumer whose question a
   scenario was;
 * an adoption with no extension writes the report it wrote before, field for
   field;
@@ -47,7 +47,10 @@ from openfeature.contrib.tools.tck import (
     REPORT_DIR_ENV,
     features_path,
 )
-from openfeature.contrib.tools.tck.extensions import is_canonical_uri
+from openfeature.contrib.tools.tck.extensions import (
+    CANONICAL_DIRECTORY,
+    is_canonical_uri,
+)
 
 CANONICAL_FEATURE = "errors.feature"
 """The canonical file the shadowing fixture copies, chosen because it is the one
@@ -146,11 +149,11 @@ Feature: Vendor rules
     Then the resolved details value should be "hi"
 """
 
-# An adopter's own directory named `features`, which is the one way a
+# An adopter's own directory named `gherkin`, which is the one way a
 # non-canonical file can still reach the reserved prefix. Its scenario is
 # deliberately trivial: the point is the file name, not what it asks.
 _RESERVED_FEATURE = """\
-Feature: A feature file in a directory named features
+Feature: A feature file in a directory named gherkin
 
   Scenario: A flag resolves
     Given a stable provider
@@ -160,7 +163,7 @@ Feature: A feature file in a directory named features
 """
 
 _RESERVED_SUITE = '''\
-"""An adoption that hands scenarios() a directory of its own named features."""
+"""An adoption that hands scenarios() a directory of its own named gherkin."""
 
 import pathlib
 
@@ -185,7 +188,7 @@ def tck_config():
     )
 
 
-scenarios(str(pathlib.Path(__file__).parent / "features"))
+scenarios(str(pathlib.Path(__file__).parent / "gherkin"))
 '''
 
 
@@ -363,7 +366,7 @@ def _run(
 
     Both mappings are keyed by a path relative to the adoption directory, so a
     fixture can put a module or a feature file wherever the property under test
-    needs it -- including inside a directory named ``features``, which is the
+    needs it -- including inside a directory named ``gherkin``, which is the
     case that has to be refused.
     """
     directory = tmp_path_factory.mktemp("adoption")
@@ -385,7 +388,7 @@ def adoption(tmp_path_factory: pytest.TempPathFactory) -> Run:
     ``scenarios(*feature_paths())`` with an ordinary extension beside it.
     ``shadowed`` is the same again, in a directory of its own, with an extension
     that is a verbatim copy of a canonical feature file placed under a directory
-    named ``features`` -- so that both routes to a canonical identity, the file's
+    named ``gherkin`` -- so that both routes to a canonical identity, the file's
     own name and its parent's, are taken at once.
 
     One session rather than three, because a subprocess pytest run is by far the
@@ -403,7 +406,8 @@ def adoption(tmp_path_factory: pytest.TempPathFactory) -> Run:
         },
         {
             f"{EXTENSIONS_DIRECTORY}/vendor.feature": _VENDOR_FEATURE,
-            f"shadow/{EXTENSIONS_DIRECTORY}/features/{CANONICAL_FEATURE}": canonical,
+            f"shadow/{EXTENSIONS_DIRECTORY}/{CANONICAL_DIRECTORY}/"
+            f"{CANONICAL_FEATURE}": canonical,
         },
     )
 
@@ -443,7 +447,9 @@ def test_the_extension_feature_is_reported_under_its_own_prefix(
     report = adoption.report("after")
     assert [case.uri for case in report.extensions] == [VENDOR_URI]
     assert report.sources[VENDOR_URI] == _VENDOR_FEATURE
-    assert all(case.uri.startswith("features/") for case in report.canonical)
+    assert all(
+        case.uri.startswith(f"{CANONICAL_DIRECTORY}/") for case in report.canonical
+    )
 
 
 def test_the_envelope_is_unaffected_by_an_extension(adoption: Run) -> None:
@@ -524,15 +530,15 @@ def test_an_extension_cannot_replace_a_canonical_feature_file(
 ) -> None:
     """The hazard Java measured, checked at the point it would have bitten.
 
-    A verbatim copy of ``errors.feature`` under ``tck-extensions/features/``
-    reaches pytest-bdd as ``features/errors.feature`` -- the canonical uri. The
+    A verbatim copy of ``errors.feature`` under ``extensions/gherkin/``
+    reaches pytest-bdd as ``gherkin/errors.feature`` -- the canonical uri. The
     uri the payload reports is derived from where the file is instead, so the
     canonical source is still the packaged one, the copy is reported as an
     extension, and both ran.
     """
     report = adoption.report("shadowed")
-    canonical_uri = f"features/{CANONICAL_FEATURE}"
-    extension_uri = f"extensions/features/{CANONICAL_FEATURE}"
+    canonical_uri = f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
+    extension_uri = f"extensions/{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
 
     packaged = (Path(features_path()) / CANONICAL_FEATURE).read_text(encoding="utf-8")
     assert report.sources[canonical_uri] == packaged
@@ -565,13 +571,13 @@ def test_a_shadowing_extension_does_not_disturb_the_canonical_run(
     }
 
 
-def test_a_directory_named_features_is_refused(
+def test_a_directory_named_gherkin_is_refused(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     """The one collision the naming convention cannot rule out on its own.
 
     An adopter can still hand ``scenarios()`` a directory of their own named
-    ``features``, and its files are then named exactly as canonical ones would
+    ``gherkin``, and its files are then named exactly as canonical ones would
     be. No report is written for that suite: a document presenting an adopter's
     feature file as the specification's is worse than no document, because it is
     the one thing a consumer cannot check.
@@ -579,10 +585,13 @@ def test_a_directory_named_features_is_refused(
     run = _run(
         tmp_path_factory,
         {"test_reserved.py": _RESERVED_SUITE},
-        {"features/local.feature": _RESERVED_FEATURE},
+        {f"{CANONICAL_DIRECTORY}/local.feature": _RESERVED_FEATURE},
     )
     assert run.result.returncode != 0, run.result.stdout
-    assert "features/local.feature is not a canonical feature file" in run.result.stdout
+    assert (
+        f"{CANONICAL_DIRECTORY}/local.feature is not a canonical feature file"
+        in run.result.stdout
+    )
     assert EXTENSIONS_DIRECTORY in run.result.stdout, "the message must say the fix"
     assert not list(run.reports.glob("*.json")), "no report may be written"
 
@@ -592,7 +601,7 @@ def test_two_extension_files_cannot_share_one_uri(
 ) -> None:
     """Deriving the uri from the location narrows the collision; it does not end it.
 
-    A ``tck-extensions`` directory nested inside another one reaches the same
+    An ``extensions`` directory nested inside another one reaches the same
     uri as its namesake at the root, and so would two test modules sharing one
     ``tck_config``. A Messages stream carries one source per uri, so the second
     file's scenarios would be reported against the first file's pickles wherever

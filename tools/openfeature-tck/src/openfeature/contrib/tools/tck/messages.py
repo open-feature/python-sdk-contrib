@@ -139,7 +139,7 @@ class ScenarioIdentity:
     """
 
     uri: str
-    """The feature file as Cucumber names it, e.g. ``features/errors.feature``.
+    """The feature file as Cucumber names it, e.g. ``gherkin/errors.feature``.
 
     Slash-separated on every platform, and the same string in ``Source``,
     ``GherkinDocument`` and ``Pickle``, which is what ties the three together.
