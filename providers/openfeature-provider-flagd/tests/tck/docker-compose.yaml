@@ -1,0 +1,27 @@
+# Backend stack for the OpenFeature TCK, wrapping the unmodified flagd testbed image.
+#
+# The image serves flagd itself and the "launchpad" control API on 8080, whose endpoints the
+# TCK's control API contract was derived from. Nothing here is flagd-testbed's own compose
+# file: that one stands up envoy as well, for the forbidden-endpoint e2e scenarios, names its
+# service `flagd`, and mounts a flags directory from the host. The TCK needs none of that --
+# it drives the launchpad over HTTP -- so this is the smallest stack that serves the suite,
+# and it is the same one the Java adoption uses.
+#
+# The service is named `backend` because that is the name every language's TCK defaults to. A
+# stack that calls it something else is fine, and says so through
+# `ComposeBackend(backend_service=...)`.
+#
+# Note there are no host port bindings. The TCK requires dynamically mapped ports and
+# discovers them after startup -- a pinned host port would make the suite unrunnable in
+# parallel and would collide with a developer's local flagd.
+#
+# The image does not yet serve the whole canonical flag set; tests/tck/conftest.py says which
+# flags are missing and which scenarios that fails. Bump the tag when
+# open-feature/flagd-testbed#392 lands.
+services:
+  backend:
+    image: ghcr.io/open-feature/flagd-testbed:v3.8.0
+    ports:
+      - 8013   # flagd RPC evaluation (gRPC)
+      - 8015   # flagd in-process sync (gRPC)
+      - 8080   # launchpad control API
