@@ -49,7 +49,7 @@ from openfeature.contrib.tools.tck import (
     Capability,
     KnownDeviation,
     TckConfig,
-    features_path,
+    canonical_root,
 )
 from openfeature.contrib.tools.tck.emitter import (
     classify_phase,
@@ -91,6 +91,25 @@ MISMATCH_SCENARIO = "Requesting the wrong type returns the code default"
 # Gherkin has no types and "1" is not 1.
 DEVIATING_ROW = {"key": "boolean-flag", "requested": "Integer", "default": "1"}
 
+
+def _canonical_root() -> Path:
+    """The packaged canonical directory, or a failure that says how to get one.
+
+    ``canonical_root()`` answers ``None`` when the assets are not on a
+    filesystem, which is the honest answer for a zipimport and a missing build
+    step everywhere else.
+    """
+    root = canonical_root()
+    assert root is not None, (
+        "the packaged canonical features must be on a filesystem for this file "
+        "to have anything to say; run `poe sync-spec-assets` first"
+    )
+    return root
+
+
+CANONICAL_ROOT = _canonical_root()
+
+
 DEVIATION_ISSUE = "https://github.com/open-feature/python-sdk/issues/619"
 
 # How Cucumber orders its statuses. A test case is as bad as its worst step, and
@@ -117,7 +136,7 @@ from openfeature.contrib.tools.tck import (
     InProcessControl,
     KnownDeviation,
     TckConfig,
-    features_path,
+    feature_paths,
 )
 
 
@@ -133,7 +152,7 @@ def tck_config():
     )
 
 
-scenarios(features_path())
+scenarios(*feature_paths())
 '''
 
 CAPABILITIES = "{Capability.EVENTS, Capability.OBJECT, Capability.LARGE_INTEGERS}"
@@ -461,7 +480,7 @@ def _config(**overrides: typing.Any) -> TckConfig:
 def _identity(*tags: str, name: str = "a scenario") -> ScenarioIdentity:
     return ScenarioIdentity(
         uri=f"{CANONICAL_DIRECTORY}/events.feature",
-        path=Path(features_path()) / "events.feature",
+        path=CANONICAL_ROOT / "events.feature",
         name=name,
         tags=tags,
     )
@@ -480,7 +499,7 @@ def _examples_from_the_feature_file(feature: str, outline: str) -> list[dict[str
     are plain pipe-delimited rows -- and it exists so that "the stream says what
     the table said" is checked against the table.
     """
-    source = Path(features_path()) / f"{feature}.feature"
+    source = CANONICAL_ROOT / f"{feature}.feature"
     lines = source.read_text(encoding="utf-8").splitlines()
     rows: list[dict[str, str]] = []
     headers: list[str] = []
@@ -843,7 +862,7 @@ def test_the_payload_carries_the_source_of_every_feature_it_ran(run: Run) -> Non
     assert set(run.stream.sources) == uris
 
     for uri, data in run.stream.sources.items():
-        on_disk = Path(features_path()) / Path(uri).name
+        on_disk = CANONICAL_ROOT / Path(uri).name
         assert data == on_disk.read_text(encoding="utf-8"), uri
 
     assert "assetsTree" not in run.envelope["tck"]
