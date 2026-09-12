@@ -8,7 +8,8 @@ calling ``scenarios()`` on the canonical path -- each runs less of the suite, an
 none of them is an error to pytest.
 
 Go measured the consequence: ``-run`` on a single scenario passed green and
-emitted a well-formed report covering one of twenty-nine canonical scenarios.
+emitted a well-formed report covering one scenario out of the whole canonical
+set.
 Nothing in that document said so, and nothing reading it could have known.
 
 So the properties here are about what a report is allowed to be written from.
