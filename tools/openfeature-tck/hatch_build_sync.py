@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 SPEC_ASSETS = (ROOT / "spec/specification/assets/provider-tck").resolve()
-PACKAGE_REL = Path("src/openfeature/contrib/tools/provider_tck")
+PACKAGE_REL = Path("src/openfeature/contrib/tools/tck")
 DEST_BASE = ROOT / PACKAGE_REL
 
 DO_NOT_EDIT = (
@@ -41,7 +41,7 @@ def sync() -> None:
         msg = (
             f"Conformance assets not found at {SPEC_ASSETS}. "
             "Make sure submodules are initialized: "
-            "`git submodule update --init tools/openfeature-provider-tck/spec`."
+            "`git submodule update --init tools/openfeature-tck/spec`."
         )
         raise FileNotFoundError(msg)
 

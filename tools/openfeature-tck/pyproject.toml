@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "openfeature-provider-tck"
+name = "openfeature-tck"
 version = "0.1.0"
 description = "OpenFeature provider conformance suite (TCK)"
 readme = "README.md"
@@ -33,7 +33,7 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 # fixtures from an installed plugin are visible to every test, so an adopter
 # never has to `from ... import *` to pull the vocabulary in.
 [project.entry-points.pytest11]
-openfeature_provider_tck = "openfeature.contrib.tools.provider_tck.plugin"
+openfeature_tck = "openfeature.contrib.tools.tck.plugin"
 
 [dependency-groups]
 dev = [
@@ -55,9 +55,9 @@ packages = ["src/openfeature"]
 # Ship the conformance assets even though they are gitignored: an adopter
 # installing this package must need no submodule of their own.
 artifacts = [
-    "src/openfeature/contrib/tools/provider_tck/gherkin/",
-    "src/openfeature/contrib/tools/provider_tck/flag_data/",
-    "src/openfeature/contrib/tools/provider_tck/control-api.yaml",
+    "src/openfeature/contrib/tools/tck/gherkin/",
+    "src/openfeature/contrib/tools/tck/flag_data/",
+    "src/openfeature/contrib/tools/tck/control-api.yaml",
 ]
 
 [tool.hatch.build.hooks.custom]

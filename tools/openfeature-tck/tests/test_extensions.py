@@ -39,12 +39,12 @@ from pathlib import Path
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     EXTENSIONS_DIRECTORY,
     feature_paths,
     features_path,
 )
-from openfeature.contrib.tools.provider_tck.extensions import (
+from openfeature.contrib.tools.tck.extensions import (
     CANONICAL_DIRECTORY,
     EXTENSIONS_URI_PREFIX,
     collision_problem,
@@ -71,7 +71,7 @@ _SUITE_MODULE = '''\
 import pytest
 from pytest_bdd import scenarios
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
     InProcessControl,
     TckConfig,
@@ -106,7 +106,7 @@ _CONFTEST_MODULE = """\
 import pytest
 from pytest_bdd import then
 
-from openfeature.contrib.tools.provider_tck import TckState
+from openfeature.contrib.tools.tck import TckState
 
 DEVIATION = "[boolean-flag-Integer-1]"
 

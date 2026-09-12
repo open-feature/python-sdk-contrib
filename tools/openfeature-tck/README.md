@@ -1,7 +1,11 @@
-# OpenFeature Provider TCK (Python)
+# OpenFeature TCK (Python)
 
 A conformance suite any OpenFeature Python provider can adopt to verify that it implements the
 provider contract of the specification.
+
+Named `tck` rather than `provider-tck` because the name should say what the package *is*, not what
+its current contents test: the entry point is options-shaped, so a suite for something other than a
+provider can join it later instead of a second package duplicating the harness.
 
 OpenFeature's central promise is that swapping providers does not change application behaviour.
 Nothing verifies that today, and every provider tests differently — so "implements the provider
@@ -29,7 +33,7 @@ testkit already use, so an adopting package gains no new test framework.
 import pytest
 from pytest_bdd import scenarios
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
     TckConfig,
     feature_paths,
@@ -92,7 +96,7 @@ tests/
 # conftest.py
 from pytest_bdd import then
 
-from openfeature.contrib.tools.provider_tck import TckState
+from openfeature.contrib.tools.tck import TckState
 
 
 @then("the fractional rule splits the population")
@@ -460,14 +464,14 @@ the same ones — which is the only reason a conformance claim means the same th
 does in Java.
 
 **Adopting this package needs no submodule.** The assets are copied into the wheel and the sdist at
-build time, so `pip install openfeature-provider-tck` gives you everything the suite runs on.
+build time, so `pip install openfeature-tck` gives you everything the suite runs on.
 
 **Contributing to this package does.** The spec is a git submodule at
-`tools/openfeature-provider-tck/spec`, and the copies under
-`src/openfeature/contrib/tools/provider_tck/` are gitignored and generated:
+`tools/openfeature-tck/spec`, and the copies under
+`src/openfeature/contrib/tools/tck/` are gitignored and generated:
 
 ```bash
-git submodule update --init tools/openfeature-provider-tck/spec
+git submodule update --init tools/openfeature-tck/spec
 poe test   # runs `poe sync-spec-assets` first
 ```
 

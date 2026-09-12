@@ -20,7 +20,7 @@ from __future__ import annotations
 import pytest
 from pytest_bdd import scenarios
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
     TckConfig,
     canonical_flag_set,
