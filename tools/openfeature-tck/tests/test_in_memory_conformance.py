@@ -24,7 +24,7 @@ from openfeature.contrib.tools.tck import (
     Capability,
     TckConfig,
     canonical_flag_set,
-    features_path,
+    feature_paths,
 )
 from openfeature.provider import FeatureProvider
 from openfeature.provider.in_memory_provider import InMemoryProvider
@@ -144,4 +144,4 @@ def tck_config() -> TckConfig:
     )
 
 
-scenarios(features_path())
+scenarios(*feature_paths())
