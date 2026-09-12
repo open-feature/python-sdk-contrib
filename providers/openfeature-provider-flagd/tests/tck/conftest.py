@@ -31,7 +31,7 @@ control port accepting a connection, which the harness establishes before it
 probes.
 
 **The testbed does not yet serve the whole canonical flag set.** The conformance
-assets at spec@009afe06 ask for three flags that flagd-testbed v3.8.0
+assets at spec@93eb1a58 ask for three flags that flagd-testbed v3.8.0
 (``openfeature/test-harness/version.txt``, and the tag pinned in
 ``docker-compose.yaml`` beside this file) does not seed: ``large-integer-flag``,
 ``huge-integer-flag`` and ``integral-float-flag``. Until
