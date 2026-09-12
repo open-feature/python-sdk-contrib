@@ -96,23 +96,35 @@ worst-case detection latency, or the suite reports timeouts that are really just
 
 ### Running it in CI
 
-**A containerised adoption suite is excluded from the default build, and a maintainer runs it by
-hand before merge.** That is the policy in all four languages' TCKs, and it is written down here
-because an exclusion nobody wrote down is indistinguishable from an oversight.
+**Keep the adoption suite out of the default build, give it a task of its own, and write down that
+you did.** Why, and the two ways it goes wrong, are in Appendix F's ["Running the suite in
+CI"][appendix-f]. It is not restated here: this section used to carry the reasoning in its own
+words, in four languages, and that is where the same decisions came to have three different answers.
 
-Two reasons, and the second is the one that actually decides it:
+The part that is Python's, and so belongs here — two `poe` tasks and one that CI never calls:
 
-- It needs Docker, so it cannot be the thing that fails first for a contributor or a runner that has
-  none.
-- A conformance suite reports what is true of the stack under test, which includes failures that are
-  not the provider's — a canonical flag the backend does not seed yet, a backend that is behind the
-  spec revision. Those failures are the report. A gate that must be green cannot hold a suite whose
-  honest output is red, and an `xfail` to make it green would say the provider is at fault when the
-  backend is.
+```toml
+[tool.poe.tasks]
+test = "pytest tests --ignore=tests/tck"
+test-cov = "coverage run -m pytest tests --ignore=tests/tck"
+test-tck = "pytest tests/tck"
+```
 
-So keep it out of the default test task, give it a task of its own, and run that before you merge.
-Both adoptions in this repository do exactly that — `poe test-tck` beside `poe test` — and each
-records its current tally in its own README, so a reviewer can tell a new failure from a known one.
+`--ignore` on both of the tasks `build.yml` reaches — it runs `poe cov`, which is `test-cov` plus a
+coverage report — and a comment above them saying why, so the exclusion cannot read as an oversight.
+Both adoptions in this repository are exactly that, and each records its current tally in its own
+README so a reviewer running `poe test-tck` can tell a new failure from a known one.
+
+Two Python-specific notes on top of the appendix:
+
+- **Docker is not what decides it here.** `tests/e2e` needs Docker too, has needed it for years, and
+  still runs in the default build on `ubuntu-latest`. The exclusion rests entirely on the second
+  reason, that the suite's honest output is red.
+- **`--ignore` does not import the suite, so nothing checks that it still would.** `mypy` in these
+  packages is configured over `src` alone. So the default build also collects the excluded suite
+  without running it — `pytest tests/tck --collect-only` imports every test module, resolves the
+  feature files and starts no container — which is the appendix's "keep it compiling" in the form
+  Python has available.
 
 ## Adding your own scenarios
 
@@ -678,7 +690,7 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping, the control API it reports and the absence of a `/restart` binding, against a stubbed control API |
 
 ```
-190 passed, 35 skipped, 2 xfailed
+194 passed, 35 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
@@ -704,7 +716,9 @@ both. Both declare `@variants`, since an in-memory flag set is keyed by variant 
   *whole* context arrives intact: a provider that forwards the targeting key and silently discards
   every other attribute passes. That needs either an echo operation on the control API or a second
   canonical flag whose rule keys on a custom attribute.
-- **Caching, hooks and flag metadata** are not covered.
+- **Caching, hooks and flag metadata** are not covered. Appendix F's ["Known gaps"][appendix-f] is
+  the list of record, and it now also carries the constraint a `@caching` scenario has to be written
+  against.
 
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
