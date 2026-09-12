@@ -1,15 +1,28 @@
-"""``HttpControl``, plus a wait for the backend to actually serve the flag set.
+"""``HttpControl``, plus a wait for a backend that returns before it serves.
 
-**The problem this exists for is worth stating carefully, because it is a
-finding rather than a workaround.**
+**This is a named workaround for one backend's defect, and it belongs here
+rather than in the shared harness.** That is not a preference; it is what the
+specification prescribes. ``control-api.yaml`` requires every state-changing
+endpoint to serve the new state before it returns, and Appendix F adds that a
+suite must not paper over a backend that breaks it -- a fixed delay in the
+harness "buys silence, not correctness", is un-tunable because the window
+belongs to the backend, and would be inherited by every future adopter without
+knowing why. Where an adopter is stuck with such a backend, "the wait belongs in
+**that adoption**, set explicitly and citing the defect, so that it reads as a
+named workaround for a specific backend and disappears when the backend is
+fixed". This file is that.
 
-``POST /start`` is specified to reseed flag state to the named configuration's
-baseline (normative requirement 2 in the TCK's ``control-api.yaml``). It is not
-specified to *return only once that state is being served*, and flagd-testbed's
-launchpad does not: it returns as soon as flagd answers ``/readyz``
-(``launchpad/pkg/flagd.go``), which flagd does before its file sources have been
-loaded into the flag store. Measured against this testbed, the window is short
--- around 40ms -- but it is real and reliably hit:
+**The defect.** ``POST /start`` reseeds flag state to the named configuration's
+baseline and **MUST NOT return until that state is actually being served** --
+the control API says so in those words, and names this very case: "the reference
+implementation exhibits this: its ``/start`` returns roughly 40ms before flagd's
+file sources reach the flag store". flagd-testbed's launchpad returns as soon as
+flagd answers ``/readyz`` (``launchpad/pkg/flagd.go``), which flagd does before
+its file sources have been loaded into the flag store.
+`flagd-testbed#394 <https://github.com/open-feature/flagd-testbed/pull/394>`_
+would close it and is open and unmerged, so the window is still there. Measured
+against the pinned image it is short -- around 40ms -- but real and reliably
+hit:
 
     start:200 {"errorCode":"FLAG_NOT_FOUND","errorDetails":"flag `float-flag` does not exist"}
     start:200 {"value":0.5,"key":"float-flag","reason":"STATIC","variant":"half"}
@@ -24,10 +37,10 @@ reports FLAG_NOT_FOUND for every flag, which reads as a catastrophically broken
 provider.
 
 **A stateless provider is the first adopter with no initialisation to hide a
-backend's warm-up behind**, which makes it the one that discovers whether the
-control API's guarantee is strong enough. It is not: "reseeded" and "serving"
-need to be the same instant, or every stateless provider reimplements this. That
-belongs in the control API contract, and until it is there it belongs here.
+backend's warm-up behind**, which is what made it the one that found this. The
+guarantee itself is not in doubt -- "reseeded" and "serving" are already
+required to be the same instant -- so what is left is a backend that does not
+keep it, and this wait goes away the day the testbed does.
 
 **Why this is not cheating.** It manipulates nothing. It is a readiness probe
 over the same public OFREP endpoint the provider uses, on a canonical flag,
@@ -48,7 +61,7 @@ import time
 import urllib.error
 import urllib.request
 
-from openfeature.contrib.tools.tck import HttpControl
+from openfeature.contrib.tools.tck import ControlApi, HttpControl
 
 __all__ = ["SettledControl"]
 
@@ -86,6 +99,17 @@ class SettledControl:
     @property
     def description(self) -> str:
         return f"{self._control.description}, awaited through the OFREP endpoint"
+
+    @property
+    def control_api(self) -> ControlApi:
+        """Whatever the control being delegated to says, which is ``"http"``.
+
+        Forwarded rather than answered, because this class adds a readiness
+        probe and manipulates nothing: the normative control path is still the
+        HTTP control API, and a report that said otherwise would understate what
+        was exercised.
+        """
+        return self._control.control_api
 
     def prepare_scenario(self) -> None:
         self._control.prepare_scenario()
