@@ -50,21 +50,16 @@ class PlainMemoryControl:
     """
 
     @property
-    def control_api(self) -> str:
-        """Report that this control manipulates a provider in this process.
-
-        There is no backend to drive: the in-memory provider is rebuilt in
-        process for every scenario, which is exactly what "in-process" names.
-        """
-        return "in-process"
-
-    @property
     def description(self) -> str:
         return "the Python SDK's InMemoryProvider, rebuilt per scenario"
 
     @property
     def control_api(self) -> ControlApi:
-        """In-process, and honestly so: there is no backend to speak HTTP to."""
+        """Report that this control manipulates a provider in this process.
+
+        There is no backend to drive: the in-memory provider is rebuilt in
+        process for every scenario, which is exactly what "in-process" names.
+        """
         return "in-process"
 
     def prepare_scenario(self) -> None:
