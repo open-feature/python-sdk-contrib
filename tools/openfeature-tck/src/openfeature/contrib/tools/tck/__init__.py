@@ -94,6 +94,7 @@ from .config import KnownDeviation, TckConfig
 from .control import (
     BackendControl,
     ConnectionControl,
+    ControlApi,
     UnsupportedControlError,
 )
 from .extensions import (
@@ -130,6 +131,7 @@ __all__ = [
     "Capability",
     "ComposeBackend",
     "ConnectionControl",
+    "ControlApi",
     "ControlApiError",
     "ControllableInMemoryProvider",
     "HttpControl",

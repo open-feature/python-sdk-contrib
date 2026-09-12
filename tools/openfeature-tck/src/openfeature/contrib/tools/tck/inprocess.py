@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from openfeature.provider import FeatureProvider
 
+from .control import ControlApi
 from .provider import (
     CHANGING_FLAG_KEY,
     ControllableInMemoryProvider,
@@ -64,7 +65,7 @@ class InProcessControl:
         return "in-process control of an in-memory provider"
 
     @property
-    def control_api(self) -> str:
+    def control_api(self) -> ControlApi:
         """Report how this backend was driven, for the conformance report.
 
         ``in-process`` is the narrow allowance for providers with no backend,

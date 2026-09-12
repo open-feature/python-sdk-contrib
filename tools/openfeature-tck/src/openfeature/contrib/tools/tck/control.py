@@ -7,9 +7,19 @@ import typing
 __all__ = [
     "BackendControl",
     "ConnectionControl",
+    "ControlApi",
     "UnsupportedControlError",
     "unsupported_control",
 ]
+
+ControlApi = typing.Literal["http", "in-process"]
+"""Which of the two control paths a run used, closed to the two the schema allows.
+
+Named so that a custom control can annotate its own property with it and have
+the type checker refuse a third value -- ``"HTTP"``, ``"grpc"``, a typo -- before
+it becomes a conformance report that fails validation with nothing to point at
+locally.
+"""
 
 
 class UnsupportedControlError(RuntimeError):
@@ -73,19 +83,30 @@ class BackendControl(typing.Protocol):
     def description(self) -> str:
         """A short description of what is being controlled, for messages a human reads."""
 
-    # OPTIONAL: ``control_api``
-    #
-    # A control may also offer a ``control_api`` property returning ``"http"``
-    # for the normative HTTP control API, or ``"in-process"`` for the narrow
-    # allowance made for providers with no backend. The conformance report
-    # records it, so that a claim of in-process control by a provider that does
-    # have a backend can be treated with the suspicion it deserves.
-    #
-    # It is deliberately not a member of this protocol. Adding one would make
-    # every existing control incomplete for the sake of one string, and there is
-    # nothing useful the TCK can do with a control that has not said: it cannot
-    # tell from the outside whether a control spoke HTTP or reached into the
-    # process, so the field is simply omitted. See ``report.control_api_of``.
+    @property
+    def control_api(self) -> ControlApi:
+        """Which path this control drove the backend through.
+
+        ``"http"`` is the normative HTTP control API in ``control-api.yaml``.
+        ``"in-process"`` is the narrow allowance made for a provider with no
+        backend, where "the backend" is a data structure in this process -- see
+        :class:`InProcessControl`.
+
+        **Required, and stated rather than inferred.** It is the one fact that
+        decides what everything else in a report is worth: the same scenarios
+        passing over the control API and passing through in-process manipulation
+        of a provider that *does* have a backend are not the same claim, and
+        this is the only field that separates them. Nothing outside a control can
+        tell the two apart -- a suite that guessed from the control's concrete
+        type would be right about the two controls in this package and silently
+        wrong about a custom one, which is exactly the case where the answer
+        matters.
+
+        Nor would an absent value be neutral. Every run is one or the other, so
+        there is no third case an omitted value legitimately covers: it would
+        not be "no claim made" but an unfalsifiable one. A custom control states
+        it here and nothing downstream has to guess.
+        """
 
 
 @typing.runtime_checkable
