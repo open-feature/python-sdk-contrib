@@ -335,6 +335,18 @@ reason, back when both were reserved.
 mirror of the mistake the set exists to prevent — a capability that can be verified, refused the
 chance — so `@targeting` moved out of it the moment the specification gave it three.
 
+**A reservation this package has outgrown fails the run.** The reservation expires in the
+specification repository and `RESERVED_CAPABILITIES` lives here, so on every run the plugin reads the
+tags the packaged feature files actually carry and refuses to continue if one of them is still listed
+as reserved. Without that, re-pinning the assets onto a revision that gave `@caching` scenarios would
+skip them — for a capability `TckConfig` refuses to let anyone declare — and the only visible trace
+would be a few more skips. Appendix F calls that the unclaimable capability. The fix when it fires is
+to take the tag out of `RESERVED_CAPABILITIES` and decide, per adoption, whether to declare it.
+
+Only the canonical set can expire a reservation. A feature file of your own reaching for a reserved
+tag is a mistake in that file, not news about the specification, so the check reads the packaged
+assets — which also means a `-k` or `--deselect` cannot narrow the run past it.
+
 `@numeric-coercion` deserves a note, because it is the one capability here that **the specification
 does not define**. OpenFeature has a single numeric type on purpose — `number` is "a numeric value of
 unspecified type or size", and languages **may** differentiate between integers and floats "as idioms

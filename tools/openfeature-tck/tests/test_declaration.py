@@ -21,7 +21,7 @@ adds one.
 
 from __future__ import annotations
 
-import re
+import types
 import typing
 
 import pytest
@@ -36,11 +36,14 @@ from openfeature.contrib.tools.tck import (
     KnownDeviation,
     TckConfig,
     canonical_root,
+    plugin,
 )
 from openfeature.contrib.tools.tck.capability import (
     capability_for_marker,
     capability_for_tag,
+    expired_reservations,
 )
+from openfeature.contrib.tools.tck.extensions import canonical_tags
 
 
 class _StubControl:
@@ -75,25 +78,6 @@ def _config(**overrides: typing.Any) -> TckConfig:
     return TckConfig(**settings)
 
 
-def _canonical_tags() -> set[str]:
-    """Every tag the packaged feature files carry, at any level.
-
-    Read off tag lines only. A tag is the whole of the line it appears on in
-    Gherkin, which is what tells one apart from the same word written in a
-    comment -- ``events.feature`` mentions ``@caching`` in prose, saying where
-    those scenarios will go once they exist.
-    """
-    tags: set[str] = set()
-    root = canonical_root()
-    assert root is not None, "the packaged canonical features are not on a filesystem"
-    for feature in sorted(root.glob("*.feature")):
-        for line in feature.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if stripped.startswith("@"):
-                tags.update(re.findall(r"@[\w-]+", stripped))
-    return tags
-
-
 # -- the vocabulary ----------------------------------------------------------
 
 
@@ -122,21 +106,142 @@ def test_a_reserved_capability_is_one_no_canonical_scenario_carries() -> None:
     once: ``@targeting`` gained three scenarios at spec revision ``26362f85``
     and moved out of the reserved set, which is what this half is for.
 
-    The other half is the converse, and it is the half that catches a tag added
-    to the enum and never wired to anything: every declarable capability must be
-    carried by some canonical scenario, or declaring it examines nothing.
+    This half is now also enforced on every adoption's run, by the plugin, and
+    not only here -- a self-test of this package is read by whoever changes this
+    package, and the reservation expires somewhere else. What stays here is the
+    converse, which is the half that catches a tag added to the enum and never
+    wired to anything: every declarable capability must be carried by some
+    canonical scenario, or declaring it examines nothing.
     """
-    carried = _canonical_tags()
-    for capability in RESERVED_CAPABILITIES:
-        assert capability.tag not in carried, (
-            f"{capability.tag} is no longer reserved: the canonical assets now "
-            f"carry it, so it can be verified and should be declarable"
-        )
+    carried = canonical_tags()
+    assert not expired_reservations(carried), (
+        "the canonical assets now carry a reserved tag, so it can be verified "
+        "and should be declarable"
+    )
     for capability in DECLARABLE_CAPABILITIES:
         assert capability.tag in carried, (
             f"{capability.tag} is declarable but no canonical scenario carries "
             f"it, so declaring it would be a claim nothing examines"
         )
+
+
+def test_the_packaged_tags_are_read_off_tag_lines_and_not_out_of_prose() -> None:
+    """The one way this scan can be wrong, pinned against the real assets.
+
+    ``events.feature`` mentions ``@caching`` in a comment, saying where those
+    scenarios will go once they exist. A scan that read the whole file rather
+    than its tag lines would call the reservation expired on the strength of
+    that sentence, and since the plugin fails a run over an expiry, every
+    adoption would fail over a sentence.
+
+    The second assertion is what keeps the first from being vacuous: it checks
+    that the prose mention is still there to be mis-read.
+    """
+    tags = canonical_tags()
+    assert "@events" in tags, "a tag line is read"
+    assert "@caching" not in tags, "prose is not"
+
+    root = canonical_root()
+    assert root is not None, "the packaged canonical features are not on a filesystem"
+    mentions = [
+        feature
+        for feature in sorted(root.rglob("*.feature"))
+        if "@caching" in feature.read_text(encoding="utf-8")
+    ]
+    assert mentions, "nothing mentions @caching any more, so this proves nothing"
+
+
+def test_a_reservation_expires_when_a_scenario_carries_it() -> None:
+    """The detection itself, which is all the plugin adds to it.
+
+    Deduplicated, because the tags arrive from every scenario of every feature
+    file and one carried twice is not two expiries.
+    """
+    reserved = sorted(RESERVED_CAPABILITIES, key=lambda c: c.tag)
+
+    assert expired_reservations(["@events", "@object"]) == ()
+    assert expired_reservations(c.tag for c in reserved) == tuple(reserved)
+
+    first = reserved[0]
+    assert expired_reservations([first.tag, first.tag, "@events"]) == (first,)
+
+
+def _scenario_item(filename: str) -> typing.Any:
+    """A collected node shaped the way pytest-bdd shapes one.
+
+    ``__scenario__`` on the generated function, carrying the feature it came
+    from, which is the only part of a node the check reads.
+    """
+    feature = types.SimpleNamespace(filename=filename)
+    function = types.SimpleNamespace()
+    function.__scenario__ = types.SimpleNamespace(feature=feature)
+    return types.SimpleNamespace(function=function)
+
+
+def _a_canonical_feature() -> str:
+    root = canonical_root()
+    assert root is not None, "the packaged canonical features are not on a filesystem"
+    features = sorted(root.rglob("*.feature"))
+    assert features, "the packaged canonical features are missing"
+    return str(features[0])
+
+
+def test_the_plugin_fails_a_run_over_an_expired_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An adopter's run, not merely this package's own tests.
+
+    The self-test above is read by whoever changes this package, and a
+    reservation expires in the specification repository instead -- so an
+    adoption that re-pinned the assets and ran the suite would see the new
+    scenarios skipped, for a capability it is refused permission to declare,
+    and nothing would say so. This is what says so.
+    """
+    items = [_scenario_item(_a_canonical_feature())]
+
+    # Nothing has expired, which is the state every real run is in, and the
+    # hook is then silent.
+    plugin.pytest_collection_modifyitems(items)
+
+    reserved = sorted(RESERVED_CAPABILITIES, key=lambda c: c.tag)
+    monkeypatch.setattr(
+        plugin, "canonical_tags", lambda: frozenset(c.tag for c in reserved)
+    )
+
+    with pytest.raises(pytest.UsageError) as raised:
+        plugin.pytest_collection_modifyitems(items)
+
+    message = str(raised.value)
+    for capability in reserved:
+        assert capability.tag in message
+    # Named, because the fix is to edit that set against the specification and
+    # nothing the run can do stands in for it.
+    assert "RESERVED_CAPABILITIES" in message
+
+
+def test_the_plugin_leaves_a_session_that_is_not_running_the_suite_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The plugin is installed for every pytest run in the environment.
+
+    Which makes the check's trigger part of its correctness: an unrelated test
+    suite in a project that happens to depend on this package has no business
+    failing over the contents of these feature files. So the expiry is only
+    looked for once a canonical scenario is actually collected -- and a node
+    that is not a scenario at all, or a scenario from an adopter's own
+    ``extensions`` directory, is neither.
+    """
+    monkeypatch.setattr(
+        plugin,
+        "canonical_tags",
+        lambda: frozenset(c.tag for c in RESERVED_CAPABILITIES),
+    )
+
+    not_a_scenario: typing.Any = types.SimpleNamespace()
+
+    plugin.pytest_collection_modifyitems([])
+    plugin.pytest_collection_modifyitems([not_a_scenario])
+    plugin.pytest_collection_modifyitems([_scenario_item(__file__)])
 
 
 def test_a_tag_maps_onto_the_capability_it_gates() -> None:

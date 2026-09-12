@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing
 from enum import Enum
 
 __all__ = ["Capability"]
@@ -363,3 +364,28 @@ def capability_for_tag(tag: str) -> Capability | None:
     capability means reading them back.
     """
     return _BY_TAG.get(tag)
+
+
+def expired_reservations(tags: typing.Iterable[str]) -> tuple[Capability, ...]:
+    """Reserved capabilities that the tags handed in turn out to carry.
+
+    A non-empty answer means :data:`RESERVED_CAPABILITIES` is out of date: the
+    scenarios the tag was being held open for now exist, so the capability can
+    be verified and an adoption should be allowed -- and required -- to say
+    whether it has it.
+
+    Leaving the reservation in place instead is the mirror of declaring an
+    unverified capability, and it is the quieter mistake of the two. Declaring
+    a reserved capability is refused, so nobody can claim it; the new scenarios
+    are therefore skipped for a capability an adopter has no way to declare,
+    and the report says a gap exists where the provider may well have none.
+    Appendix F names that the unclaimable capability.
+
+    Read off the feature files rather than compared against a second list,
+    because a reservation expires in the specification repository while this
+    set lives here. Deduplicated and ordered by tag: the tags arrive from every
+    scenario of every feature file, and one carried twice is not two expiries.
+    """
+    carried = set(tags)
+    expired = (c for c in RESERVED_CAPABILITIES if c.tag in carried)
+    return tuple(sorted(expired, key=lambda capability: capability.tag))
