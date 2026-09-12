@@ -31,6 +31,7 @@ from openfeature.contrib.tools.tck import (
     RESERVED_CAPABILITIES,
     BackendControl,
     Capability,
+    ControlApi,
     InProcessControl,
     KnownDeviation,
     TckConfig,
@@ -45,8 +46,8 @@ from openfeature.contrib.tools.tck.capability import (
 class _StubControl:
     """A control that says nothing it is not obliged to say.
 
-    Which includes ``control_api``: the property is documented as optional, and
-    a control leaving it out has to remain a ``BackendControl``.
+    Which no longer includes ``control_api``: it is a required member of
+    ``BackendControl``, so even a stub has to answer it.
     """
 
     def prepare_scenario(self) -> None: ...
@@ -56,6 +57,10 @@ class _StubControl:
     @property
     def description(self) -> str:
         return "a stub"
+
+    @property
+    def control_api(self) -> ControlApi:
+        return "in-process"
 
 
 def _config(**overrides: typing.Any) -> TckConfig:
@@ -334,17 +339,30 @@ def test_known_deviations_are_normalised_and_change_nothing_about_the_run() -> N
 # -- saying how the backend is driven ----------------------------------------
 
 
-def test_a_control_need_not_say_how_it_drives_the_backend() -> None:
-    """``control_api`` is documented as optional, and means it.
+def test_a_control_that_does_not_say_is_not_a_backend_control() -> None:
+    """``control_api`` is required, and the protocol is where that is enforced.
 
-    Making it a member of ``BackendControl`` would make every existing control
-    incomplete for the sake of one string, and there is nothing the suite can do
-    with the answer: it cannot tell from the outside whether a control spoke
-    HTTP or reached into the process.
+    Nothing outside a control can tell whether it spoke the normative HTTP API
+    or reached into this process, which is the argument for making the control
+    say rather than for letting the field be absent: every run is one or the
+    other, so an omitted value is not "no claim made" but an unfalsifiable one.
+
+    ``BackendControl`` is runtime-checkable, so this is checked at the seam as
+    well as by the type checker -- which matters for an adopter who writes a
+    custom control in an untyped test module.
     """
-    quiet = _StubControl()
-    assert isinstance(quiet, BackendControl)
-    assert not hasattr(quiet, "control_api")
+
+    class _Quiet:
+        def prepare_scenario(self) -> None: ...
+
+        def change_flag(self) -> None: ...
+
+        @property
+        def description(self) -> str:
+            return "a control that will not say"
+
+    assert not isinstance(_Quiet(), BackendControl)
+    assert isinstance(_StubControl(), BackendControl)
 
 
 def test_in_process_control_says_it_is_in_process() -> None:
@@ -356,3 +374,14 @@ def test_in_process_control_says_it_is_in_process() -> None:
     control = InProcessControl()
     assert isinstance(control, BackendControl)
     assert control.control_api == "in-process"
+
+
+def test_the_control_api_type_is_closed_to_the_two_values_the_schema_allows() -> None:
+    """Closed, so a third value is a type error rather than an invalid report.
+
+    ``ControlApi`` is exported for exactly this: a custom control annotates its
+    own property with it and the type checker refuses ``"HTTP"`` or ``"grpc"``
+    before either becomes a report that fails schema validation with nothing to
+    point at locally.
+    """
+    assert typing.get_args(ControlApi) == ("http", "in-process")
