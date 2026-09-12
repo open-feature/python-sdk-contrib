@@ -37,16 +37,22 @@ poe test-tck        # needs Docker
 poe test            # everything else, which is what CI runs
 ```
 
-The exclusion is a decision rather than an oversight. It needs Docker, and — the part that actually
-decides it — a conformance suite reports what is true of the *stack* under test. A full run today is
-**2 failed, 37 passed, 16 skipped, 1 xfailed**: both failures are canonical flags that flagd-testbed
-v3.8.0 does not seed yet, and the `xfail` is the one genuine provider gap, recorded as a
-`KnownDeviation` rather than hidden. A gate that has to be green cannot hold a suite whose honest
-output is red, and turning the two backend gaps into `xfail`s would say the provider is at fault
-where the backend is.
+The exclusion lives in `pyproject.toml`: `--ignore=tests/tck` on the two tasks `build.yml` reaches,
+with the reason in a comment above them. Why a conformance suite is not a required gate is
+[Appendix F, "Running the suite in CI"][appendix-f], and is not restated here.
 
-`tests/tck/conftest.py` and `tests/tck/test_ofrep_conformance.py` account for each one, so a
-reviewer running the suite can tell a new failure from a known one.
+Two things that are this provider's rather than the policy's:
+
+- **Docker is not what decides it.** The flagd package's `tests/e2e` needs Docker too and does run in
+  the default build. What decides it is the run: **2 failed, 37 passed, 16 skipped, 1 xfailed** —
+  both failures are canonical flags that flagd-testbed v3.8.0 does not seed yet, and the `xfail` is
+  the one genuine provider gap, recorded as a `KnownDeviation` rather than hidden.
+  `tests/tck/conftest.py` and `tests/tck/test_ofrep_conformance.py` account for each one, so a
+  reviewer running the suite can tell a new failure from a known one.
+- **The default build still collects the suite** — `poe test` and `poe test-cov` end in
+  `pytest tests/tck --collect-only`, which imports every module and starts no container. An excluded
+  suite that has quietly stopped importing against the harness is worse than one that runs and
+  fails, and `mypy` here is configured over `src` alone, so nothing else would notice.
 
 `tests/tck/settled_control.py` is worth reading before you touch the suite: it is a named workaround
 for one backend defect — flagd-testbed's `/start` returns about 40 ms before it serves the flag set,
@@ -54,6 +60,7 @@ which the control API forbids — and the specification prescribes that such a w
 adoption, citing the defect, rather than in the shared harness.
 
 [tck]: ../../tools/openfeature-tck/README.md
+[appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
 
 ## License
 
