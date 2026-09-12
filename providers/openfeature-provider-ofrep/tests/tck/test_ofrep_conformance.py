@@ -20,14 +20,13 @@ import pytest
 from pytest_bdd import scenarios
 
 from openfeature.contrib.provider.ofrep import OFREPProvider
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
     TckConfig,
-    features_path,
+    feature_paths,
 )
 from openfeature.provider import FeatureProvider
 from tests.tck.settled_control import SettledControl
-from tests.tck.testbed import FlagdTestbed
 
 TIMEOUT_SECONDS = 10.0
 """Bounds a single OFREP request.
@@ -235,18 +234,19 @@ CAPABILITIES = frozenset(
 
 @pytest.fixture(scope="session")
 def tck_config(
-    flagd_testbed: FlagdTestbed,
+    ofrep_base_url: str,
     ofrep_control: SettledControl,
 ) -> TckConfig:
     """Wire the provider up to the running testbed.
 
-    The port is read here, after the stack is up: compose maps host ports
-    dynamically, so it does not exist earlier -- and it stays valid for the whole
-    session because nothing ever restarts a container. Outages, had this suite
-    any use for them, would be simulated inside the running stack through
+    Both fixtures come from ``tests/tck/conftest.py`` and both resolve after the
+    TCK has started the stack: Compose maps host ports dynamically, so the
+    address does not exist earlier -- and it stays valid for the whole session
+    because nothing ever restarts a container. Outages, had this suite any use
+    for them, would be simulated inside the running stack through
     ``ofrep_control``.
     """
-    base_url = flagd_testbed.get_ofrep_url()
+    base_url = ofrep_base_url
 
     def new_provider() -> FeatureProvider:
         return OFREPProvider(base_url, timeout=TIMEOUT_SECONDS)
@@ -259,4 +259,4 @@ def tck_config(
     )
 
 
-scenarios(features_path())
+scenarios(*feature_paths())

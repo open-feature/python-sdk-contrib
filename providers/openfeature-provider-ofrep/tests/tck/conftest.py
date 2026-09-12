@@ -1,6 +1,12 @@
 """Session fixtures for the OFREP conformance suite, and one recorded deviation.
 
-The stack is started once and never restarted, because compose assigns host
+The container lifecycle belongs to the TCK: it starts the Compose file beside
+this module once per session, discovers the dynamically mapped host ports, builds
+the ``HttpControl`` against the launchpad and waits for it to accept commands.
+What is left here is the declaration, the one wrapper this provider needs around
+the control, and the xfail for the single scenario it cannot satisfy.
+
+The stack is started once and never restarted, because Compose assigns host
 ports dynamically and cannot preserve them across a restart: a restarted backend
 comes back on a different port, silently invalidating a provider already pointed
 at the old one, and the failure reads as a flaky provider rather than a broken
@@ -10,39 +16,68 @@ no-container-restart invariant in the TCK's ``control-api.yaml``.
 
 from __future__ import annotations
 
-import typing
+from pathlib import Path
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import HttpControl
+from openfeature.contrib.tools.tck import ComposeBackend, RunningBackend
 from tests.tck.settled_control import SettledControl
-from tests.tck.testbed import FlagdTestbed, running_testbed
+
+OFREP_PORT = 8016
+"""flagd's OFREP HTTP port.
+
+flagd's own default (``flags.Int32P("ofrep-port", "r", 8016, ...)`` in flagd's
+``cmd/start.go``). The testbed's launchpad starts flagd with no
+``--ofrep-port`` override, so this is what it listens on, and it is the one port
+the provider connects to. The launchpad's own 8080 is exposed automatically.
+"""
 
 
 @pytest.fixture(scope="session")
-def flagd_testbed() -> typing.Iterator[FlagdTestbed]:
-    """The testbed stack, up for the whole session."""
-    yield from running_testbed()
+def compose_backend() -> ComposeBackend:
+    """The stack under test, as the TCK's ``tck_backend`` fixture wants it.
+
+    The path is absolute rather than relative to the package directory -- which
+    is what the harness resolves a relative one against, and where ``poe test``
+    runs from -- so that running pytest from the repository root works too.
+    """
+    return ComposeBackend(
+        compose_file=Path(__file__).parent / "docker-compose.yaml",
+        backend_ports=[OFREP_PORT],
+    )
 
 
 @pytest.fixture(scope="session")
-def ofrep_control(flagd_testbed: FlagdTestbed) -> SettledControl:
-    """The control API client, pointed at the testbed's launchpad.
+def ofrep_base_url(tck_backend: RunningBackend) -> str:
+    """The origin flagd serves OFREP on, resolved once the stack is up.
 
-    The launchpad registers only ``/start``, ``/restart``, ``/stop`` and
-    ``/change`` (flagd-testbed ``launchpad/main.go:29-32``), so ``/reset``
-    answers 404 and every ``prepare_scenario`` takes the documented ``/start``
-    fallback. The probe costs one 404 for the whole session.
+    A fixture rather than a constant the suite module reads, because the mapped
+    host port does not exist until the stack has started. The provider appends
+    ``ofrep/v1/evaluate/flags/{key}`` itself (``ofrep/__init__.py:115-119``), so
+    this is the bare origin.
+    """
+    endpoint = tck_backend.endpoint
+    return f"http://{endpoint.host}:{endpoint.port(OFREP_PORT)}"
+
+
+@pytest.fixture(scope="session")
+def ofrep_control(tck_backend: RunningBackend, ofrep_base_url: str) -> SettledControl:
+    """The control API client, wrapped in a wait for the flag set to be served.
+
+    ``tck_backend.control`` is the TCK's own ``HttpControl``, already pointed at
+    the launchpad's mapped port and awaited ready. The launchpad registers only
+    ``/start``, ``/restart``, ``/stop`` and ``/change`` (flagd-testbed
+    ``launchpad/main.go:29-32``), so ``/reset`` answers 404 and every
+    ``prepare_scenario`` takes the documented ``/start`` fallback. The probe
+    costs one 404 for the whole session.
 
     Wrapped in :class:`SettledControl` because ``/start`` returns before the
     backend serves the flag set, and a stateless provider has no initialisation
     to hide that window behind. See that module -- it is a finding about the
-    control API's guarantee, not a convenience.
+    control API's guarantee, not a convenience, and it is a readiness probe over
+    the provider's own public endpoint rather than a sleep.
     """
-    return SettledControl(
-        HttpControl(flagd_testbed.get_launchpad_url()),
-        flagd_testbed.get_ofrep_url(),
-    )
+    return SettledControl(tck_backend.control, ofrep_base_url)
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +89,7 @@ def ofrep_control(flagd_testbed: FlagdTestbed) -> SettledControl:
 # the report with its reason attached and fails the suite the moment it starts
 # passing -- so the marker is removed when the bug is fixed rather than
 # lingering as a lie. Same mechanism, and same bug, as the TCK's own self-test
-# (tools/openfeature-provider-tck/tests/conftest.py).
+# (tools/openfeature-tck/tests/conftest.py).
 
 _BOOL_AS_INT = (
     "test_requesting_the_wrong_type_returns_the_code_default[boolean-flag-Integer-1]"
