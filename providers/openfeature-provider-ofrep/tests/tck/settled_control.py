@@ -48,7 +48,7 @@ import time
 import urllib.error
 import urllib.request
 
-from openfeature.contrib.tools.provider_tck import HttpControl
+from openfeature.contrib.tools.tck import HttpControl
 
 __all__ = ["SettledControl"]
 
