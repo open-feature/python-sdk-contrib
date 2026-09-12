@@ -7,17 +7,48 @@ against the same canonical flag set, that every other language's TCK runs. That
 shared basis is the whole point -- "conformant" only means something if the
 question is identical everywhere.
 
-**What a provider author writes.** One fixture and one call::
+**What a provider author writes.** Two fixtures and one call::
 
     import pytest
     from pytest_bdd import scenarios
 
     from openfeature.contrib.tools.tck import (
         Capability,
-        InProcessControl,
+        ComposeBackend,
+        RunningBackend,
         TckConfig,
         feature_paths,
     )
+
+    @pytest.fixture(scope="session")
+    def compose_backend():
+        return ComposeBackend(
+            compose_file="tests/tck/docker-compose.yaml",
+            backend_ports=[8013],
+        )
+
+    @pytest.fixture(scope="session")
+    def tck_config(tck_backend: RunningBackend):
+        return TckConfig(
+            name="my-provider",
+            control=tck_backend.control,
+            new_provider=lambda: MyProvider(
+                host=tck_backend.endpoint.host,
+                port=tck_backend.endpoint.port(8013),
+            ),
+            capabilities={Capability.EVENTS, Capability.OBJECT},
+        )
+
+    scenarios(*feature_paths())
+
+The suite owns the container stack: it starts the Compose file once, discovers
+the dynamically mapped host ports, builds the HTTP control against the control
+API, waits until it accepts commands, and tears down after the last scenario.
+See :mod:`~.compose`.
+
+**A provider with no backend supplies its own control instead** -- in-memory,
+environment-variable, file-based -- and needs no Compose file and no container
+tooling::
 
     @pytest.fixture(scope="session")
     def tck_config():
@@ -28,8 +59,6 @@ question is identical everywhere.
             new_provider=control.new_provider,
             capabilities={Capability.EVENTS, Capability.OBJECT},
         )
-
-    scenarios(*feature_paths())
 
 ``scenarios()`` is pytest-bdd's own, called directly rather than wrapped: it
 injects the generated tests into the *calling module* by walking the stack, so a
@@ -53,6 +82,14 @@ from __future__ import annotations
 import importlib.resources
 
 from .capability import DECLARABLE_CAPABILITIES, RESERVED_CAPABILITIES, Capability
+from .compose import (
+    DEFAULT_BACKEND_SERVICE,
+    DEFAULT_CONTROL_PORT,
+    BackendEndpoint,
+    ComposeBackend,
+    RunningBackend,
+    run_compose_backend,
+)
 from .config import KnownDeviation, TckConfig
 from .control import (
     BackendControl,
@@ -61,11 +98,12 @@ from .control import (
 )
 from .extensions import (
     EXTENSIONS_DIRECTORY,
+    canonical_root,
     feature_paths,
-    features_path,
 )
 from .httpcontrol import (
     DEFAULT_CONFIGURATION,
+    DEFAULT_STARTUP_TIMEOUT,
     ControlApiError,
     HttpControl,
 )
@@ -81,25 +119,32 @@ from .state import TckState
 __all__ = [
     "CHANGING_FLAG_KEY",
     "DECLARABLE_CAPABILITIES",
+    "DEFAULT_BACKEND_SERVICE",
     "DEFAULT_CONFIGURATION",
+    "DEFAULT_CONTROL_PORT",
+    "DEFAULT_STARTUP_TIMEOUT",
     "EXTENSIONS_DIRECTORY",
     "RESERVED_CAPABILITIES",
     "BackendControl",
+    "BackendEndpoint",
     "Capability",
+    "ComposeBackend",
     "ConnectionControl",
     "ControlApiError",
     "ControllableInMemoryProvider",
     "HttpControl",
     "InProcessControl",
     "KnownDeviation",
+    "RunningBackend",
     "TckConfig",
     "TckState",
     "UnsupportedControlError",
     "canonical_flag_set",
     "canonical_flags_json",
+    "canonical_root",
     "control_api_spec",
     "feature_paths",
-    "features_path",
+    "run_compose_backend",
 ]
 
 # NOTE ON THE SOURCE OF TRUTH
