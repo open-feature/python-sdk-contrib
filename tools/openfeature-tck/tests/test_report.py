@@ -47,6 +47,7 @@ from openfeature.contrib.tools.tck import (
     EXTENSIONS_DIRECTORY,
     RESERVED_CAPABILITIES,
     Capability,
+    ControlApi,
     KnownDeviation,
     TckConfig,
     canonical_root,
@@ -70,7 +71,6 @@ from openfeature.contrib.tools.tck.report import (
     PhaseOutcome,
     Results,
     SuiteReport,
-    control_api_of,
     envelope_file_name,
     normalise_tags,
     spec_revision,
@@ -436,6 +436,10 @@ class _StubControl:
     def description(self) -> str:
         return "a stub"
 
+    @property
+    def control_api(self) -> ControlApi:
+        return "in-process"
+
     def prepare_scenario(self) -> None:
         return None
 
@@ -445,7 +449,7 @@ class _StubControl:
 
 class _HttpControl(_StubControl):
     @property
-    def control_api(self) -> str:
+    def control_api(self) -> ControlApi:
         return "http"
 
 
@@ -1100,18 +1104,35 @@ def test_the_provider_name_falls_back_to_the_suite_name() -> None:
     assert envelope["provider"]["name"] == "stub"
 
 
-def test_the_control_api_is_omitted_when_the_control_does_not_say() -> None:
-    plain = SuiteReport(config=_config()).build(_results())
-    assert "controlApi" not in plain["backend"]
+def test_the_backend_block_and_its_control_api_are_always_written() -> None:
+    """Both are required by the schema, so neither is conditional here.
+
+    A provider with no backend still had its flag state manipulated somehow,
+    and which of the two ways that was is what the rest of the document is
+    worth: the same scenarios passing over the control API and passing through
+    in-process manipulation of a provider that does have a backend are not the
+    same claim. The value comes straight off the control, because nothing
+    outside a control can tell which path it took.
+    """
+    in_process = SuiteReport(config=_config()).build(_results())
+    assert in_process["backend"]["controlApi"] == "in-process"
+
     http = SuiteReport(config=_config(control=_HttpControl())).build(_results())
     assert http["backend"]["controlApi"] == "http"
 
 
-def test_control_api_ignores_a_value_the_schema_would_reject() -> None:
-    class Odd(_StubControl):
-        control_api = "carrier pigeon"
+def test_an_empty_description_is_left_out_rather_than_emitted_blank() -> None:
+    """``description`` is free text for a person, and the schema leaves it optional."""
 
-    assert control_api_of(Odd()) == ""
+    class _Nameless(_StubControl):
+        @property
+        def description(self) -> str:
+            return ""
+
+    backend = SuiteReport(config=_config(control=_Nameless())).build(_results())[
+        "backend"
+    ]
+    assert backend == {"controlApi": "in-process"}
 
 
 @pytest.mark.parametrize(
