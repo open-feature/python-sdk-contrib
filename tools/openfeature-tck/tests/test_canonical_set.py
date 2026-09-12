@@ -252,7 +252,7 @@ def test_a_filtered_run_fails_and_writes_no_report(tmp_path: Path) -> None:
 def test_acknowledging_a_partial_run_does_not_make_it_publishable(
     tmp_path: Path,
 ) -> None:
-    """``PROVIDER_TCK_PARTIAL`` buys a green run, never a document.
+    """``TCK_PARTIAL`` buys a green run, never a document.
 
     Someone working on one scenario should not have to fight the guard; nobody
     should be able to turn a partial run into a conformance claim. Those are

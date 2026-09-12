@@ -61,7 +61,7 @@ __all__ = [
     "stream_file_name",
 ]
 
-REPORT_DIR_ENV = "PROVIDER_TCK_REPORT_DIR"
+REPORT_DIR_ENV = "TCK_REPORT_DIR"
 """Names the directory a conformance report is written to.
 
 An environment variable rather than a :class:`~.config.TckConfig` field, so that

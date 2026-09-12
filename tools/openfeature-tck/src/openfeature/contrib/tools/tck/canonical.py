@@ -47,7 +47,7 @@ __all__ = [
     "partial_run_allowed",
 ]
 
-PARTIAL_ENV = "PROVIDER_TCK_PARTIAL"
+PARTIAL_ENV = "TCK_PARTIAL"
 """Set to acknowledge that a run is deliberately not a conformance run.
 
 For working on one scenario with ``-k`` without the guard failing the run. It
