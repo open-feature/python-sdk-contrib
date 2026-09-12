@@ -183,17 +183,11 @@ def test_start_names_the_configuration_under_test() -> None:
         assert ("POST", "/start", "config=default") in stub.requests
 
 
-def test_a_custom_configuration_is_carried_through() -> None:
+def test_a_custom_backend_configuration_is_carried_through() -> None:
     with _StubControlApi({"/reset": 404}) as stub:
-        HttpControl(stub.base_url, configuration="ssl").prepare_scenario()
+        HttpControl(stub.base_url, backend_configuration="ssl").prepare_scenario()
 
         assert ("POST", "/start", "config=ssl") in stub.requests
-
-
-def test_restart_carries_the_outage_duration(stub: _StubControlApi) -> None:
-    HttpControl(stub.base_url).restart(7)
-
-    assert ("POST", "/restart", "seconds=7") in stub.requests
 
 
 def test_change_flag_posts_to_change(stub: _StubControlApi) -> None:
@@ -242,14 +236,26 @@ def test_a_trailing_slash_does_not_produce_a_double_slash_path() -> None:
 
 
 def test_the_control_reports_which_api_it_drives_the_backend_through() -> None:
-    """The optional property ``BackendControl`` documents, answered here.
+    """The required ``BackendControl`` member, answered here without qualification.
 
-    A control that stays quiet has the field omitted from its report, which puts
-    the normative HTTP path on the same footing as one that declined to say. This
-    control can say, so it does.
+    Every operation on this class is an HTTP request to the normative control
+    API, so this is the one control that can answer the question flatly. A
+    report whose ``backend.controlApi`` says otherwise for a provider with a
+    real backend is claiming something it should not.
     """
     with _StubControlApi() as stub:
         assert HttpControl(stub.base_url).control_api == "http"
+
+
+def test_there_is_no_binding_for_restart() -> None:
+    """``/restart`` is optional in the control API and no scenario reaches it.
+
+    A binding nothing can call would imply every backend under test owes the
+    endpoint, which is what the specification's own description wrongly claimed
+    before it was corrected. The disconnect/reconnect scenario is an unbounded
+    outage: ``disconnect`` then ``reconnect``.
+    """
+    assert not hasattr(HttpControl, "restart")
 
 
 # -- waiting for the control API ---------------------------------------------
