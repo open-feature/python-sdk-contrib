@@ -26,6 +26,7 @@ import pytest
 from openfeature import api
 from openfeature.contrib.tools.tck import (
     Capability,
+    ControlApi,
     TckConfig,
     TckState,
     canonical_flag_set,
@@ -83,6 +84,10 @@ class _NoControl:
     @property
     def description(self) -> str:
         return "nothing"
+
+    @property
+    def control_api(self) -> ControlApi:
+        return "in-process"
 
     def prepare_scenario(self) -> None: ...
 
