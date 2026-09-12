@@ -253,9 +253,11 @@ class SuiteReport:
             "results": results.as_json(),
         }
 
-        backend = self._backend()
-        if backend:
-            document["backend"] = backend
+        # Always emitted, never conditionally: the schema requires `backend`
+        # at the top level and `controlApi` within it, because a provider with
+        # no backend still had its flag state manipulated somehow and which of
+        # the two ways that was is what the rest of the document is worth.
+        document["backend"] = self._backend()
         deviations = [deviation.as_json() for deviation in self.config.known_deviations]
         if deviations:
             # Omitted rather than emitted empty: stating no deviations is a
@@ -284,13 +286,24 @@ class SuiteReport:
         return {"declared": self.config.sorted_capabilities}
 
     def _backend(self) -> dict[str, typing.Any]:
-        backend: dict[str, typing.Any] = {}
-        description = getattr(self.config.control, "description", "")
-        if isinstance(description, str) and description:
+        """What was driven, and which of the two paths drove it.
+
+        ``controlApi`` is read straight off the control, which the
+        :class:`~.control.BackendControl` protocol requires it to answer -- so
+        there is nothing to fall back to and nothing to infer. That is the
+        point: nothing outside a control can tell whether it spoke the
+        normative HTTP API or reached into this process, so a harness that
+        guessed would be right about the two controls this package ships and
+        silently wrong about an adopter's custom one, which is the case where
+        the answer matters.
+
+        ``description`` is free text for a person and the schema leaves it
+        optional, so an empty one is left out rather than emitted blank.
+        """
+        backend: dict[str, typing.Any] = {"controlApi": self.config.control.control_api}
+        description = self.config.control.description
+        if description:
             backend["description"] = description
-        control_api = control_api_of(self.config.control)
-        if control_api:
-            backend["controlApi"] = control_api
         return backend
 
 
@@ -397,46 +410,17 @@ class ReportCollector:
         return problems
 
 
-def control_api_of(control: object) -> str:
-    """Report how the backend was driven, if the control says.
-
-    Read off an optional attribute rather than added to the
-    :class:`~.control.BackendControl` protocol, because a protocol member would
-    make every existing control incomplete for the sake of one string. A control
-    that does not offer it simply omits the field, which is the honest answer:
-    the TCK cannot infer from the outside whether a control spoke the normative
-    HTTP API or reached into the process.
-    """
-    value = getattr(control, "control_api", None)
-    if isinstance(value, str) and value in {"http", "in-process"}:
-        return value
-    return ""
-
-
-def control_api_gap(control: object) -> str:
-    """Describe a control that does not say how it drives the backend, or "".
-
-    The field is optional in the report and the attribute is optional here, both
-    so that introducing it made no existing control incomplete. Together they
-    make omission invisible: the suite passes, the report validates, and the
-    field is simply absent. That went unnoticed until reports from four
-    languages were compared side by side and two of them were silent about the
-    same kind of in-process backend.
-
-    Every control either drives a real backend over the normative HTTP API or
-    manipulates one in this process, so there is no third case an absent value
-    legitimately describes -- which makes the silence worth breaking, in the run
-    output where an adopter will see it rather than in the report where they
-    will not.
-    """
-    if control_api_of(control):
-        return ""
-    description = getattr(control, "description", "") or type(control).__name__
-    return (
-        f"{description} does not offer a control_api attribute, so the conformance "
-        f"report cannot say whether the backend was driven over HTTP or in process. "
-        f'Add one, returning "http" or "in-process".'
-    )
+# NEITHER ``control_api_of`` NOR ``control_api_gap`` EXISTS ANY MORE
+#
+# Both were consequences of the field being optional. One read it off duck-typed
+# with an empty-string fallback; the other described, in the run output, a
+# control that had declined to say -- because omission was otherwise invisible:
+# the suite passed, the report validated, and the field was simply absent.
+#
+# ``control_api`` is now a required member of ``BackendControl`` and the schema
+# requires the field, so there is no silence left to detect and no fallback left
+# to take. The type assertion and the empty-string branch both stop existing,
+# which is a net deletion rather than a move.
 
 
 def normalise_tags(tags: typing.Iterable[str]) -> tuple[str, ...]:

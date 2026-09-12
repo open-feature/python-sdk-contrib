@@ -65,7 +65,6 @@ from .report import (
     ReportCollector,
     Results,
     SuiteReport,
-    control_api_gap,
     distribution_version,
     envelope_file_name,
     normalise_tags,
@@ -474,10 +473,6 @@ class ReportEmitter:
             f"tck [{name}]: report written to {path} with results in "
             f"{stream_path.name} ({counts})",
         )
-
-        gap = control_api_gap(suite.config.control)
-        if gap:
-            self._say(session, f"tck [{name}]: {gap}")
 
     def _identities_are_sound(
         self, session: pytest.Session, suite: SuiteReport
