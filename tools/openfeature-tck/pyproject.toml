@@ -25,6 +25,12 @@ dependencies = [
 ]
 requires-python = ">=3.10"
 
+# Kept out of the required dependencies on purpose: a provider with no backend
+# runs the whole suite without a container, and should not have to install
+# container tooling to do it. Everything in `compose.py` imports it lazily.
+[project.optional-dependencies]
+compose = ["testcontainers>=4.12.0,<5.0.0"]
+
 [project.urls]
 Homepage = "https://github.com/open-feature/python-sdk-contrib"
 
@@ -40,6 +46,11 @@ dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "mypy>=1.18.0,<2.0.0",
   "poethepoet>=0.37.0",
+  # The `compose` extra, so the lazy import in compose.py is type-checked
+  # against the real DockerCompose rather than waved through. Nothing in this
+  # package's own tests starts a container -- the flagd adoption is what proves
+  # the harness end to end.
+  "testcontainers>=4.12.0,<5.0.0",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -74,6 +85,17 @@ fixed_format_cache = true
 pretty = true
 strict = true
 disallow_any_generics = false
+
+# testcontainers 4.14 ships no py.typed for `testcontainers.compose`, so the one
+# lazy import in compose.py cannot be checked against it. Scoped to that module
+# rather than made a global `ignore_missing_imports`, and it costs nothing here:
+# the harness talks to a stack through the `ComposeStack` protocol, which is what
+# the port resolution is actually checked against.
+[[tool.mypy.overrides]]
+module = [
+    "testcontainers.*",
+]
+ignore_missing_imports = true
 
 [tool.coverage.run]
 omit = ["tests/**"]

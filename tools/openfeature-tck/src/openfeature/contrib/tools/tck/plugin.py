@@ -21,6 +21,7 @@ import pytest
 from openfeature import api
 
 from .capability import Capability, capability_for_marker
+from .compose import ComposeBackend, RunningBackend, run_compose_backend
 from .config import TckConfig
 from .state import TckState
 
@@ -49,6 +50,37 @@ def pytest_configure(config: pytest.Config) -> None:
             "markers",
             f"{capability.value}: OpenFeature provider TCK capability {capability.tag}",
         )
+
+
+@pytest.fixture(scope="session")
+def tck_backend(compose_backend: ComposeBackend) -> typing.Iterator[RunningBackend]:
+    """The Compose stack under test, started once for the whole session.
+
+    Depends on an adopter-supplied ``compose_backend`` fixture returning a
+    :class:`~.compose.ComposeBackend`, and yields the started stack's control
+    and endpoint. An adoption then reads::
+
+        @pytest.fixture(scope="session")
+        def compose_backend() -> ComposeBackend:
+            return ComposeBackend(
+                compose_file="tests/tck/docker-compose.yaml",
+                backend_ports=[8013],
+            )
+
+        @pytest.fixture(scope="session")
+        def tck_config(tck_backend: RunningBackend) -> TckConfig:
+            ...
+
+    Session-scoped rather than module-scoped on purpose: two suites that drive
+    the same backend -- flagd's two resolvers, say -- must share one stack *and*
+    one control, because the control remembers whether a disconnect left the
+    backend down and two instances would each hold half of that knowledge.
+
+    Lazy, like every fixture: a provider with no backend never requests it,
+    never defines ``compose_backend``, and never needs Docker or the ``compose``
+    extra installed. See :mod:`~.compose`.
+    """
+    yield from run_compose_backend(compose_backend)
 
 
 @pytest.fixture

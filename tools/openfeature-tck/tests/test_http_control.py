@@ -28,18 +28,36 @@ from openfeature.contrib.tools.tck import (
 class _StubControlApi:
     """A control API that records every request and answers a scripted status."""
 
-    def __init__(self, statuses: dict[str, int] | None = None) -> None:
+    def __init__(
+        self,
+        statuses: dict[str, int] | None = None,
+        sequences: dict[str, list[int]] | None = None,
+    ) -> None:
         self.requests: list[tuple[str, str, str]] = []
         """(method, path, query) of every request, in order."""
 
         self.statuses = statuses or {}
+        self.sequences = sequences or {}
+        """Per-path statuses consumed one per request, for "not yet, then yes"."""
+
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self) -> None:
+                self._answer("POST")
+
+            def do_GET(self) -> None:
+                self._answer("GET")
+
+            def _answer(self, method: str) -> None:
                 path, _, query = self.path.partition("?")
-                stub.requests.append(("POST", path, query))
+                stub.requests.append((method, path, query))
                 status = stub.statuses.get(path, 200)
+                # Scripted as a list to answer differently on each call, which
+                # is how "not ready, then ready" is expressed.
+                sequence = stub.sequences.get(path)
+                if sequence:
+                    status = sequence.pop(0)
                 body = b'{"status":"stub"}'
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
@@ -232,3 +250,78 @@ def test_the_control_reports_which_api_it_drives_the_backend_through() -> None:
     """
     with _StubControlApi() as stub:
         assert HttpControl(stub.base_url).control_api == "http"
+
+
+# -- waiting for the control API ---------------------------------------------
+
+
+def test_await_ready_returns_as_soon_as_healthz_answers(
+    stub: _StubControlApi,
+) -> None:
+    """One probe against the control API itself, not a pause of a fixed length.
+
+    The readiness check is what replaced Java's post-command settle. It probes
+    the thing whose readiness is in question, so a control API that is slow to
+    come up is waited for and one that never does is reported.
+    """
+    control = HttpControl(stub.base_url)
+
+    control.await_ready(timeout=5.0)
+
+    assert stub.requests == [("GET", "/healthz", "")]
+
+
+def test_await_ready_treats_an_unimplemented_healthz_as_ready() -> None:
+    """404 is "not implemented", which ``control-api.yaml`` defines as ready.
+
+    Readiness then rests on the control port accepting a connection, which the
+    Compose harness has already established before it gets here. The reference
+    backend -- flagd-testbed's launchpad -- serves no ``/healthz`` at all, so
+    this is the normal path today rather than an edge case.
+    """
+    with _StubControlApi({"/healthz": 404}) as stub:
+        HttpControl(stub.base_url).await_ready(timeout=5.0)
+        assert stub.paths == ["/healthz"]
+
+
+def test_await_ready_keeps_probing_while_the_control_api_says_not_yet() -> None:
+    """503 is the control API saying "not ready", so it is retried, not accepted."""
+    with _StubControlApi(sequences={"/healthz": [503, 503, 200]}) as stub:
+        HttpControl(stub.base_url).await_ready(timeout=10.0)
+        assert stub.paths == ["/healthz", "/healthz", "/healthz"]
+
+
+def test_await_ready_gives_up_with_what_the_last_probe_saw() -> None:
+    """A stack that never becomes ready has to say what it was answering.
+
+    "did not become ready" on its own sends an adopter to the wrong place: a
+    connection refused is a stack that is not up, a 503 is one that is up and
+    not finished.
+    """
+    with _StubControlApi({"/healthz": 503}) as stub:
+        control = HttpControl(stub.base_url)
+        with pytest.raises(ControlApiError) as raised:
+            control.await_ready(timeout=0.3)
+
+    message = str(raised.value)
+    assert "was not ready within" in message
+    assert "HTTP 503" in message
+
+
+def test_await_ready_reports_a_control_api_that_is_not_there_at_all() -> None:
+    """Which is a stack that did not start, and reads differently from a 503."""
+    with _StubControlApi() as stub:
+        base_url = stub.base_url
+    # The server is closed, so nothing is listening on that port any more.
+
+    control = HttpControl(base_url)
+    with pytest.raises(ControlApiError) as raised:
+        control.await_ready(timeout=0.3)
+
+    assert "not reachable" in str(raised.value)
+
+
+def test_base_url_is_reportable_without_rebuilding_it() -> None:
+    """Whatever brought the stack up logs where the control API ended up."""
+    with _StubControlApi() as stub:
+        assert HttpControl(stub.base_url + "/").base_url == stub.base_url

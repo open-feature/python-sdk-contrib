@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 import typing
 import urllib.error
 import urllib.parse
@@ -10,7 +11,12 @@ import urllib.request
 
 from .control import BackendControl, ConnectionControl
 
-__all__ = ["DEFAULT_CONFIGURATION", "ControlApiError", "HttpControl"]
+__all__ = [
+    "DEFAULT_CONFIGURATION",
+    "DEFAULT_STARTUP_TIMEOUT",
+    "ControlApiError",
+    "HttpControl",
+]
 
 DEFAULT_CONFIGURATION = "default"
 """The configuration name every backend under test must support.
@@ -25,10 +31,23 @@ Control calls are local HTTP to a container on the same host; anything slower
 than this is a wedged backend rather than a slow one.
 """
 
+DEFAULT_STARTUP_TIMEOUT = 60.0
+"""Seconds to wait for a stack and its control API to become reachable.
+
+The same default every language's TCK uses, so an adopter porting an adoption
+between two of them does not find one of them more patient than the other.
+"""
+
 _NOT_IMPLEMENTED = frozenset({404, 501})
 """How a backend that does not implement ``/reset`` answers it, per the OpenAPI document."""
 
 _SUPPORTED_SCHEMES = frozenset({"http", "https"})
+
+_READY_PROBE_TIMEOUT = 5.0
+"""Seconds bounding a single readiness probe, so one wedged probe is not the whole wait."""
+
+_READY_POLL_INTERVAL = 0.2
+"""Seconds between readiness probes."""
 
 
 class ControlApiError(RuntimeError):
@@ -133,6 +152,70 @@ class HttpControl:
     @property
     def description(self) -> str:
         return f"the backend at {self._base_url}, driven over the control API"
+
+    @property
+    def base_url(self) -> str:
+        """The root of the control API this client drives."""
+        return self._base_url
+
+    def await_ready(self, timeout: float = DEFAULT_STARTUP_TIMEOUT) -> None:
+        """Block until the control API is ready to accept commands.
+
+        A real readiness check against the control API itself rather than a
+        fixed pause, and the only wait in this class. ``GET /healthz`` is the
+        optional readiness path in ``control-api.yaml``; a backend that does not
+        implement it answers 404, which the document states *is* ready --
+        readiness then rests on the control port accepting a connection, which
+        whatever started the stack has already established. A 503 is the control
+        API saying "not yet" and is retried.
+
+        Called once, before the first command, by whatever brought the stack up.
+        There is deliberately no counterpart *after* a command: a pause there
+        would cover a window the control API is specified to close on its own,
+        and a suite that sleeps instead of holding the API to that promise stops
+        being able to detect when the promise breaks.
+
+        :param timeout: seconds to keep probing before giving up.
+        :raises ControlApiError: if the control API is still not ready when the
+            timeout expires, quoting the last thing the probe saw.
+        """
+        deadline = time.monotonic() + timeout
+        last = "no probe completed"
+        while True:
+            try:
+                status = self._probe_health()
+            except OSError as error:
+                last = f"not reachable: {error}"
+            else:
+                # 404 is "not implemented", which the document defines as ready.
+                if self._is_success(status) or status == 404:
+                    return
+                last = f"answered HTTP {status}"
+
+            if time.monotonic() >= deadline:
+                msg = (
+                    f"the control API at {self._base_url} was not ready within "
+                    f"{timeout:g}s: GET /healthz {last}. The control API must be "
+                    f"reachable before the first scenario and must stay reachable "
+                    f"even while the backend is deliberately down"
+                )
+                raise ControlApiError(msg)
+            time.sleep(_READY_POLL_INTERVAL)
+
+    def _probe_health(self) -> int:
+        target = self._base_url + "/healthz"
+        # S310: __init__ rejects any base_url that is not http(s), and target is
+        # that validated base URL plus a literal path.
+        request = urllib.request.Request(target, method="GET")  # noqa: S310
+        try:
+            opened = urllib.request.urlopen(request, timeout=_READY_PROBE_TIMEOUT)  # noqa: S310
+            with opened as response:
+                response.read()
+                return int(response.status)
+        except urllib.error.HTTPError as error:
+            with error:
+                error.read()
+            return int(error.code)
 
     def prepare_scenario(self) -> None:
         """Bring the backend to the state every scenario starts from.
