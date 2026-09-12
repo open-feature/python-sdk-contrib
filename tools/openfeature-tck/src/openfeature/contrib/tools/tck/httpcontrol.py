@@ -9,7 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .control import BackendControl, ConnectionControl
+from .control import BackendControl, ConnectionControl, ControlApi
 
 __all__ = [
     "DEFAULT_CONFIGURATION",
@@ -89,6 +89,16 @@ class HttpControl:
     resets flag state at the cost of a process restart. The fallback is probed
     once and remembered for the rest of the suite.
 
+    **No settle after a control call, ever.** Every state-changing endpoint --
+    ``/start``, ``/change``, ``/reset`` -- owes the caller that the new state is
+    being served before it returns. A fixed delay here would buy silence rather
+    than correctness: it is un-tunable, because the window it covers is a
+    property of the backend and not of this client, and it hides the defect from
+    the one consumer positioned to notice. Where an adopter is stuck with a
+    backend that breaks the promise, the wait belongs in *that adoption*, set
+    explicitly and citing the defect, so that it disappears when the backend is
+    fixed instead of being inherited by every future adopter from here.
+
     **After a disconnect, ``/start`` rather than ``/reset``.** ``/reset`` is
     specified to restore flag state, not to bring a stopped backend back up, so
     a disconnect is recorded and the scenario that follows one is prepared with
@@ -103,7 +113,7 @@ class HttpControl:
         self,
         base_url: str,
         *,
-        configuration: str = DEFAULT_CONFIGURATION,
+        backend_configuration: str = DEFAULT_CONFIGURATION,
         timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
         """Build a control for the backend whose control API is rooted at ``base_url``.
@@ -112,9 +122,12 @@ class HttpControl:
             ``http://localhost:32768``. It must be built from the dynamically
             mapped host port of the control service, discovered after the stack
             is up -- a stack under test must not pin host ports.
-        :param configuration: the named flag configuration to seed. Defaults to
-            :data:`DEFAULT_CONFIGURATION`, the only name every backend must
-            support and the one serving the canonical flag set.
+        :param backend_configuration: the named flag configuration the backend
+            under test seeds. Defaults to :data:`DEFAULT_CONFIGURATION`, the
+            only name every backend must support and the one serving the
+            canonical flag set. Named for the backend because a report's
+            ``provider.configuration`` is a different thing entirely -- which
+            mode of the provider was tested.
         :param timeout: seconds bounding a single control-API request.
         """
         parsed = urllib.parse.urlsplit(base_url)
@@ -127,7 +140,7 @@ class HttpControl:
             raise ValueError(msg)
 
         self._base_url = base_url.rstrip("/")
-        self._configuration = configuration
+        self._backend_configuration = backend_configuration
         self._timeout = timeout
 
         self._lock = threading.Lock()
@@ -138,14 +151,12 @@ class HttpControl:
         self._backend_maybe_down = False
 
     @property
-    def control_api(self) -> str:
+    def control_api(self) -> ControlApi:
         """Report that this control drives its backend over the HTTP control API.
 
-        The optional property ``BackendControl`` documents. This is the one
-        control in the package that can answer it without qualification: every
-        operation below is an HTTP request to ``control-api.yaml``. Leaving it
-        unsaid would put a report from the normative control path on the same
-        footing as one from a control that declined to say which path it took.
+        Every operation below is an HTTP request to ``control-api.yaml``, so
+        this is the one control in the package that can answer without
+        qualification.
         """
         return "http"
 
@@ -248,7 +259,18 @@ class HttpControl:
             self._reset_supported = True
 
     def change_flag(self) -> None:
-        """Mutate flag configuration so a conforming provider observes a change."""
+        """Mutate flag configuration so a conforming provider observes a change.
+
+        ``/change`` must not return until the new value is actually being
+        served, and that promise is about the **backend**: once this returns, a
+        fresh evaluation against the backend resolves the new value. How long
+        the *provider under test* takes to notice is a property of its transport
+        -- streaming sees it in milliseconds, a poller may need most of an
+        interval -- and that is what the suite's event timeout is for. There is
+        deliberately no wait here: a backend that returns before it serves the
+        new value makes the provider's detection latency unmeasurable, because
+        the clock would start before there is anything to detect.
+        """
         self._require("/change")
 
     def disconnect(self) -> None:
@@ -271,27 +293,25 @@ class HttpControl:
         """
         self._start()
 
-    def restart(self, seconds: int) -> None:
-        """Take the backend down for ``seconds`` and bring it back.
-
-        Part of the control API rather than of :class:`~.control.ConnectionControl`:
-        no scenario drives a bounded outage today, because
-        :meth:`disconnect`/:meth:`reconnect` let a scenario end the outage when
-        it is ready instead of guessing how long a provider needs to notice one.
-        Exposed because the operation is required of every backend and an
-        adopting suite may want it for its own tests.
-
-        Unlike ``/stop`` followed by ``/start``, this preserves flag state
-        across the outage.
-        """
-        with self._lock:
-            self._backend_maybe_down = True
-        self._require("/restart", {"seconds": str(seconds)})
-        with self._lock:
-            self._backend_maybe_down = False
+    # NO BINDING FOR ``POST /restart``
+    #
+    # The endpoint simulates a *bounded* outage, and it is ``[OPTIONAL]`` in
+    # ``control-api.yaml`` because no shipped scenario reaches it. The
+    # disconnect/reconnect scenario is written as an unbounded outage -- "the
+    # connection is lost", then "the connection is restored" -- which is
+    # :meth:`disconnect` followed by :meth:`reconnect`, so a scenario ends the
+    # outage when it is ready rather than guessing in advance how long the
+    # provider needs to notice one.
+    #
+    # A binding nothing can call is dead surface that also misreports the
+    # contract, by implying every backend under test owes the endpoint. Go's
+    # client left it out for the same reason. What would bring it back is
+    # written down: a ``@caching`` scenario asserting what a stale provider
+    # serves *during* an outage needs the flag-state preservation that
+    # ``/restart`` has and ``/stop`` + ``/start`` does not.
 
     def _start(self) -> None:
-        self._require("/start", {"config": self._configuration})
+        self._require("/start", {"config": self._backend_configuration})
         with self._lock:
             self._backend_maybe_down = False
 
