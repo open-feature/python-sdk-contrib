@@ -45,7 +45,7 @@ import pytest
 from openfeature.contrib.tools.tck import (
     EXTENSIONS_DIRECTORY,
     REPORT_DIR_ENV,
-    features_path,
+    canonical_root,
 )
 from openfeature.contrib.tools.tck.extensions import (
     CANONICAL_DIRECTORY,
@@ -55,6 +55,38 @@ from openfeature.contrib.tools.tck.extensions import (
 CANONICAL_FEATURE = "errors.feature"
 """The canonical file the shadowing fixture copies, chosen because it is the one
 whose scenarios an extension could most plausibly want to restate."""
+
+
+def _canonical_root() -> Path:
+    """The packaged canonical directory, or a failure that says how to get one.
+
+    ``canonical_root()`` answers ``None`` when the assets are not on a
+    filesystem, which is the honest answer for a zipimport and a missing build
+    step everywhere else.
+    """
+    root = canonical_root()
+    assert root is not None, (
+        "the packaged canonical features must be on a filesystem for this file "
+        "to have anything to say; run `poe sync-spec-assets` first"
+    )
+    return root
+
+
+CANONICAL_ROOT = _canonical_root()
+
+
+BASELINE_DIRECTORY = "baseline"
+"""Where the adoption that has no extensions of its own lives.
+
+A subdirectory rather than a second module beside the first, because all three
+adoptions now write the same line and what distinguishes them is where they are
+written. ``feature_paths()`` looks for an ``extensions`` directory beside the
+calling module, so a module one level down is an adopter with none.
+
+There used to be a second public call, ``features_path()``, which returned the
+canonical set alone and was what ``before`` used. It is gone: the two differed
+by one character and the shorter one silently dropped the extensions directory.
+"""
 
 VENDOR_URI = "extensions/vendor.feature"
 VENDOR_SCENARIO = "A vendor rule resolves through the suite's own provider"
@@ -73,7 +105,6 @@ from openfeature.contrib.tools.tck import (
     InProcessControl,
     TckConfig,
     feature_paths,
-    features_path,
 )
 
 
@@ -88,11 +119,8 @@ def tck_config():
     )
 
 
-scenarios({call})
+scenarios(*feature_paths())
 '''
-
-_EXTENSION_CALL = "*feature_paths()"
-_CANONICAL_CALL = "features_path()"
 
 # The step the adopter writes, in the adopter's own conftest.py and nowhere else.
 # It asks the TCK's own per-scenario state what provider this scenario is running
@@ -353,8 +381,8 @@ def _pytest(directory: Path, reports: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _suite(name: str, call: str = _EXTENSION_CALL) -> str:
-    return _SUITE_MODULE.format(name=name, call=call)
+def _suite(name: str) -> str:
+    return _SUITE_MODULE.format(name=name)
 
 
 def _run(
@@ -383,24 +411,24 @@ def _run(
 def adoption(tmp_path_factory: pytest.TempPathFactory) -> Run:
     """One session running three adoptions of the same provider.
 
-    ``before`` is the call an adopter writes today, ``scenarios(features_path())``,
-    which sees no extension however many are lying beside it. ``after`` is
-    ``scenarios(*feature_paths())`` with an ordinary extension beside it.
-    ``shadowed`` is the same again, in a directory of its own, with an extension
-    that is a verbatim copy of a canonical feature file placed under a directory
-    named ``gherkin`` -- so that both routes to a canonical identity, the file's
-    own name and its parent's, are taken at once.
+    All three write the same line, ``scenarios(*feature_paths())``, and differ
+    by where they are written. ``before`` sits one directory down with no
+    ``extensions`` beside it, which is an adopter who has none; ``after`` has an
+    ordinary extension beside it; ``shadowed`` is in a directory of its own with
+    an extension that is a verbatim copy of a canonical feature file placed
+    under a directory named ``gherkin`` -- so that both routes to a canonical
+    identity, the file's own name and its parent's, are taken at once.
 
     One session rather than three, because a subprocess pytest run is by far the
     most expensive thing in this file and the three suites are independent: each
     resolves its own ``TckConfig`` and writes its own pair of documents.
     """
-    canonical = (Path(features_path()) / CANONICAL_FEATURE).read_text(encoding="utf-8")
+    canonical = (CANONICAL_ROOT / CANONICAL_FEATURE).read_text(encoding="utf-8")
     return _run(
         tmp_path_factory,
         {
-            "test_before.py": _suite("before", _CANONICAL_CALL),
-            "test_after.py": _suite("after", _EXTENSION_CALL),
+            f"{BASELINE_DIRECTORY}/test_before.py": _suite("before"),
+            "test_after.py": _suite("after"),
             "conftest.py": _CONFTEST_MODULE,
             "shadow/test_shadow.py": _suite("shadowed"),
         },
@@ -480,18 +508,20 @@ def test_the_canonical_scenarios_are_the_ones_that_always_ran(
 ) -> None:
     """An extension adds; it does not alter.
 
-    ``before`` is the call an adopter writes today and sees no extension. Every
-    scenario it ran, ``after`` ran too -- same rows, same outcomes, same sources
-    -- and the only difference between the two is what the extension added. An
-    adopter who has no extensions is the same comparison with the right-hand side
-    empty, which is what ``feature_paths()`` returning the canonical path alone
-    makes true by construction rather than by luck.
+    ``before`` has no ``extensions`` directory beside it and sees no extension.
+    Every scenario it ran, ``after`` ran too -- same rows, same outcomes, same
+    sources -- and the only difference between the two is what the extension
+    added. An adopter who has no extensions is the same comparison with the
+    right-hand side empty, which is what ``feature_paths()`` returning the
+    canonical path alone makes true by construction rather than by luck.
     """
     assert adoption.result.returncode == 0, adoption.result.stdout
     before = adoption.report("before")
     after = adoption.report("after")
 
-    assert not before.extensions, "features_path() must see no extension"
+    assert not before.extensions, (
+        "a module with no extensions directory beside it must see no extension"
+    )
     assert {case.identity: case.status for case in after.canonical} == {
         case.identity: case.status for case in before.cases
     }
@@ -540,7 +570,7 @@ def test_an_extension_cannot_replace_a_canonical_feature_file(
     canonical_uri = f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
     extension_uri = f"extensions/{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
 
-    packaged = (Path(features_path()) / CANONICAL_FEATURE).read_text(encoding="utf-8")
+    packaged = (CANONICAL_ROOT / CANONICAL_FEATURE).read_text(encoding="utf-8")
     assert report.sources[canonical_uri] == packaged
     assert report.sources[extension_uri] == packaged
 
