@@ -65,9 +65,7 @@ def pytest_configure(config: pytest.Config) -> None:
             "markers",
             f"{capability.value}: OpenFeature provider TCK capability {capability.tag}",
         )
-    config.pluginmanager.register(
-        ReportEmitter(config), "openfeature-tck-report"
-    )
+    config.pluginmanager.register(ReportEmitter(config), "openfeature-tck-report")
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

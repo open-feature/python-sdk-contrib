@@ -511,9 +511,7 @@ class ReportEmitter:
             (run.identity.uri, run.identity.path) for run in runs
         )
         for uri, paths in sorted(collisions.items()):
-            self._fail(
-                session, f"tck [{name}]: {collision_problem(uri, paths)}"
-            )
+            self._fail(session, f"tck [{name}]: {collision_problem(uri, paths)}")
 
         return not reserved and not collisions
 
