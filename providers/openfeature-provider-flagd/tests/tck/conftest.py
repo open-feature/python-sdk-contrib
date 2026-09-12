@@ -14,7 +14,7 @@ the launchpad already implements, and reuses the container lifecycle already in
 ``tests/e2e``.
 
 **The testbed does not yet serve the whole canonical flag set.** The
-conformance assets at spec@26362f85 ask for three flags that flagd-testbed
+conformance assets at spec@009afe06 ask for three flags that flagd-testbed
 v3.8.0 (``openfeature/test-harness/version.txt``) does not seed:
 ``large-integer-flag``, ``huge-integer-flag`` and ``integral-float-flag``.
 Until open-feature/flagd-testbed catches up, both suites fail these scenarios
@@ -44,6 +44,17 @@ testbed change. It is the flag flagd-testbed's own ``targeting.feature`` already
 uses -- same key, same ``hit``/``miss`` variants, same uuid -- seeded from
 ``flags/testing-flags.json`` by the launchpad's ``default`` configuration, so
 the three ``@targeting`` scenarios pass on both resolvers as they stand.
+
+The four ``disabled-*`` flags, new in the canonical set at spec@009afe06, need
+no testbed change either, and for a sturdier reason than a coincidence of names:
+they *are* flagd-testbed's own, from ``flags/disabled-flags.json``, which the
+launchpad merges into ``flags/allFlags.json`` along with every other non-
+``selector-`` file in ``rawflags`` (``launchpad/pkg/json.go``) and serves under
+the ``default`` configuration. So the four ``@disabled-flags`` rows pass on both
+resolvers as they stand. The harness also seeds ``disabled-object-flag`` and
+``cross-flagset-flag``, which the canonical set deliberately does not ask for --
+an Object resolution would need ``@object`` as well, and a scenario needing two
+capability tags cannot be one row of a single outline.
 
 The falsy flags used to fail the same way and no longer do. ``ba002ce8`` renamed
 them to ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``,
