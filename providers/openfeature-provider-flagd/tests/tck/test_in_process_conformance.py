@@ -56,6 +56,23 @@ from tests.tck.suite import ResolverSuite, build_config
 #     and in_process.py carries it into the resolution details. The ruleset is
 #     keyed by variant, so there is always one to report.
 #
+#   DISABLED_FLAGS
+#     New at spec@009afe06. All four rows pass, and here that is the
+#     unsurprising half of the story: evaluation is local, so the resolver has
+#     the flag's state and the caller's default in the same call.
+#     flagd_core.py:143-145 returns the caller's `default_value` with reason
+#     Reason.DISABLED the moment a flag's state is DISABLED, before any
+#     targeting or variant selection. flagd_core.py:199-200 then skips the type
+#     check for that reason, which is what stops the substituted default from
+#     being re-typed against the flag it did not come from.
+#
+#     Probed directly, each of the four flags resolves to the caller's default
+#     with reason Reason.DISABLED, no variant and no error code -- the SDK's
+#     enum, where RPC hands back the server's bare 'DISABLED' string. Neither
+#     is asserted by the scenarios and 2.2.5 requires neither, so the difference
+#     is recorded rather than acted on. It is the sort of divergence between the
+#     two resolvers this pair of suites exists to surface.
+#
 #   TARGETING
 #     targeting.py:40-41 puts the evaluation context's targeting key into the
 #     JSON-logic context under `targetingKey`, and flagd_core.py:154 evaluates
@@ -129,6 +146,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
         Capability.VARIANTS,
+        Capability.DISABLED_FLAGS,
         Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
         Capability.LARGE_INTEGERS,
