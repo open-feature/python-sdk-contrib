@@ -94,6 +94,26 @@ different timescales — a streaming provider sees a configuration change in mil
 polls every 30 seconds may need most of a poll interval. Set it to comfortably exceed your
 worst-case detection latency, or the suite reports timeouts that are really just impatience.
 
+### Running it in CI
+
+**A containerised adoption suite is excluded from the default build, and a maintainer runs it by
+hand before merge.** That is the policy in all four languages' TCKs, and it is written down here
+because an exclusion nobody wrote down is indistinguishable from an oversight.
+
+Two reasons, and the second is the one that actually decides it:
+
+- It needs Docker, so it cannot be the thing that fails first for a contributor or a runner that has
+  none.
+- A conformance suite reports what is true of the stack under test, which includes failures that are
+  not the provider's — a canonical flag the backend does not seed yet, a backend that is behind the
+  spec revision. Those failures are the report. A gate that must be green cannot hold a suite whose
+  honest output is red, and an `xfail` to make it green would say the provider is at fault when the
+  backend is.
+
+So keep it out of the default test task, give it a task of its own, and run that before you merge.
+Both adoptions in this repository do exactly that — `poe test-tck` beside `poe test` — and each
+records its current tally in its own README, so a reviewer can tell a new failure from a known one.
+
 ## Adding your own scenarios
 
 A provider is rarely only a provider. flagd has `fractional` targeting, another vendor has a
@@ -419,6 +439,17 @@ control = HttpControl(f"http://localhost:{container.get_launchpad_port()}")
 one yourself when you use the Compose harness below: it is handed to you as `tck_backend.control`,
 already awaited ready.
 
+**A control must say which path it drove the backend through.** `control_api` is a required member of
+`BackendControl`, typed `ControlApi` — `Literal["http", "in-process"]` — with no default and no
+inference from the control's concrete type. `HttpControl` answers `"http"`, `InProcessControl`
+answers `"in-process"`, and a custom control states its own. It is the one fact that decides what
+everything else in a report is worth: the same scenarios passing over the control API and passing
+through in-process manipulation of a provider that *does* have a backend are not the same claim, and
+this is the only field that separates them. Nothing outside a control can tell the two apart, and
+every run is one or the other — so an absent value would not be "no claim made" but an unfalsifiable
+one. The type is closed, so `"HTTP"` or `"grpc"` is a type error here rather than a conformance
+report that fails schema validation somewhere else.
+
 ### The container stack
 
 The suite starts it. An adopter used to write the container wrapper — and every adopter wrote the
@@ -432,7 +463,7 @@ same one, which is why the flagd adoption alone carried a 122-line `conftest.py`
 | `backend_service` | no | `"backend"` | the Compose service hosting both the control API and the backend |
 | `control_port` | no | `8080` | container-internal port of the control API |
 | `additional_ports` | no | `{}` | extra service to ports, for a stack with more than one service. Resolved through the endpoint by service name |
-| `configuration` | no | `"default"` | the configuration name passed to `POST /start` |
+| `backend_configuration` | no | `"default"` | the configuration name passed to `POST /start` |
 | `startup_timeout` | no | `60.0` | seconds to wait for the stack and its control API to become reachable |
 
 Those names and defaults are fixed across all four languages' TCKs, so a provider shipped in two of
@@ -456,11 +487,21 @@ cannot connect three scenarios later.
 Startup is a real readiness check rather than a pause: the stack comes up with
 `docker compose up --wait`, then every declared port is waited on until it accepts a connection,
 then `HttpControl.await_ready()` probes `GET /healthz` until the control API answers. There is
-deliberately **no settle after a control call**. Java had a fixed 50ms one; flagd-testbed#394 makes
-`POST /start` block until the flags are evaluable, so the sleep covered a window that no longer
-exists — and a suite that sleeps instead of holding the control API to its promise stops being able
-to detect when the promise breaks. If dropping it makes an adoption flaky, that is a testbed defect
-worth filing, not a sleep worth restoring.
+deliberately **no settle after a control call**. Java had a fixed 50ms one, and `control-api.yaml`
+now states what makes it the wrong instrument: every state-changing endpoint — `/start`, `/change`,
+`/reset` — must not return until the new state is actually being served, so a delay here covers a
+window the backend is specified to close, and a suite that sleeps instead of holding the API to that
+promise stops being able to detect when the promise breaks. The delay is also un-tunable, because
+the window is a property of the backend and not of the harness.
+
+Backends do still break it — flagd-testbed's launchpad returns from `/start` as soon as `/readyz`
+answers, which is roughly 40 ms before the flags are evaluable, and
+[flagd-testbed#394](https://github.com/open-feature/flagd-testbed/pull/394) is open and unmerged. A
+provider that blocks in `initialize` absorbs that window; a stateless one lands in it. Where you are
+stuck with such a backend the wait belongs in **your adoption**, set explicitly and citing the
+defect, so it reads as a named workaround for one backend and disappears when the backend is fixed —
+see the OFREP adoption's `SettledControl`. It does not belong here, where every future adopter would
+inherit it without knowing why.
 
 `testcontainers` is an **optional** extra rather than a dependency:
 
@@ -496,8 +537,16 @@ Two of the API's requirements are easy to get wrong:
   running stack. Container orchestrators assign host ports dynamically and cannot reliably preserve
   them across a restart, so restarting silently invalidates every provider already pointed at the
   old port, and the failure looks like a flaky provider.
-- **`/start` resets flag state; `/restart` preserves it.** An outage must be observable as a change
-  in availability, never as a change in flag values.
+- **An outage must be observable as a change in availability, never as a change in flag values.**
+  `reconnect()` is `POST /start` with the configuration already in effect, which restores the same
+  baseline.
+- **There is no binding for `POST /restart`.** It simulates a *bounded* outage and is `[OPTIONAL]` in
+  `control-api.yaml`, because no shipped scenario reaches it: the disconnect/reconnect scenario is
+  written as an unbounded outage — "the connection is lost", then "the connection is restored" —
+  which is `disconnect()` then `reconnect()`, so the scenario ends the outage when it is ready rather
+  than guessing in advance how long the provider needs to notice one. What would bring the endpoint
+  back is a `@caching` scenario asserting what a stale provider serves *during* an outage, which
+  needs the flag-state preservation `/restart` has and `/stop` + `/start` does not.
 
 ### Providers with no backend
 
@@ -513,6 +562,9 @@ passes while proving nothing, because the path it exercised is not the path the 
 Connection-dependent scenarios have no meaning without a connection, so a backend-less control
 simply does not implement `ConnectionControl`, leaves `STALE` and `UNAVAILABLE_INIT` undeclared, and
 those scenarios are skipped with their reason.
+
+Such a control reports `control_api` as `"in-process"`, and that is the whole reason the field is
+required rather than guessed: the allowance is only narrow if a report says when it was taken.
 
 ## Findings
 
@@ -611,10 +663,10 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_lifecycle_steps` | the steps that call the provider directly | the in-memory suites skip `@lifecycle`, so the shutdown, re-initialise and metadata steps are driven against a recording provider instead |
 | `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
 | `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot take a canonical scenario's identity |
-| `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping and the control-API it reports, against a stubbed control API |
+| `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping, the control API it reports and the absence of a `/restart` binding, against a stubbed control API |
 
 ```
-163 passed, 35 skipped, 2 xfailed
+190 passed, 35 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
