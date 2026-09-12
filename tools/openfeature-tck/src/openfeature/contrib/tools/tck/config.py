@@ -29,36 +29,114 @@ DEFAULT_READY_TIMEOUT = 30.0
 class KnownDeviation:
     """A gap the provider is known to have, acknowledged rather than hidden.
 
-    Distinct from an undeclared capability, which is a choice the provider is
-    entitled to make: this is a defect against something the specification does
-    not treat as optional, with the gap tracked somewhere.
+    **A ``knownDeviations`` entry says: this provider fails to do something it is
+    required to do.** The requirement must be a numbered ``MUST``, or a rule the
+    implementation bound itself to elsewhere. Distinct from an undeclared
+    capability, which is a *choice* the provider is entitled to make: where the
+    specification permits the choice, withholding the capability **is** the
+    honest report, and a deviation entry would assert a defect that does not
+    exist.
+
+    It is legitimate in two shapes, and a report's results already distinguish
+    them:
+
+    1. **The capability is declared, the scenario runs, and it fails.** Prefer
+       this. The failure stays visible and the deviation says it is known and
+       why.
+    2. **The capability is withheld, and its scenarios skip.** Legitimate only
+       when the provider cannot attempt the behaviour at all, so running the
+       scenario would establish nothing. The deviation then explains the
+       absence, so a reader can tell a defect from a design decision.
+
+    Withdrawing a capability *in order to* turn a failing scenario into a skip is
+    the failure mode this field exists to prevent. If the provider attempts the
+    behaviour and gets it wrong, shape 1 is the honest report.
 
     It changes nothing about how the suite runs. The scenario still fails, and
     the results payload still reports it as failed -- a report that softened a
     failure into a footnote would hide exactly what the acknowledgement exists to
     keep visible. What this adds is the acknowledgement itself, in the envelope,
-    so that a consumer can tell a known and tracked gap from a surprise.
+    so that a consumer can tell a known gap from a surprise.
+
+    Build one with :meth:`tracked` or :meth:`untracked` rather than by calling
+    the constructor, so that which of the two a deviation is stays a decision
+    someone made rather than a field someone forgot. The same two forms exist in
+    the Go, Java and JavaScript suites.
     """
 
-    issue: str
-    """Where the gap is tracked. A URI, because the schema requires one."""
-
     summary: str
-    """What is wrong, for a person reading a comparison page."""
+    """What is wrong, for a person reading a comparison page.
+
+    Required. A deviation with no summary records that something is wrong without
+    saying what, which is worth less than the bare skip or failure it
+    accompanies.
+    """
+
+    issue: str | None = None
+    """Where the gap is tracked, or ``None`` when it is tracked nowhere yet.
+
+    Optional. There is a tracked and an untracked form, and naming an untracked
+    defect is still what separates it from a capability the provider chose to
+    withhold -- a declaration that merely omits the tag cannot say which of the
+    two happened. Prefer :meth:`tracked` as soon as there is an issue to point
+    at.
+    """
 
     capability: Capability | None = None
     """The capability the deviation concerns, when it maps to one.
 
-    Left out for a deviation against a mandatory scenario, which belongs to no
-    capability -- which is the common case, since a capability a provider fails
-    is usually one it should not have declared.
+    Left out when the gap is against a mandatory, ungated scenario, which belongs
+    to no capability.
+
+    A reserved capability is refused: no scenario carries the tag, so there is
+    nothing to deviate from. See :data:`~.capability.RESERVED_CAPABILITIES`.
     """
 
+    @classmethod
+    def tracked(
+        cls,
+        summary: str,
+        issue: str,
+        capability: Capability | None = None,
+    ) -> KnownDeviation:
+        """Record a deviation that is tracked somewhere.
+
+        :param summary: what the gap is.
+        :param issue: a URI where it is tracked.
+        :param capability: the capability the gap concerns, or ``None`` when the
+            gap is against a mandatory scenario and so belongs to no capability.
+        """
+        return cls(summary=summary, issue=issue, capability=capability)
+
+    @classmethod
+    def untracked(
+        cls,
+        summary: str,
+        capability: Capability | None = None,
+    ) -> KnownDeviation:
+        """Record a deviation that is not tracked anywhere yet.
+
+        Worth declaring even so: naming the defect is what separates it from a
+        capability the provider chose to withhold. Prefer :meth:`tracked` as soon
+        as there is an issue to point at.
+
+        :param summary: what the gap is.
+        :param capability: the capability the gap concerns, or ``None`` when the
+            gap is against a mandatory scenario and so belongs to no capability.
+        """
+        return cls(summary=summary, capability=capability)
+
+    @property
+    def is_tracked(self) -> bool:
+        """Whether this deviation points at somewhere the gap is tracked."""
+        return bool(self.issue)
+
     def as_json(self) -> dict[str, typing.Any]:
-        document: dict[str, typing.Any] = {
-            "issue": self.issue,
-            "summary": self.summary,
-        }
+        document: dict[str, typing.Any] = {"summary": self.summary}
+        # Omitted rather than null: the schema's `issue` is a uri-formatted
+        # string when present, so an untracked deviation leaves the key out.
+        if self.issue is not None:
+            document["issue"] = self.issue
         if self.capability is not None:
             document["capability"] = self.capability.tag
         return document
@@ -205,6 +283,7 @@ class TckConfig:
         object.__setattr__(self, "known_deviations", tuple(self.known_deviations))
 
         problems.extend(reserved_problems(self.capabilities))
+        problems.extend(deviation_problems(self.known_deviations))
 
         if (
             Capability.UNAVAILABLE_INIT in self.capabilities
@@ -272,6 +351,55 @@ def reserved_problems(declared: Iterable[Capability]) -> list[str]:
         f"and nothing examined. The declarable capabilities, which is what "
         f"DECLARABLE_CAPABILITIES holds, are {declarable}"
     ]
+
+
+def deviation_problems(deviations: Sequence[KnownDeviation]) -> list[str]:
+    """Refuse a deviation that says nothing a consumer can use.
+
+    The rules are deliberately narrow. A deviation is prose written by the
+    provider author for a human comparing providers, and no suite can check
+    prose; what it can check is that the prose is there and that the capability
+    it names is one a scenario could have been gated on.
+
+    A reserved capability is refused for the same reason declaring one is: no
+    scenario carries the tag, so there is no failure and no skip for the
+    deviation to explain, and nothing it could be about.
+    """
+    problems: list[str] = []
+
+    for index, deviation in enumerate(deviations):
+        if not deviation.summary or not deviation.summary.strip():
+            problems.append(
+                f"known_deviations[{index}] has no summary: a deviation exists to "
+                f"say what the gap is, and one that does not say it leaves a "
+                f"consumer no better off than the bare skip or failure it "
+                f"accompanies. It is the one field the report schema requires"
+            )
+
+        capability = deviation.capability
+        if capability is None:
+            # Legitimate: the gap is against a mandatory, ungated scenario,
+            # which belongs to no capability.
+            continue
+
+        if not isinstance(capability, Capability):
+            problems.append(
+                f"known_deviations[{index}] names unknown capability "
+                f"{capability!r}: capabilities are the members of the Capability "
+                f"enum"
+            )
+            continue
+
+        if capability.reserved:
+            problems.append(
+                f"known_deviations[{index}] names the reserved capability "
+                f"{capability.tag}: no scenario carries that tag, so nothing was "
+                f"failed or skipped for this deviation to explain and no result "
+                f"could show the gap. Remove it, or name the capability whose "
+                f"scenarios the gap actually affects"
+            )
+
+    return problems
 
 
 def capabilities_of(values: Iterable[Capability]) -> frozenset[Capability]:
