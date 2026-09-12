@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     CHANGING_FLAG_KEY,
     ConnectionControl,
     ControllableInMemoryProvider,
@@ -20,11 +20,11 @@ from openfeature.contrib.tools.provider_tck import (
     canonical_flag_set,
     canonical_flags_json,
 )
-from openfeature.contrib.tools.provider_tck.provider import (
+from openfeature.contrib.tools.tck.provider import (
     _decode_canonical_flags,
     changing_flag,
 )
-from openfeature.contrib.tools.provider_tck.values import describe, values_equal
+from openfeature.contrib.tools.tck.values import describe, values_equal
 from openfeature.event import ProviderEvent
 from openfeature.flag_evaluation import FlagType, Reason
 from openfeature.provider.in_memory_provider import InMemoryFlag

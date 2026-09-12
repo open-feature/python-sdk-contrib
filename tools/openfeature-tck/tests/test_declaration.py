@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     DECLARABLE_CAPABILITIES,
     RESERVED_CAPABILITIES,
     BackendControl,
@@ -37,7 +37,7 @@ from openfeature.contrib.tools.provider_tck import (
     TckConfig,
     features_path,
 )
-from openfeature.contrib.tools.provider_tck.capability import (
+from openfeature.contrib.tools.tck.capability import (
     capability_for_marker,
     capability_for_tag,
 )

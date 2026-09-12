@@ -24,19 +24,19 @@ from collections.abc import Iterator
 import pytest
 
 from openfeature import api
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
     TckConfig,
     TckState,
     canonical_flag_set,
 )
-from openfeature.contrib.tools.provider_tck.steps.flag_steps import (
+from openfeature.contrib.tools.tck.steps.flag_steps import (
     a_flag_with_key_and_default,
     no_exception_should_have_been_thrown,
     the_flag_was_evaluated_with_details,
     the_resolved_value_should_be,
 )
-from openfeature.contrib.tools.provider_tck.steps.provider_steps import (
+from openfeature.contrib.tools.tck.steps.provider_steps import (
     a_stable_provider,
     the_provider_is_initialized_again,
     the_provider_is_shut_down,

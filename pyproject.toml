@@ -16,7 +16,7 @@ dependencies = [
     "openfeature-flagd-api",
     "openfeature-flagd-core",
     "openfeature-flagd-api-testkit",
-    "openfeature-provider-tck",
+    "openfeature-tck",
 ]
 
 [dependency-groups]
@@ -44,7 +44,7 @@ openfeature-provider-unleash = { workspace = true }
 openfeature-flagd-api = { workspace = true }
 openfeature-flagd-core = { workspace = true }
 openfeature-flagd-api-testkit = { workspace = true }
-openfeature-provider-tck = { workspace = true }
+openfeature-tck = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -63,7 +63,7 @@ exclude = [
     "providers/openfeature-provider-flagd/src/openfeature/schemas/**",
     # Submodules of other repositories: not ours to lint or format.
     "providers/openfeature-provider-flagd/openfeature/spec/**",
-    "tools/openfeature-provider-tck/spec/**",
+    "tools/openfeature-tck/spec/**",
 ]
 
 [tool.ruff.lint]

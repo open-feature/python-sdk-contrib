@@ -232,7 +232,7 @@ class TckConfig:
         for a provider holding a network connection means leaking one connection
         per scenario.
         """
-        return f"provider-tck/{self.name}"
+        return f"tck/{self.name}"
 
     def declares(self, capability: Capability) -> bool:
         return capability in self.capabilities
