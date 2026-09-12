@@ -39,13 +39,48 @@ provider has (``ofrep/__init__.py:52``); everything else the TCK offers -- event
 timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 """
 
-# Every capability below is declared on the strength of a line of provider code,
-# not on the strength of a green run.
+# VARIANTS and TARGETING below were declared, the suite run, and their scenarios
+# seen to pass -- bar the one row named under VARIANTS, which fails on a flag the
+# testbed does not seed. The code references say where the behaviour lives, so a
+# reader can check a claim; they are not the evidence for it. That order is
+# Appendix F's rule as of spec@26362f85, and this file used to state the reverse.
+#
+# NUMERIC_COERCION is the entry that rule has yet to be applied to, and it is
+# stated here rather than left to be discovered: the run fails two of its three
+# scenarios, so it is declared on something other than a green run. See its note
+# below for the measurement and for what the flagd suites did with the same
+# finding.
 #
 #   OBJECT
 #     ofrep/__init__.py:105-113 resolves structured values, and the type check at
 #     ofrep/__init__.py:248 admits `(dict, list)` for FlagType.OBJECT -- so a JSON
 #     object comes back as one rather than being rejected or flattened.
+#
+#   VARIANTS
+#     ofrep/__init__.py:160 carries the response's `variant` field into the
+#     resolution details, and flagd names a variant for every flag it serves.
+#     Seven of the outline's eight rows pass. The eighth asks for
+#     large-integer-flag's `max-int32` and fails with the flag missing from the
+#     backend -- flagd-testbed v3.8.0 seeds neither large-integer-flag nor
+#     huge-integer-flag, which already fails the untagged precision scenario
+#     here and does the same in both flagd suites. Withholding the capability
+#     over it would say this provider does not name variants, which the other
+#     seven rows show is false, and would blame a missing flag on a capability
+#     the provider has. It is not a KnownDeviation either: a deviation is for a
+#     behaviour the provider is required to have and does not.
+#
+#   TARGETING
+#     ofrep/__init__.py:229-230 puts the evaluation context's targeting key into
+#     the request body's `context` object, so flagd evaluates
+#     targeting-key-flag's rule against it. All three scenarios pass -- the
+#     matching context, the non-matching one and no context at all -- which is
+#     what makes context passthrough observable here without an echo endpoint:
+#     a provider that dropped the context would resolve `miss` where `hit` is
+#     expected.
+#
+#     Worth noting for a protocol with no types on the wire: the whole of what
+#     is verified is that the key reached flagd, since nothing else about the
+#     context is keyed on by any canonical flag.
 #
 #   NUMERIC_COERCION
 #     ofrep/__init__.py:250 maps FlagType.INTEGER to `int`, and the isinstance
@@ -58,6 +93,24 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     numeric mismatch. Every type decision in this suite is made at those two
 #     lines, which is also why the one deviation recorded in conftest.py lives
 #     there.
+#
+#     Measured, and it does not support the declaration. One of the three
+#     scenarios passes -- the lossy half, where rejecting 0.5 is correct -- and
+#     the two lossless ones fail: integral-float-flag's 10.0 is a TYPE_MISMATCH
+#     where 10 is required, and integer-flag's 10 is one where 10.0 is. That is
+#     precisely the shortcut errors.feature warns of, "easy to get right by
+#     rejecting every float", and its comment states that a provider declaring
+#     the tag must satisfy all three.
+#
+#     The flagd suites reached this finding first and withdrew the tag for it:
+#     "Neither resolver satisfies all three @numeric-coercion scenarios, so
+#     neither declares it". The same conclusion follows here, and the same
+#     withdrawal is the consistent end of it -- the two failures would become
+#     skips carrying their reason, as they already do in both flagd suites. It is
+#     left declared for now because withdrawing it is a change to what this
+#     adoption claims rather than to how it is worded, and the claim is one to
+#     settle deliberately rather than in passing. Until then this note is the
+#     honest form of it: the tag is declared, the evidence is a run that fails.
 #
 # Not declared, and why. Each is a fact about the provider, established by
 # reading it -- OFREPProvider is stateless: it holds a requests.Session and a
@@ -122,18 +175,22 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     at feature level, and the gate skips a scenario when any capability
 #     gating it is undeclared. With LIFECYCLE withheld above, declaring this
 #     would leave the scenario skipped on @lifecycle and the claim unexamined:
-#     the same declare-what-nothing-exercises error the reserved tags below are
+#     the same declare-what-nothing-exercises error the reserved tag below is
 #     kept out for.
 #
-#   TARGETING, CACHING
-#     Reserved in the Capability enum; no scenario carries either tag. Declaring
-#     a capability nothing exercises would be a claim with no evidence behind it.
+#   CACHING
+#     Reserved in the Capability enum; no scenario carries the tag. Declaring a
+#     capability nothing exercises would be a claim with no evidence behind it.
+#     @targeting was reserved alongside it until spec@26362f85 gave it three
+#     scenarios, and is now declared above.
 #
-# The result matches the Go and Java OFREP adoptions, which reached the same two
-# capabilities from the same architecture, independently.
+# The withheld set matches the Go and Java OFREP adoptions, which reached the
+# same conclusions from the same architecture, independently.
 CAPABILITIES = frozenset(
     {
         Capability.OBJECT,
+        Capability.VARIANTS,
+        Capability.TARGETING,
         Capability.NUMERIC_COERCION,
     }
 )
