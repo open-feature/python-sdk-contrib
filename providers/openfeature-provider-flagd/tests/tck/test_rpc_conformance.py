@@ -11,14 +11,13 @@ import pytest
 from pytest_bdd import scenarios
 
 from openfeature.contrib.provider.flagd.config import ResolverType
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
-    HttpControl,
+    RunningBackend,
     TckConfig,
-    features_path,
+    feature_paths,
 )
-from tests.e2e.flagd_container import FlagdContainer
-from tests.tck.suite import ResolverSuite, build_config
+from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 
 # Every capability below was declared, the suite run, and the scenarios seen to
 # pass. The code references say where the behaviour lives, so a reader can check
@@ -176,6 +175,7 @@ RPC_CAPABILITIES = frozenset(
 RPC_SUITE = ResolverSuite(
     name="flagd-rpc",
     resolver_type=ResolverType.RPC,
+    backend_port=RPC_PORT,
     capabilities=RPC_CAPABILITIES,
     # RPC holds no ruleset of its own: it is ready as soon as the evaluation
     # stream is up, so it needs less headroom than in-process.
@@ -184,12 +184,15 @@ RPC_SUITE = ResolverSuite(
 
 
 @pytest.fixture(scope="session")
-def tck_config(
-    flagd_testbed: FlagdContainer,
-    flagd_control: HttpControl,
-    closed_port: int,
-) -> TckConfig:
-    return build_config(RPC_SUITE, flagd_testbed, flagd_control, closed_port)
+def tck_config(tck_backend: RunningBackend, closed_port: int) -> TckConfig:
+    """The whole of this adoption's wiring.
+
+    ``tck_backend`` is the TCK's own session-scoped fixture: it has already
+    started the Compose file ``tests/tck/conftest.py`` declares, discovered the
+    dynamically mapped host ports, built the control against the launchpad and
+    waited for it to accept commands.
+    """
+    return build_config(RPC_SUITE, tck_backend, closed_port)
 
 
-scenarios(features_path())
+scenarios(*feature_paths())
