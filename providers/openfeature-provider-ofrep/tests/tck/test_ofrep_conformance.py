@@ -108,23 +108,46 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # as normative OpenFeature. The honest record is the undeclared tag and the three
 # skips it produces.
 #
-#     Measured, and it does not support the declaration. One of the three
-#     scenarios passes -- the lossy half, where rejecting 0.5 is correct -- and
-#     the two lossless ones fail: integral-float-flag's 10.0 is a TYPE_MISMATCH
-#     where 10 is required, and integer-flag's 10 is one where 10.0 is. That is
-#     precisely the shortcut errors.feature warns of, "easy to get right by
-#     rejecting every float", and its comment states that a provider declaring
-#     the tag must satisfy all three.
+# DISABLED_FLAGS is withheld as well, new at spec@009afe06, and this one is a
+# provider defect rather than an architecture. Which is the opposite of what the
+# appendix predicts, so it is worth being exact about.
 #
-#     The flagd suites reached this finding first and withdrew the tag for it:
-#     "Neither resolver satisfies all three @numeric-coercion scenarios, so
-#     neither declares it". The same conclusion follows here, and the same
-#     withdrawal is the consistent end of it -- the two failures would become
-#     skips carrying their reason, as they already do in both flagd suites. It is
-#     left declared for now because withdrawing it is a change to what this
-#     adoption claims rather than to how it is worded, and the claim is one to
-#     settle deliberately rather than in passing. Until then this note is the
-#     honest form of it: the tag is declared, the evidence is a run that fails.
+# The appendix gates the tag on the reasoning that a provider "whose backend
+# decides, such as one speaking OFREP, cannot: the server never sees the
+# caller's default, so it has no way to return it". Neither half of that is the
+# obstacle here.
+#
+# Measured first. Declaring the tag fails all four rows -- 6 failed, 37 passed,
+# 12 skipped, 1 xfailed, against the 2 failed of the run without it -- and each
+# fails on the error code rather than on the value: "error-code was 'GENERAL',
+# expected none". Then read back, and probed at the wire to be sure of the
+# reading. flagd's OFREP endpoint answers a disabled flag
+# `200 {"key": ..., "reason": "DISABLED", "metadata": {}}`: no `value`, and no
+# `variant`. The server does indeed never return a value, exactly as the
+# appendix says. It does not need to -- ofrep/__init__.py:153 already reads
+# `data.get("value", default_value)` and substitutes the caller's default for an
+# absent one, and the type check on the next line passes on it.
+#
+# What fails is ofrep/__init__.py:160, which indexes `data["variant"]`
+# unconditionally. flagd omits the member for a disabled flag, types.md types
+# the field `variant (string, optional)`, and the resolution raises
+# KeyError: 'variant'; the SDK catches it and reports GENERAL. So the whole of
+# the difference between passing and failing these four rows is one `.get`.
+#
+# Which puts the capability within reach of this provider rather than outside
+# it, and flagd's own RPC resolver satisfies the tag from the same signal in a
+# different envelope. It is withheld because a declaration has to rest on a run
+# and the run fails -- not because the architecture forbids it. The gap is an
+# unfiled defect in openfeature-provider-ofrep, and it is not confined to
+# disabled flags: the same index breaks on any OFREP response that omits the
+# variant, which the field being optional permits for any reason a server
+# reports without one.
+#
+# No knownDeviation entry, for the reason the numeric-coercion note above gives:
+# a deviation records a gap in behaviour the provider is required to have, and
+# @disabled-flags is a declared capability rather than a requirement. The honest
+# record is the undeclared tag, the four skips it produces, and this note saying
+# the gap is a bug somebody can fix rather than a fact of the protocol.
 #
 # Not declared, and why. Each is a fact about the provider, established by
 # reading it -- OFREPProvider is stateless: it holds a requests.Session and a
