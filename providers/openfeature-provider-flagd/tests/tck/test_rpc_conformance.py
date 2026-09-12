@@ -60,6 +60,27 @@ from tests.tck.suite import ResolverSuite, build_config
 #     details for every typed call, and flagd names a variant for every flag in
 #     the testbed's set.
 #
+#   DISABLED_FLAGS
+#     New at spec@009afe06. All four rows pass, which is worth saying plainly
+#     because the appendix's own rationale for gating the tag predicts they
+#     would not: it reasons that a provider "whose backend decides, such as one
+#     speaking OFREP", cannot substitute a default the server never saw. RPC is
+#     a remote evaluator by exactly that description, and it substitutes anyway.
+#
+#     Measured, and then read back to find out how. flagd answers a disabled
+#     flag with reason DISABLED, no variant, and the zero value of the response
+#     proto -- ResolveBoolean's `value` field is simply unset -- and
+#     grpc.py:468-472 replaces that with the caller's `default_value` whenever
+#     the reason is DEFAULT or DISABLED and no variant came back. So the
+#     substitution is local even though the evaluation is not: what crosses the
+#     wire is the signal, and the provider already holds the default.
+#
+#     Probed directly, each of the four flags resolves to the caller's default
+#     with reason 'DISABLED', no variant and no error code. The reason arrives
+#     as the server's bare string rather than the SDK's Reason enum, which the
+#     scenarios do not assert and 2.2.5 does not require -- worth noting only
+#     because the in-process resolver differs there, returning Reason.DISABLED.
+#
 #   TARGETING
 #     grpc.py:492 puts the evaluation context's targeting key into the request's
 #     context struct, so the server evaluates targeting-key-flag's rule against
@@ -145,6 +166,7 @@ RPC_CAPABILITIES = frozenset(
         Capability.CONFIGURATION_CHANGE,
         Capability.OBJECT,
         Capability.VARIANTS,
+        Capability.DISABLED_FLAGS,
         Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
         Capability.LARGE_INTEGERS,
