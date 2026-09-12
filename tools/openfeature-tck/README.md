@@ -26,7 +26,7 @@ mechanism once, not exhaustive coverage. Breaking changes should be expected.
 
 ## Adopting it
 
-One fixture and one call. It uses **pytest-bdd**, the same runner the flagd provider and the flagd
+Two fixtures and one call. It uses **pytest-bdd**, the same runner the flagd provider and the flagd
 testkit already use, so an adopting package gains no new test framework.
 
 ```python
@@ -35,24 +35,44 @@ from pytest_bdd import scenarios
 
 from openfeature.contrib.tools.tck import (
     Capability,
+    ComposeBackend,
+    RunningBackend,
     TckConfig,
     feature_paths,
 )
 
 
 @pytest.fixture(scope="session")
-def tck_config():
-    control = MyBackendControl()
+def compose_backend():
+    return ComposeBackend(
+        compose_file="tests/tck/docker-compose.yaml",
+        backend_ports=[8013],
+    )
+
+
+@pytest.fixture(scope="session")
+def tck_config(tck_backend: RunningBackend):
     return TckConfig(
         name="my-provider",
-        control=control,
-        new_provider=lambda: MyProvider(control.address),
+        control=tck_backend.control,
+        new_provider=lambda: MyProvider(
+            host=tck_backend.endpoint.host,
+            port=tck_backend.endpoint.port(8013),
+        ),
         capabilities={Capability.EVENTS, Capability.OBJECT},
     )
 
 
 scenarios(*feature_paths())
 ```
+
+**The suite owns the container stack.** You name a Compose file, say which ports the provider
+connects to, and build a provider from the endpoint you are handed. Starting the stack, discovering
+the dynamically mapped host ports, building the HTTP control against the control API, waiting until
+it accepts commands and tearing down afterwards are all the suite's - see
+[The container stack](#the-container-stack). A provider with **no** backend supplies a
+`BackendControl` of its own instead and needs no Compose file and no container tooling - see
+[Providers with no backend](#providers-with-no-backend).
 
 There is **no `conftest.py` to write and nothing to import for the steps**. The step definitions
 arrive through this package's pytest plugin, registered via a `pytest11` entry point, so installing
@@ -116,9 +136,16 @@ inside the installed distribution rather than in your repository. `feature_paths
 scenarios(*feature_paths())
 ```
 
-That line does not change when you add an extension, and it is the only difference from
-`scenarios(features_path())` — which still works and still sees only the canonical set. An adopter
-with no `extensions` directory runs exactly what they ran before: same scenarios, same count.
+That line does not change when you add an extension. An adopter with no `extensions` directory gets
+the canonical set alone, so adding one is a matter of creating a directory rather than of
+configuring anything.
+
+There used to be a second call, `features_path()`, which returned the canonical set on its own. It
+is **gone**. The two differed by one character at the call site and the shorter one silently dropped
+the extensions directory, so reaching for it produced a green run over fewer scenarios than the
+adopter believed had run — which is the worst failure mode available to a conformance suite, because
+nothing is there to notice. `canonical_root()` is the supported way to reach the packaged directory
+for anything that is not "the scenarios to run".
 
 ### Your scenarios cannot stand in for ours
 
@@ -335,10 +362,43 @@ up on and fails its scenario with a message rather than hanging the session.
 One further field on `TckConfig` says something a capability set cannot, and it is a declaration
 rather than a switch: it changes neither which scenarios run nor what they assert.
 
-`known_deviations=(KnownDeviation(issue=..., summary=...),)` acknowledges a gap against something the
-specification does *not* treat as optional, with somewhere it is tracked. It is an acknowledgement
-and not an excuse: the scenario still fails and the suite still fails with it. What the declaration
-adds is that the gap was known rather than a surprise.
+`known_deviations` acknowledges a gap against something the specification does *not* treat as
+optional. It is an acknowledgement and not an excuse: the scenario still fails and the suite still
+fails with it. What the declaration adds is that the gap was known rather than a surprise.
+
+```python
+TckConfig(
+    # ...
+    known_deviations=(
+        KnownDeviation.tracked(
+            summary="what is wrong, for someone comparing providers",
+            issue="https://github.com/open-feature/flagd/issues/1996",
+            capability=Capability.NUMERIC_COERCION,
+        ),
+    ),
+)
+```
+
+- **`summary` is required.** A deviation with no summary records that something is wrong without
+  saying what, which leaves a reader worse off than the bare skip or failure it accompanies.
+- **`issue` is optional**, and `KnownDeviation.untracked(summary=...)` is the form for a gap that is
+  not tracked anywhere yet. Naming an untracked defect is still what separates it from a capability
+  the provider chose to withhold; prefer the tracked form as soon as there is somewhere to point.
+- **`capability` is optional**, and left out when the gap is against a mandatory, ungated scenario.
+  A reserved capability is refused: no scenario carries the tag, so there is nothing to deviate
+  from.
+
+It is legitimate in two shapes, and **prefer the first**:
+
+1. **The capability is declared, the scenario runs, and it fails.** The failure stays visible and
+   the deviation says it is known and why.
+2. **The capability is withheld and its scenarios skip.** Legitimate only when the provider cannot
+   attempt the behaviour at all, so running the scenario would establish nothing. The deviation then
+   explains the absence, so a reader can tell a defect from a design decision.
+
+Withdrawing a capability *in order to* turn a failing scenario into a skip is the failure mode this
+field exists to prevent. Where the specification permits the choice, withholding the capability
+**is** the honest report and a deviation entry would assert a defect that does not exist.
 
 ## Controlling the backend
 
@@ -355,11 +415,70 @@ TCK drives the same endpoints against the same stack and must get the same answe
 control = HttpControl(f"http://localhost:{container.get_launchpad_port()}")
 ```
 
-`HttpControl` is built on `urllib.request` alone, so the TCK gains no HTTP client and no container
-dependency. **Orchestrating the stack stays with you**, where the vendor-specific knowledge already
-lives — which compose file, which services, which internal ports. That is a deliberate trade against
-the "provider authors write no test infrastructure" goal, and worth revisiting once a second
-containerised adopter shows what is actually common.
+`HttpControl` is built on `urllib.request` alone, so the TCK gains no HTTP client. You do not build
+one yourself when you use the Compose harness below: it is handed to you as `tck_backend.control`,
+already awaited ready.
+
+### The container stack
+
+The suite starts it. An adopter used to write the container wrapper — and every adopter wrote the
+same one, which is why the flagd adoption alone carried a 122-line `conftest.py` and a 170-line
+`suite.py` of it. `ComposeBackend` is the whole declaration:
+
+| field | required | default | meaning |
+| --- | --- | --- | --- |
+| `compose_file` | yes | — | path to the Compose file, resolved relative to the package directory |
+| `backend_ports` | yes | — | container-internal ports the **provider** connects to. The control port is exposed automatically and must not be listed here |
+| `backend_service` | no | `"backend"` | the Compose service hosting both the control API and the backend |
+| `control_port` | no | `8080` | container-internal port of the control API |
+| `additional_ports` | no | `{}` | extra service to ports, for a stack with more than one service. Resolved through the endpoint by service name |
+| `configuration` | no | `"default"` | the configuration name passed to `POST /start` |
+| `startup_timeout` | no | `60.0` | seconds to wait for the stack and its control API to become reachable |
+
+Those names and defaults are fixed across all four languages' TCKs, so a provider shipped in two of
+them writes one Compose file and two declarations against it.
+
+`tck_backend` is a session-scoped fixture this package's plugin supplies, and it yields two things:
+
+- `tck_backend.control` — the `HttpControl`, already awaited ready. Hand it to `TckConfig.control`.
+  One per stack: it remembers whether a disconnect left the backend down, so two suites driving the
+  same backend must share it.
+- `tck_backend.endpoint` — `host`, `port(internal)` and `port(internal, service=...)`. This is a
+  **factory argument, not a field**: the mapped ports do not exist until the stack is up, which is
+  why `TckConfig.new_provider` is a factory called once per scenario.
+
+Your Compose file must **not pin host ports**. Docker assigns them dynamically and the harness
+discovers them after startup; a pinned host port makes the suite unrunnable in parallel and collides
+with whatever you already have listening. Declaring `backend_ports` is what lets the harness say
+"the Compose file does not publish 8013" at startup rather than leaving you with a provider that
+cannot connect three scenarios later.
+
+Startup is a real readiness check rather than a pause: the stack comes up with
+`docker compose up --wait`, then every declared port is waited on until it accepts a connection,
+then `HttpControl.await_ready()` probes `GET /healthz` until the control API answers. There is
+deliberately **no settle after a control call**. Java had a fixed 50ms one; flagd-testbed#394 makes
+`POST /start` block until the flags are evaluable, so the sleep covered a window that no longer
+exists — and a suite that sleeps instead of holding the control API to its promise stops being able
+to detect when the promise breaks. If dropping it makes an adoption flaky, that is a testbed defect
+worth filing, not a sleep worth restoring.
+
+`testcontainers` is an **optional** extra rather than a dependency:
+
+```
+pip install 'openfeature-tck[compose]'
+```
+
+An in-memory adopter should not have to install container tooling to run a suite that never starts a
+container, so `compose.py` imports it lazily and says so if it is missing.
+
+If you want the fixture under a different name or scope, `run_compose_backend()` is the generator
+behind it:
+
+```python
+@pytest.fixture(scope="session")
+def tck_backend():
+    yield from run_compose_backend(ComposeBackend(...))
+```
 
 Two of its behaviours are worth knowing about:
 
@@ -521,9 +640,6 @@ both. Both declare `@variants`, since an in-memory flag set is keyed by variant 
   *whole* context arrives intact: a provider that forwards the targeting key and silently discards
   every other attribute passes. That needs either an echo operation on the control API or a second
   canonical flag whose rule keys on a custom attribute.
-- **No shared containerised-backend helper.** `HttpControl` drives the control API, but starting the
-  stack and discovering its mapped ports is still each adopter's own code. Abstracting that from a
-  single example tends to produce the wrong abstraction; it should wait for a second adopter.
 - **Caching, hooks and flag metadata** are not covered.
 
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
