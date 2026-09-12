@@ -71,11 +71,13 @@ def ofrep_control(tck_backend: RunningBackend, ofrep_base_url: str) -> SettledCo
     ``prepare_scenario`` takes the documented ``/start`` fallback. The probe
     costs one 404 for the whole session.
 
-    Wrapped in :class:`SettledControl` because ``/start`` returns before the
-    backend serves the flag set, and a stateless provider has no initialisation
-    to hide that window behind. See that module -- it is a finding about the
-    control API's guarantee, not a convenience, and it is a readiness probe over
-    the provider's own public endpoint rather than a sleep.
+    Wrapped in :class:`SettledControl` because this backend's ``/start``
+    returns before it serves the flag set -- which ``control-api.yaml`` forbids
+    in those words -- and a stateless provider has no initialisation to hide
+    that window behind. See that module: it is a named workaround for one
+    backend's defect, which is where Appendix F says such a wait belongs, and it
+    is a readiness probe over the provider's own public endpoint rather than a
+    sleep.
     """
     return SettledControl(tck_backend.control, ofrep_base_url)
 
