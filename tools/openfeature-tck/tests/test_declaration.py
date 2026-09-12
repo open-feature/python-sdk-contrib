@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import re
 import typing
-from pathlib import Path
 
 import pytest
 
@@ -35,7 +34,7 @@ from openfeature.contrib.tools.tck import (
     InProcessControl,
     KnownDeviation,
     TckConfig,
-    features_path,
+    canonical_root,
 )
 from openfeature.contrib.tools.tck.capability import (
     capability_for_marker,
@@ -80,7 +79,9 @@ def _canonical_tags() -> set[str]:
     those scenarios will go once they exist.
     """
     tags: set[str] = set()
-    for feature in sorted(Path(features_path()).glob("*.feature")):
+    root = canonical_root()
+    assert root is not None, "the packaged canonical features are not on a filesystem"
+    for feature in sorted(root.glob("*.feature")):
         for line in feature.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
             if stripped.startswith("@"):
@@ -229,26 +230,89 @@ def test_the_refusal_says_what_may_be_declared_instead() -> None:
 # -- acknowledging a gap -----------------------------------------------------
 
 
+ISSUE = "https://github.com/open-feature/python-sdk/issues/619"
+
+
 def test_a_known_deviation_carries_its_capability_only_when_it_has_one() -> None:
-    """The common case has none: a mandatory scenario belongs to no capability.
+    """A deviation against a mandatory, ungated scenario belongs to no capability.
 
     Omitted rather than null, because the field is the answer to "which
     capability does this concern" and there is not always one.
     """
-    issue = "https://github.com/open-feature/python-sdk/issues/619"
-    mandatory = KnownDeviation(issue=issue, summary="a boolean satisfies an Integer")
-    assert mandatory.as_json() == {"issue": issue, "summary": mandatory.summary}
+    mandatory = KnownDeviation.tracked(
+        summary="a boolean satisfies an Integer", issue=ISSUE
+    )
+    assert mandatory.as_json() == {"issue": ISSUE, "summary": mandatory.summary}
 
-    attributed = KnownDeviation(
-        issue=issue,
+    attributed = KnownDeviation.tracked(
         summary="a lossy float satisfies an Integer",
+        issue=ISSUE,
         capability=Capability.NUMERIC_COERCION,
     )
     assert attributed.as_json() == {
-        "issue": issue,
+        "issue": ISSUE,
         "summary": attributed.summary,
         "capability": Capability.NUMERIC_COERCION.tag,
     }
+
+
+def test_an_untracked_deviation_is_a_form_of_its_own() -> None:
+    """Because a gap with nowhere to point at is still worth naming.
+
+    Naming the defect is what separates it from a capability the provider chose
+    to withhold; a declaration that merely omits the tag cannot say which of the
+    two happened. This suite had no way to record one until now -- ``issue`` was
+    required -- and was the only one of the four that had not.
+
+    ``issue`` is left out of the payload rather than sent as null: the report
+    schema types it as a uri-formatted string when present, and requires only
+    ``summary``.
+    """
+    untracked = KnownDeviation.untracked(
+        summary="the lossy half of the coercion rule is not enforced",
+        capability=Capability.NUMERIC_COERCION,
+    )
+
+    assert not untracked.is_tracked
+    assert untracked.issue is None
+    assert untracked.as_json() == {
+        "summary": untracked.summary,
+        "capability": Capability.NUMERIC_COERCION.tag,
+    }
+
+    assert KnownDeviation.tracked(summary="a gap", issue=ISSUE).is_tracked
+
+
+def test_a_deviation_with_no_summary_is_refused() -> None:
+    """It records that something is wrong without saying what.
+
+    Which leaves a reader worse off than the bare skip or failure it
+    accompanies, and it is the one field the report schema requires. Refused at
+    construction, where the adopter's own code is still on the stack to say
+    which line to fix.
+    """
+    with pytest.raises(ValueError, match="known_deviations\\[0\\] has no summary"):
+        _config(known_deviations=[KnownDeviation.untracked(summary="   ")])
+
+
+def test_a_deviation_may_not_name_a_reserved_capability() -> None:
+    """No scenario carries the tag, so there is nothing to deviate from.
+
+    The same reason declaring one is refused: there is no failure and no skip
+    for the deviation to explain, so the entry would tell a reader only that
+    something was claimed about something nothing examined.
+    """
+    reserved = next(iter(RESERVED_CAPABILITIES))
+    with pytest.raises(ValueError) as raised:
+        _config(
+            known_deviations=[
+                KnownDeviation.untracked(summary="a gap", capability=reserved)
+            ]
+        )
+
+    message = str(raised.value)
+    assert f"names the reserved capability {reserved.tag}" in message
+    assert "nothing was failed or skipped" in message
 
 
 def test_known_deviations_are_normalised_and_change_nothing_about_the_run() -> None:
@@ -258,7 +322,9 @@ def test_known_deviations_are_normalised_and_change_nothing_about_the_run() -> N
     nothing here makes a scenario pass, skip, or be collected differently, which
     is why a suite declaring one still fails on it.
     """
-    deviation = KnownDeviation(issue="https://example.invalid/1", summary="a gap")
+    deviation = KnownDeviation.tracked(
+        summary="a gap", issue="https://example.invalid/1"
+    )
     config = _config(known_deviations=[deviation])
     assert config.known_deviations == (deviation,)
     assert _config().known_deviations == ()
