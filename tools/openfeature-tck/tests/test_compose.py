@@ -109,7 +109,7 @@ def test_the_defaults_are_the_ones_every_language_fixes() -> None:
     assert backend.backend_service == "backend"
     assert backend.control_port == 8080
     assert backend.additional_ports == {}
-    assert backend.configuration == "default"
+    assert backend.backend_configuration == "default"
     assert backend.startup_timeout == 60.0
 
     assert DEFAULT_BACKEND_SERVICE == "backend"
