@@ -60,7 +60,6 @@ __all__ = [
     "collision_problem",
     "extension_root",
     "feature_paths",
-    "features_path",
     "is_canonical",
     "is_canonical_uri",
     "reserved_prefix_problem",
@@ -115,12 +114,20 @@ uri inherited a local choice.
 """
 
 
-def features_path() -> str:
-    """Return the directory holding the canonical feature files.
+def _canonical_path() -> str:
+    """The packaged directory holding the canonical feature files.
 
-    Packaged with this distribution, so a consumer needs no submodule and no
-    particular directory layout. This is the canonical set on its own; prefer
-    :func:`feature_paths`, which also picks up an adopter's own scenarios.
+    Deliberately not public. It used to be, as ``features_path()``, and the
+    public pair was a trap: ``scenarios(features_path())`` and
+    ``scenarios(*feature_paths())`` are both valid calls, differ by one
+    character at the call site, and the first one silently drops the extensions
+    directory. What that produces is a green run that examined fewer scenarios
+    than the adopter believes it did, which is the worst failure mode available
+    to a conformance suite -- worse than a red one, because nothing is there to
+    notice. Both flagd suites and the OFREP suite were calling it.
+
+    :func:`canonical_root` is the supported way to reach the directory for
+    anything that is not "the scenarios to run".
     """
     return str(importlib.resources.files(_PACKAGE) / CANONICAL_DIRECTORY)
 
@@ -145,7 +152,7 @@ def feature_paths() -> tuple[str, ...]:
     with no ``__file__`` -- an interactive session, an exec'd string -- gets the
     canonical set alone.
     """
-    paths = [features_path()]
+    paths = [_canonical_path()]
     directory = _caller_directory()
     if directory is not None:
         extensions = extension_root(directory)
@@ -173,7 +180,7 @@ def canonical_root() -> Path | None:
     the honest answer and never a false accusation.
     """
     try:
-        return _resolve(Path(features_path()))
+        return _resolve(Path(_canonical_path()))
     except (OSError, TypeError):  # pragma: no cover - assets outside a filesystem
         return None
 
