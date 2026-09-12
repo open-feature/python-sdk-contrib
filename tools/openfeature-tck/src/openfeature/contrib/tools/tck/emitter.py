@@ -108,8 +108,8 @@ _MAX_MISSING = 10
 """How many missing canonical scenarios a failure names before summarising.
 
 Enough to act on and not so many that the reason is lost above them. A run with
-one scenario selected is missing twenty-eight, and listing all of them says
-nothing the count did not.
+one scenario selected is missing every other one the set has, and listing all of
+them says nothing the count did not.
 """
 
 
