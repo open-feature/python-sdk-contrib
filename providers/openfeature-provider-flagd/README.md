@@ -182,6 +182,34 @@ api.set_provider(FlagdProvider(
 ))
 ```
 
+## Provider conformance suite
+
+This provider runs the [OpenFeature Provider Conformance Suite][tck] against a flagd-testbed stack,
+once per resolver, in `tests/tck`. The suite owns the container stack: `tests/tck/conftest.py`
+declares a Compose file and the two ports the resolvers connect to, and nothing else.
+
+**It is excluded from the default build, and a maintainer runs it by hand before merging a change to
+it.**
+
+```
+poe test-tck        # both resolvers, needs Docker
+poe test            # everything else, which is what CI runs
+```
+
+The exclusion is a decision rather than an oversight, so here is the reason. It is not Docker —
+`tests/e2e` needs Docker too and does run in the default build. It is that a conformance suite
+reports what is true of the *stack* under test, and a full run today is **7 failed, 87 passed, 18
+skipped**: three canonical flags that flagd-testbed v3.8.0 does not seed yet, failing on each
+resolver, plus one genuine provider-side gap in `openfeature-flagd-core`. Those failures are the
+report. A gate that has to be green cannot hold a suite whose honest output is red, and an `xfail`
+to make it green would say the provider is at fault where the backend is.
+
+`tests/tck/conftest.py` accounts for all seven, individually, with the flag or requirement each one
+turns on — so a reviewer running the suite can tell a new failure from a known one, and the number
+above is what to expect.
+
+[tck]: ../../tools/openfeature-tck/README.md
+
 ## License
 
 Apache 2.0 - See [LICENSE](./LICENSE) for more information.
