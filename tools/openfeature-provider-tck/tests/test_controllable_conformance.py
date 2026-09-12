@@ -48,6 +48,12 @@ def tck_config() -> TckConfig:
     ``TARGETING`` stays undeclared for the reason given there as well: this is
     the same decoded flag set, and it ignores ``targeting-key-flag``'s rule.
     ``VARIANTS`` is declared, since the flag set is keyed by variant name.
+
+    ``DISABLED_FLAGS`` stays undeclared for the reason given there too, and this
+    class inherits it rather than choosing it: ``ControllableInMemoryProvider``
+    changes only how the flag set is *replaced*, and resolution -- including the
+    fact that ``InMemoryFlag.resolve`` never reads ``state`` -- is still the
+    SDK's. Measured the same way, with the same four failures.
     """
     control = InProcessControl()
     return TckConfig(

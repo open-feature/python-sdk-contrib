@@ -102,6 +102,19 @@ def tck_config() -> TckConfig:
       vacuously while the feature was gated on ``EVENTS``, which is precisely
       the failure mode the split of ``@lifecycle`` from ``@events`` exists to
       end. A skip with a reason is the honest outcome.
+    * ``DISABLED_FLAGS`` -- omitted because the SDK's in-memory provider ignores
+      a flag's ``state``. ``InMemoryFlag`` has a ``State`` enum with a
+      ``DISABLED`` member, ``_decode_canonical_flags`` reads the canonical
+      file's ``"state": "DISABLED"`` and passes it through faithfully, and
+      ``InMemoryFlag.resolve`` never looks at it -- so all four ``disabled-*``
+      flags are served at their own default variant with reason ``STATIC``,
+      where the scenarios expect the caller's default. Measured before it was
+      gated: the four rows failed on the value, ``disabled-boolean-flag``
+      resolving to ``True`` against a caller default of ``false``. The
+      capability is optional, so the honest report is a withheld declaration
+      rather than a ``KnownDeviation`` -- but unlike ``NUMERIC_COERCION`` this
+      one is a field the SDK offers and does not honour, which is finding 4 in
+      the README.
     * ``NUMERIC_COERCION`` -- omitted because the SDK's in-memory provider does
       not coerce. It hands each variant back untouched, and the client's type
       check is ``isinstance``-based, so ``integral-float-flag`` (``10.0``)

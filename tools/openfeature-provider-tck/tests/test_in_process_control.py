@@ -27,6 +27,7 @@ from openfeature.contrib.tools.provider_tck.provider import (
 from openfeature.contrib.tools.provider_tck.values import describe, values_equal
 from openfeature.event import ProviderEvent
 from openfeature.flag_evaluation import FlagType, Reason
+from openfeature.provider.in_memory_provider import InMemoryFlag
 
 _NOT_SEEDED = "this default must never be what a seeded flag resolves to"
 """The default value handed to every resolver below.
@@ -156,6 +157,35 @@ def _flag_type_of(value: typing.Any) -> FlagType:
     return FlagType.OBJECT
 
 
+_DISABLED_FLAGS: tuple[tuple[str, str], ...] = (
+    ("disabled-boolean-flag", "boolean-flag"),
+    ("disabled-string-flag", "string-flag"),
+    ("disabled-integer-flag", "integer-flag"),
+    ("disabled-float-flag", "float-flag"),
+)
+"""The flags the canonical file marks ``DISABLED``, paired with what each mirrors.
+
+Written out rather than derived from the file's ``state`` members, because the
+tests below read those members to decide what to assert and a check that reads
+the member deciding its own answer checks nothing. Four names and their
+counterparts are cheap to keep; a silently empty set is not.
+"""
+
+_IGNORES_STATE = (
+    ". That flag is DISABLED in the canonical file and is served anyway, because "
+    "InMemoryFlag carries a state and InMemoryFlag.resolve never reads it -- "
+    "which is why neither in-memory suite declares @disabled-flags. If this row "
+    "has begun to fail, the SDK has started honouring DISABLED and the "
+    "capability has become declarable for both of them"
+)
+"""Appended to a failure about one of the four disabled flags.
+
+They are in the sweep below rather than excluded from it, so a reader who hits
+one is told what the flag is and what its failing means, instead of finding an
+exclusion list and no reason for it.
+"""
+
+
 def test_every_packaged_flag_resolves_to_its_packaged_default_variant() -> None:
     """The whole of what seeding from the file has to achieve.
 
@@ -168,9 +198,20 @@ def test_every_packaged_flag_resolves_to_its_packaged_default_variant() -> None:
     more than an equality check: a flag the seeding dropped resolves to the
     default value with no variant and ``FLAG_NOT_FOUND``, and for the falsy
     flags that fallback value can equal what was expected.
+
+    **Including the four ``DISABLED`` flags, which is a finding rather than an
+    oversight.** Since spec revision ``009afe06`` the canonical set marks four
+    flags disabled, and the ``@disabled-flags`` scenarios expect each to resolve
+    to the caller's default. This provider resolves them to their own default
+    variant instead: the state survives decoding faithfully and
+    ``InMemoryFlag.resolve`` ignores it, so a disabled flag is indistinguishable
+    from an enabled one here. Sweeping them with everything else is therefore
+    the accurate statement of what this flag set does -- and the assertion that
+    obliges both in-memory suites to withhold the capability.
     """
     canonical = json.loads(canonical_flags_json())["flags"]
     provider = ControllableInMemoryProvider(canonical_flag_set())
+    ignores_state = {disabled for disabled, _ in _DISABLED_FLAGS}
 
     # Annotated explicitly, as in the evaluation step: the five typed resolvers
     # have different signatures, so an unannotated mapping infers a value type
@@ -187,15 +228,16 @@ def test_every_packaged_flag_resolves_to_its_packaged_default_variant() -> None:
     for key, definition in canonical.items():
         variant = definition["defaultVariant"]
         expected = definition["variants"][variant]
+        note = _IGNORES_STATE if key in ignores_state else ""
 
         details = resolvers[_flag_type_of(expected)](key, _NOT_SEEDED)
 
-        assert details.error_code is None, f"{key}: {details.error_message}"
-        assert details.variant == variant, key
-        assert details.reason == Reason.STATIC, key
+        assert details.error_code is None, f"{key}: {details.error_message}{note}"
+        assert details.variant == variant, f"{key}{note}"
+        assert details.reason == Reason.STATIC, f"{key}{note}"
         assert values_equal(expected, details.value), (
             f"{key}/{variant}: packaged {describe(expected)}, "
-            f"resolved {describe(details.value)}"
+            f"resolved {describe(details.value)}{note}"
         )
 
 
@@ -275,6 +317,65 @@ def test_no_decoded_flag_carries_targeting() -> None:
     )
     for key, flag in decoded.items():
         assert flag.context_evaluator is None, f"{key} has targeting"
+
+
+def test_exactly_the_four_disabled_flags_are_decoded_disabled() -> None:
+    """``state`` reaches the flag set, and reaches only the four flags it should.
+
+    Both halves are load-bearing. A decoder that dropped the member would leave
+    the canonical set with nothing disabled, and every scenario that assumes a
+    flag serves its own value would go on passing while ``@disabled-flags``
+    became untestable; a state that leaked onto any other flag would break those
+    scenarios instead, which Appendix F calls out as the way to break the set
+    silently.
+    """
+    decoded = canonical_flag_set()
+    disabled = {
+        key
+        for key, flag in decoded.items()
+        if flag.state is InMemoryFlag.State.DISABLED
+    }
+
+    assert disabled == {key for key, _ in _DISABLED_FLAGS}
+
+
+@pytest.mark.parametrize(("disabled", "enabled"), _DISABLED_FLAGS)
+def test_a_disabled_flag_mirrors_its_enabled_counterpart(
+    disabled: str, enabled: str
+) -> None:
+    """Differing only in state is what makes each row falsifiable.
+
+    Every ``@disabled-flags`` row passes a caller default that is the flag's
+    *other* variant, so a provider ignoring the state returns the configured
+    value and fails on the value alone. Bring the two variants together -- give
+    ``disabled-string-flag`` a ``greeting`` of ``bye`` -- and the row passes
+    whether the state was honoured or not, which is the one way this outline can
+    be made vacuous without changing a single scenario.
+
+    Stated as a mirror of the enabled counterpart rather than as four literal
+    values, because that is the property the file's own ``$comment`` and
+    Appendix F both claim, and it is the one a future edit would be reasoning
+    about.
+    """
+    decoded = canonical_flag_set()
+
+    assert decoded[disabled].variants == decoded[enabled].variants
+    assert decoded[disabled].default_variant == decoded[enabled].default_variant
+    assert decoded[enabled].state is InMemoryFlag.State.ENABLED
+
+    variants = dict(decoded[disabled].variants)
+    served = variants.pop(decoded[disabled].default_variant)
+    assert len(variants) == 1, (
+        f"{disabled} no longer offers exactly one other variant for a row's "
+        f"caller default to come from"
+    )
+    [other] = variants.values()
+    # Compared the way the Then step compares, because that is the comparison a
+    # vacuous row would slip past.
+    assert not values_equal(served, other), (
+        f"{disabled} would resolve {describe(served)} either way, so a provider "
+        f"that ignores DISABLED would pass its row"
+    )
 
 
 def test_the_hand_built_changing_flag_matches_the_file() -> None:
