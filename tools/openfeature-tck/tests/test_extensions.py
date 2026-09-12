@@ -41,8 +41,8 @@ import pytest
 
 from openfeature.contrib.tools.tck import (
     EXTENSIONS_DIRECTORY,
+    canonical_root,
     feature_paths,
-    features_path,
 )
 from openfeature.contrib.tools.tck.extensions import (
     CANONICAL_DIRECTORY,
@@ -55,6 +55,24 @@ from openfeature.contrib.tools.tck.extensions import (
     uri_collisions,
     uri_for,
 )
+
+
+def _canonical_root() -> Path:
+    """The packaged canonical directory, or a failure that says how to get one.
+
+    ``canonical_root()`` answers ``None`` when the assets are not on a
+    filesystem, which is the honest answer for a zipimport and a missing build
+    step everywhere else.
+    """
+    root = canonical_root()
+    assert root is not None, (
+        "the packaged canonical features must be on a filesystem for this file "
+        "to have anything to say; run `poe sync-spec-assets` first"
+    )
+    return root
+
+
+CANONICAL_ROOT = _canonical_root()
 
 CANONICAL_FEATURE = "errors.feature"
 """The canonical file the collision cases are written against, chosen because it
@@ -76,7 +94,6 @@ from openfeature.contrib.tools.tck import (
     InProcessControl,
     TckConfig,
     feature_paths,
-    features_path,
 )
 
 
@@ -91,11 +108,8 @@ def tck_config():
     )
 
 
-scenarios({call})
+scenarios(*feature_paths())
 '''
-
-_EXTENSION_CALL = "*feature_paths()"
-_CANONICAL_CALL = "features_path()"
 
 # The step the adopter writes, in the adopter's own conftest.py and nowhere else.
 # It asks the TCK's own per-scenario state what happened, which is what makes
@@ -217,20 +231,35 @@ def _run(
     return Run(directory=directory, result=result, outcomes=outcomes)
 
 
-def _suite(name: str, call: str = _EXTENSION_CALL) -> str:
-    return _SUITE_MODULE.format(name=name, call=call)
+def _suite(name: str) -> str:
+    return _SUITE_MODULE.format(name=name)
+
+
+BASELINE_DIRECTORY = "baseline"
+"""Where the adoption that has no extensions of its own lives.
+
+A subdirectory rather than a second module beside the first, because both
+adoptions now write the *same* line -- ``scenarios(*feature_paths())`` -- and
+what distinguishes them is where they are written. ``feature_paths()`` looks for
+an ``extensions`` directory beside the calling module, so a module one level
+down is an adopter with none, in a session where one exists a directory away.
+
+There used to be a second public call, ``features_path()``, which returned the
+canonical set alone and was what ``before`` used. It is gone: the two calls
+differed by one character and the shorter one silently dropped the extensions
+directory, so an adopter who reached for it got a green run over fewer scenarios
+than they believed they had run.
+"""
 
 
 @pytest.fixture(scope="module")
 def adoption(tmp_path_factory: pytest.TempPathFactory) -> Run:
     """One session running two adoptions of the same provider.
 
-    ``before`` is the call an adopter wrote before any of this,
-    ``scenarios(features_path())``, which sees no extension however many are
-    lying beside it. ``after`` is ``scenarios(*feature_paths())`` with an
-    ordinary extension beside it. Having both in one run is what lets "an
-    extension adds and does not alter" be a comparison rather than a number
-    written down here.
+    ``before`` is an adopter with no extensions directory of their own; ``after``
+    is the same adoption with an ordinary extension beside it. Having both in one
+    run is what lets "an extension adds and does not alter" be a comparison
+    rather than a number written down here.
 
     One session rather than two, because a subprocess pytest run is by far the
     most expensive thing in this file and the two suites are independent: each
@@ -239,8 +268,8 @@ def adoption(tmp_path_factory: pytest.TempPathFactory) -> Run:
     return _run(
         tmp_path_factory,
         {
-            "test_before.py": _suite("before", _CANONICAL_CALL),
-            "test_after.py": _suite("after", _EXTENSION_CALL),
+            f"{BASELINE_DIRECTORY}/test_before.py": _suite("before"),
+            "test_after.py": _suite("after"),
             "conftest.py": _CONFTEST_MODULE,
         },
         {f"{EXTENSIONS_DIRECTORY}/vendor.feature": _VENDOR_FEATURE},
@@ -336,16 +365,18 @@ def test_an_extension_adds_scenarios_and_alters_none(adoption: Run) -> None:
     assert {name: after[name] for name in before} == before
 
 
-def test_features_path_sees_no_extension_however_many_are_beside_it(
+def test_a_module_with_no_extensions_directory_beside_it_sees_no_extension(
     adoption: Run,
 ) -> None:
-    """The older call still means exactly what it meant: the canonical set.
+    """An extension belongs to the module it sits beside, and to no other.
 
-    Both generated suites sit in the same directory as the ``extensions``
-    directory, so the one that asks for ``features_path()`` is asking with an
-    extension in arm's reach and must still not see it.
+    ``before`` is one directory below the ``extensions`` directory this session
+    has, which is as close as an adopter with none can get to having one. It runs
+    the canonical set and nothing else, so the directory a module is in -- not
+    the session it runs in -- is what decides what it collects.
     """
     assert (adoption.directory / EXTENSIONS_DIRECTORY).is_dir()
+    assert not (adoption.directory / BASELINE_DIRECTORY / EXTENSIONS_DIRECTORY).exists()
     assert set(_of(adoption, "test_before")) < set(_of(adoption, "test_after"))
 
 
@@ -357,7 +388,7 @@ def test_feature_paths_is_the_canonical_set_when_there_is_no_extension_directory
 ):
     """This test module has no ``extensions`` beside it, and gets one path."""
     assert not (Path(__file__).parent / EXTENSIONS_DIRECTORY).exists()
-    assert feature_paths() == (features_path(),)
+    assert [Path(path).resolve() for path in feature_paths()] == [CANONICAL_ROOT]
 
 
 def test_an_extension_directory_counts_only_when_it_is_a_directory(
@@ -381,7 +412,7 @@ def test_an_extension_directory_counts_only_when_it_is_a_directory(
 
 def test_the_canonical_features_are_found_inside_the_distribution() -> None:
     """No submodule and no directory layout of the adopter's own."""
-    packaged = Path(features_path())
+    packaged = CANONICAL_ROOT
     assert (packaged / CANONICAL_FEATURE).is_file()
     assert is_canonical(packaged / CANONICAL_FEATURE)
     assert not is_canonical(Path(__file__))
@@ -409,7 +440,7 @@ def test_the_two_prefixes_are_the_ones_appendix_f_names() -> None:
 
 
 def test_the_canonical_assets_keep_the_reserved_prefix() -> None:
-    canonical = Path(features_path()) / CANONICAL_FEATURE
+    canonical = CANONICAL_ROOT / CANONICAL_FEATURE
     assert uri_for(canonical) == f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}"
     assert is_canonical_uri(f"{CANONICAL_DIRECTORY}/{CANONICAL_FEATURE}")
     assert (

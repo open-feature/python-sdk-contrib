@@ -21,7 +21,7 @@ from openfeature.contrib.tools.tck import (
     Capability,
     InProcessControl,
     TckConfig,
-    features_path,
+    feature_paths,
 )
 
 
@@ -70,4 +70,4 @@ def tck_config() -> TckConfig:
     )
 
 
-scenarios(features_path())
+scenarios(*feature_paths())
