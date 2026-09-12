@@ -256,11 +256,18 @@ class ComposeBackend:
         endpoint.port(9212, service="proxy")
     """
 
-    configuration: str = DEFAULT_CONFIGURATION
+    backend_configuration: str = DEFAULT_CONFIGURATION
     """The configuration name passed to ``POST /start``.
 
     ``default`` is the only name every backend must support, and the one that
     serves the canonical flag set the feature files assume.
+
+    Named for the *backend* because ``configuration`` on its own is already
+    taken, by the conformance report's ``provider.configuration`` -- which is
+    which materially different mode of the provider was tested, flagd's RPC
+    versus in-process, and which :attr:`TckConfig.name` feeds. The two are
+    unrelated and one word for both made a report's ``configuration`` mean
+    opposite things depending on which language's TCK produced it.
     """
 
     startup_timeout: float = DEFAULT_STARTUP_TIMEOUT
@@ -406,7 +413,7 @@ def run_compose_backend(
 
         control = HttpControl(
             f"http://{endpoint.host}:{endpoint.port(backend.control_port)}",
-            configuration=backend.configuration,
+            backend_configuration=backend.backend_configuration,
         )
         control.await_ready(backend.startup_timeout)
 
