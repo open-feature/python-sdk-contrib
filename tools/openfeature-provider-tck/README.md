@@ -161,6 +161,7 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.CONFIGURATION_CHANGE` | `@configuration-change` | detects configuration changes and emits `PROVIDER_CONFIGURATION_CHANGED` |
 | `Capability.OBJECT` | `@object` | supports structured flag values |
 | `Capability.VARIANTS` | `@variants` | names the variant it resolved, which [Requirement 2.2.4](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md) makes a `SHOULD` and `types.md` types as optional |
+| `Capability.DISABLED_FLAGS` | `@disabled-flags` | resolves a flag disabled in the management system to the code default |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | reports an error state instead of hanging against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces between integer and float only when lossless, else `TYPE_MISMATCH` |
 | `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly; undeclarable where the SDK's integer accessor is 32-bit |
@@ -225,6 +226,39 @@ context — no echo endpoint on the control API required. The three scenarios ar
 the non-matching one and no context at all; the second and third are not padding, since a provider
 that always returned the targeted value would pass the first and one that refuses to evaluate a rule
 with no targeting key is caught by the third.
+
+`@disabled-flags` is gated because it needs two things and only one of them comes for free. The
+caller's default value is held by the provider, which always has it. What the provider also needs is
+a **signal** that the flag was disabled, told apart from an ordinary resolution and from a missing
+flag — and that belongs to the backend and its protocol. One with no disabled state, or one that
+answers `FLAG_NOT_FOUND` for a disabled flag, gives the provider nothing to act on.
+
+[Appendix F][appendix-f] draws the line elsewhere — a provider whose backend decides, *"such as one
+speaking OFREP, cannot: the server never sees the caller's default, so it has no way to return it"* —
+and what this suite measured does not bear that out. flagd's RPC resolver is a remote evaluator by
+exactly that description and satisfies the capability: the server answers reason `DISABLED` with no
+variant and no value, and the resolver substitutes the caller's default locally on that signal.
+flagd's OFREP endpoint answers the same flag with `{"reason": "DISABLED"}` and no `value` and no
+`variant` — the same signal in another envelope — and the Python OFREP provider already falls back to
+the caller's default for the absent value. It fails these scenarios for a reason unrelated to
+architecture, which [its own suite](../../providers/openfeature-provider-ofrep/tests/tck/test_ofrep_conformance.py)
+records. The discrepancy belongs upstream rather than papered over here; what it changes locally is
+only what a withheld declaration may be read as — not necessarily an impossibility, so read the
+adoption's own note for which it was. Withholding still needs no `KnownDeviation`, for the reason
+every gated capability does: a deviation records a gap in behaviour the provider is *required* to
+have, and this one is optional.
+
+Nothing in the specification says what a provider owes a disabled flag:
+[Requirement 1.4.7](https://github.com/open-feature/spec/blob/main/specification/sections/01-flag-evaluation.md)
+is about the SDK propagating whatever reason arrived, and 2.2.5 only lists `DISABLED` among the
+reason strings a provider **may** use. So [Appendix F][appendix-f] states the behaviour, the way it
+does for `@numeric-coercion`, and gates it. Since spec revision `009afe06` the canonical set carries
+four `disabled-*` flags mirroring `boolean-flag`, `string-flag`, `integer-flag` and `float-flag`
+exactly, differing only in `state`, and one Scenario Outline of four rows asserts that each resolves
+to the caller's default. Each row's default differs from the flag's configured value, so a provider
+that ignores the state is caught on the value alone — 2.2.3, a `MUST`. The rows assert neither the
+reason, which would rest on 2.2.5's `SHOULD` and its "some other string", nor the variant, since a
+disabled flag has resolved none: `@disabled-flags` and `@variants` deliberately do not compose.
 
 Untagged scenarios are mandatory and always run. `capabilities` defaults to every *declarable*
 capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
@@ -359,7 +393,7 @@ those scenarios are skipped with their reason.
 
 ## Findings
 
-Three, all confirmed by running the suite rather than by reading code.
+Four, all confirmed by running the suite rather than by reading code.
 
 ### 1. A boolean satisfies an Integer request
 
@@ -397,6 +431,26 @@ This is not a defect: `@numeric-coercion` is optional, and the specification doe
 behaviour. So neither in-memory self-test declares the tag, and the three scenarios are skipped with
 that reason rather than failing.
 
+### 4. The in-memory provider ignores a flag's state
+
+`InMemoryFlag` has a `State` enum with an `ENABLED` and a `DISABLED` member, takes one in its
+constructor, and **never reads it**: `InMemoryFlag.resolve` returns the default variant's value with
+reason `STATIC` whatever the state, and `InMemoryProvider._resolve` looks only for a missing key. So
+all four `disabled-*` flags are served exactly as their enabled counterparts are.
+
+`canonical_flag_set` is not where this stops. `_decode_canonical_flags` reads the canonical file's
+`"state": "DISABLED"`, validates it against `InMemoryFlag.State` and passes it through faithfully —
+the self-tests pin that it reaches exactly those four flags and no others. The state survives
+decoding and then has no effect.
+
+Measured before the tag was gated: all four rows failed on the value in both in-memory suites, with
+`disabled-boolean-flag` resolving to `True` against a caller default of `false`. So neither suite
+declares `@disabled-flags` and the four scenarios are skipped with that reason.
+
+Unlike finding 3 this is a field the SDK offers and does not honour, which is closer to a defect than
+to a choice — but the capability is optional, so the honest report is still a withheld declaration
+rather than a `KnownDeviation`. It is not filed against the SDK yet.
+
 ## Where the assets come from
 
 The Gherkin feature files, the canonical flag set and the control-API document are **not owned by
@@ -430,14 +484,14 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | --- | --- | --- |
 | `test_in_memory_conformance` | the SDK's `InMemoryProvider` | reference adoption for a backend-less provider |
 | `test_controllable_conformance` | `ControllableInMemoryProvider` | the only suite that exercises the configuration-change path — see finding 2 |
-| `test_in_process_control` | `InProcessControl` and the canonical flag set | pins what the Gherkin cannot assert about itself, including that the in-memory flag set is decoded from `canonical-flags.json` — every flag served under the file's own default variant, with the Python type the file wrote |
+| `test_in_process_control` | `InProcessControl` and the canonical flag set | pins what the Gherkin cannot assert about itself, including that the in-memory flag set is decoded from `canonical-flags.json` — every flag served under the file's own default variant, with the Python type the file wrote, and `state` reaching exactly the four `disabled-*` flags |
 | `test_lifecycle_steps` | the steps that call the provider directly | the in-memory suites skip `@lifecycle`, so the shutdown, re-initialise and metadata steps are driven against a recording provider instead |
 | `test_declaration` | what a `TckConfig` claims | none of it is observable in a pass or a fail, so nothing else would catch it |
 | `test_extensions` | an adopter's own scenarios | an extension runs inside the canonical suite, changes nothing for an adopter who has none, and cannot take a canonical scenario's identity |
 | `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping and the control-API it reports, against a stubbed control API |
 
 ```
-158 passed, 27 skipped, 2 xfailed
+163 passed, 35 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
@@ -451,7 +505,9 @@ feature was gated on `@events`. Neither declares `@numeric-coercion` either, for
 finding 3, so its three scenarios are skipped too. Neither declares `@targeting`: both resolve the
 same decoded flag set, and `canonical_flag_set` deliberately ignores `targeting-key-flag`'s rule
 rather than becoming a second implementation of somebody else's evaluator, so those three scenarios
-are skipped as well. Both declare `@variants`, since an in-memory flag set is keyed by variant name.
+are skipped as well. Neither declares `@disabled-flags` either, for the reason in finding 4 — the
+state reaches the flag set and the SDK's provider never reads it — so its four rows are skipped in
+both. Both declare `@variants`, since an in-memory flag set is keyed by variant name.
 
 ## Known gaps
 
