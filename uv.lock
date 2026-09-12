@@ -1970,12 +1970,11 @@ dependencies = [
 dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "mypy" },
-    { name = "openfeature-provider-tck" },
+    { name = "openfeature-tck", extra = ["compose"] },
     { name = "poethepoet" },
     { name = "pytest" },
     { name = "pytest-bdd" },
     { name = "requests-mock" },
-    { name = "testcontainers" },
     { name = "types-requests" },
 ]
 
@@ -1989,12 +1988,11 @@ requires-dist = [
 dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
-    { name = "openfeature-provider-tck", editable = "tools/openfeature-provider-tck" },
+    { name = "openfeature-tck", extras = ["compose"], editable = "tools/openfeature-tck" },
     { name = "poethepoet", specifier = ">=0.37.0" },
     { name = "pytest", specifier = ">=9.0.0,<10.0.0" },
     { name = "pytest-bdd", specifier = ">=8.1.0,<9.0.0" },
     { name = "requests-mock", specifier = ">=1.12.0,<2.0.0" },
-    { name = "testcontainers", specifier = ">=4.12.0,<5.0.0" },
     { name = "types-requests", specifier = ">=2.32.0,<3.0.0" },
 ]
 
