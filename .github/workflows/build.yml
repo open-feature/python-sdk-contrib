@@ -73,8 +73,8 @@ jobs:
             tools/openfeature-flagd-api-testkit:
               - 'tools/openfeature-flagd-api-testkit/**'
               - 'uv.lock'
-            tools/openfeature-provider-tck:
-              - 'tools/openfeature-provider-tck/**'
+            tools/openfeature-tck:
+              - 'tools/openfeature-tck/**'
               - 'uv.lock'
 
   build:

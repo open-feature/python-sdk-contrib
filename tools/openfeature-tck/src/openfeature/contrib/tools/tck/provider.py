@@ -27,7 +27,7 @@ CHANGING_FLAG_KEY = "changing-flag"
 _CHANGING_BASELINE = "foo"
 _CHANGING_CHANGED = "bar"
 
-_PACKAGE = "openfeature.contrib.tools.provider_tck"
+_PACKAGE = "openfeature.contrib.tools.tck"
 
 _FLAG_DATA_DIRECTORY = "flag_data"
 _CANONICAL_FLAGS_FILE = "canonical-flags.json"

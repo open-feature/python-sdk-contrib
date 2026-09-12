@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     ControlApiError,
     HttpControl,
 )

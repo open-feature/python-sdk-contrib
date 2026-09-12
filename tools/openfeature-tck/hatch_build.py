@@ -38,7 +38,7 @@ class SpecAssetsCopyHook(BuildHookInterface):
             msg = (
                 f"Conformance assets missing ({missing}) and the open-feature/spec "
                 f"submodule is not checked out at {SPEC_ASSETS}. Run "
-                "`git submodule update --init tools/openfeature-provider-tck/spec`."
+                "`git submodule update --init tools/openfeature-tck/spec`."
             )
             raise FileNotFoundError(msg)
 
