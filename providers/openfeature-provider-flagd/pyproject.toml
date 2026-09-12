@@ -125,19 +125,27 @@ strict = true
 
 [tool.poe.tasks]
 # `tests/tck` is excluded from the default build on purpose, and a maintainer
-# runs `poe test-tck` by hand before merging a change to it. The suite needs
-# Docker, which `tests/e2e` does too -- so that is not the reason. The reason is
-# that a conformance suite reports what is true of the *stack* under test, and a
-# full run is 7 failed, 87 passed, 18 skipped: six of those failures are three
-# canonical flags flagd-testbed does not seed yet, on each of the two resolvers,
-# and the seventh is a real provider-side gap. Those failures are the report. A
-# gate that has to be green cannot hold a suite whose honest output is red, and
-# an xfail to make it green would say the provider is at fault when the backend
-# is. See tests/tck/conftest.py, which accounts for all seven, and the TCK's own
-# README for the policy.
-test = "pytest tests --ignore=tests/tck"
-test-cov = "coverage run -m pytest tests --ignore=tests/tck"
+# runs `poe test-tck` by hand before merging a change to it. Why a conformance
+# suite is not a required gate is Appendix F, "Running the suite in CI" --
+# linked from tools/openfeature-tck/README.md -- and is deliberately not
+# restated here.
+#
+# What is local to this package: a full run is 7 failed, 87 passed, 18 skipped.
+# Six of those failures are three canonical flags flagd-testbed does not seed
+# yet, on each of the two resolvers, and the seventh is a real provider-side
+# gap; tests/tck/conftest.py accounts for all seven. Docker is not what decides
+# the exclusion -- `tests/e2e` needs Docker too and does run here.
+#
+# The suite is still *collected* on every default build, so it cannot quietly
+# stop importing against the harness while nobody runs it. `--ignore` would
+# otherwise leave nothing checking that, since mypy here is configured over
+# `src` alone.
+test = ["test-default", "test-tck-collect"]
+test-cov = ["test-cov-default", "test-tck-collect"]
+test-default = "pytest tests --ignore=tests/tck"
+test-cov-default = "coverage run -m pytest tests --ignore=tests/tck"
 test-tck = "pytest tests/tck"
+test-tck-collect = "pytest tests/tck --collect-only -q"
 cov-report = "coverage xml"
 cov = [
     "test-cov",

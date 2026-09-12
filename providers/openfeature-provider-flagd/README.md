@@ -196,19 +196,25 @@ poe test-tck        # both resolvers, needs Docker
 poe test            # everything else, which is what CI runs
 ```
 
-The exclusion is a decision rather than an oversight, so here is the reason. It is not Docker —
-`tests/e2e` needs Docker too and does run in the default build. It is that a conformance suite
-reports what is true of the *stack* under test, and a full run today is **7 failed, 87 passed, 18
-skipped**: three canonical flags that flagd-testbed v3.8.0 does not seed yet, failing on each
-resolver, plus one genuine provider-side gap in `openfeature-flagd-core`. Those failures are the
-report. A gate that has to be green cannot hold a suite whose honest output is red, and an `xfail`
-to make it green would say the provider is at fault where the backend is.
+The exclusion lives in `pyproject.toml`: `--ignore=tests/tck` on the two tasks `build.yml` reaches,
+with the reason in a comment above them. Why a conformance suite is not a required gate is
+[Appendix F, "Running the suite in CI"][appendix-f], and is not restated here.
 
-`tests/tck/conftest.py` accounts for all seven, individually, with the flag or requirement each one
-turns on — so a reviewer running the suite can tell a new failure from a known one, and the number
-above is what to expect.
+Two things that are this provider's rather than the policy's:
+
+- **Docker is not what decides it.** `tests/e2e` needs Docker too and does run in the default build.
+  What decides it is the run: **7 failed, 87 passed, 18 skipped**, being three canonical flags that
+  flagd-testbed v3.8.0 does not seed yet, failing on each resolver, plus one genuine provider-side
+  gap in `openfeature-flagd-core`. `tests/tck/conftest.py` accounts for all seven individually, with
+  the flag or requirement each one turns on, so a reviewer running the suite can tell a new failure
+  from a known one and the number above is what to expect.
+- **The default build still collects the suite** — `poe test` and `poe test-cov` end in
+  `pytest tests/tck --collect-only`, which imports every module and starts no container. An excluded
+  suite that has quietly stopped importing against the harness is worse than one that runs and
+  fails, and `mypy` here is configured over `src` alone, so nothing else would notice.
 
 [tck]: ../../tools/openfeature-tck/README.md
+[appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
 
 ## License
 
