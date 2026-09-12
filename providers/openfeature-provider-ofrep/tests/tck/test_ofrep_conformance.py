@@ -39,17 +39,11 @@ provider has (``ofrep/__init__.py:52``); everything else the TCK offers -- event
 timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 """
 
-# VARIANTS and TARGETING below were declared, the suite run, and their scenarios
-# seen to pass -- bar the one row named under VARIANTS, which fails on a flag the
-# testbed does not seed. The code references say where the behaviour lives, so a
-# reader can check a claim; they are not the evidence for it. That order is
-# Appendix F's rule as of spec@26362f85, and this file used to state the reverse.
-#
-# NUMERIC_COERCION is the entry that rule has yet to be applied to, and it is
-# stated here rather than left to be discovered: the run fails two of its three
-# scenarios, so it is declared on something other than a green run. See its note
-# below for the measurement and for what the flagd suites did with the same
-# finding.
+# Every capability below was declared, the suite run, and its scenarios seen to
+# pass -- bar the one row named under VARIANTS, which fails on a flag the testbed
+# does not seed. The code references say where the behaviour lives, so a reader
+# can check a claim; they are not the evidence for it. That order is Appendix F's
+# rule as of spec@26362f85, and this file used to state the reverse.
 #
 #   OBJECT
 #     ofrep/__init__.py:105-113 resolves structured values, and the type check at
@@ -82,17 +76,37 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     is verified is that the key reached flagd, since nothing else about the
 #     context is keyed on by any canonical flag.
 #
-#   NUMERIC_COERCION
-#     ofrep/__init__.py:250 maps FlagType.INTEGER to `int`, and the isinstance
-#     check at ofrep/__init__.py:255 fails for the float 0.5, raising
-#     TypeMismatchError. So float-flag's 0.5 is reported as a mismatch rather
-#     than narrowed to 0. Worth stating plainly that this is the provider's own
-#     doing: OFREP is untyped on the wire, the request carries no type at all,
-#     and flagd returns 0.5 whatever was asked for -- so unlike flagd-RPC, where
-#     the server answers INVALID_ARGUMENT, there is no backend here to catch a
-#     numeric mismatch. Every type decision in this suite is made at those two
-#     lines, which is also why the one deviation recorded in conftest.py lives
-#     there.
+# NUMERIC_COERCION is withheld, and the reason is worth recording because two
+# other languages answered it differently over the same protocol.
+#
+# The capability has three scenarios and errors.feature says a declarer must
+# satisfy all three -- the two lossless rows exist precisely to catch the
+# shortcut of rejecting every float. This provider takes that shortcut. It keeps
+# the two numeric types strictly apart: json.loads yields `int` for 10 and
+# `float` for 0.5, and the check at ofrep/__init__.py:249-256 admits a value only
+# on an exact isinstance against one of them. Nothing in that path widens or
+# narrows a number. So the lossy row passes -- float-flag asked for as an Integer
+# is a TYPE_MISMATCH rather than a silent 0 -- and integer-flag asked for as a
+# Float fails, because 10 is not an instance of float.
+#
+# That is the same architecture as the Java OFREP adoption, which withholds the
+# tag for the same reason: Jackson maps a JSON integer to Integer and a fraction
+# to Double, and handleResolved admits the value only on an exact
+# type.isInstance. The Go adoption declares it, and the difference is the JSON
+# decoder rather than anything the provider author chose -- encoding/json makes
+# every JSON number a float64, so integer-ness never survives the wire and
+# ResolveInt has to round-trip through int64, which gives lossless coercion and a
+# TYPE_MISMATCH on loss for free.
+#
+# Which is to say: over OFREP this capability follows the language's JSON
+# library. Declaring it here would claim a behaviour two of these three lines of
+# code rule out.
+#
+# No knownDeviation entry accompanies this. A deviation records a gap in
+# behaviour the provider is required to have, and numeric coercion is a declared
+# capability rather than a requirement -- Appendix F stopped presenting the rule
+# as normative OpenFeature. The honest record is the undeclared tag and the three
+# skips it produces.
 #
 #     Measured, and it does not support the declaration. One of the three
 #     scenarios passes -- the lossy half, where rejecting 0.5 is correct -- and
@@ -184,14 +198,14 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     @targeting was reserved alongside it until spec@26362f85 gave it three
 #     scenarios, and is now declared above.
 #
-# The withheld set matches the Go and Java OFREP adoptions, which reached the
-# same conclusions from the same architecture, independently.
+# The withheld set matches the Java OFREP adoption, which reached the same
+# conclusions from the same architecture, independently. It differs from Go's,
+# which declares NUMERIC_COERCION for the decoder reason recorded above.
 CAPABILITIES = frozenset(
     {
         Capability.OBJECT,
         Capability.VARIANTS,
         Capability.TARGETING,
-        Capability.NUMERIC_COERCION,
     }
 )
 
