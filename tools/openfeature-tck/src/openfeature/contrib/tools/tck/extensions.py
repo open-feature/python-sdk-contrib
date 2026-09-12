@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import importlib.resources
 import inspect
+import re
 import typing
 from pathlib import Path
 
@@ -57,6 +58,7 @@ __all__ = [
     "EXTENSIONS_DIRECTORY",
     "EXTENSIONS_URI_PREFIX",
     "canonical_root",
+    "canonical_tags",
     "collision_problem",
     "extension_root",
     "feature_paths",
@@ -68,6 +70,9 @@ __all__ = [
 ]
 
 _PACKAGE = "openfeature.contrib.tools.tck"
+
+_TAG = re.compile(r"@[\w-]+")
+"""One Gherkin tag, as it appears on a tag line."""
 
 CANONICAL_DIRECTORY = "gherkin"
 """The packaged directory the canonical feature files live in.
@@ -183,6 +188,41 @@ def canonical_root() -> Path | None:
         return _resolve(Path(_canonical_path()))
     except (OSError, TypeError):  # pragma: no cover - assets outside a filesystem
         return None
+
+
+def canonical_tags() -> frozenset[str]:
+    """Every Gherkin tag the packaged canonical feature files carry.
+
+    What a reservation is checked against: a tag is reserved because no
+    canonical scenario carries it, and this is the set that says whether that
+    is still true. See :func:`~.capability.expired_reservations`.
+
+    **Tag lines only**, which is what tells a tag apart from the same word
+    written in prose. ``events.feature`` mentions ``@caching`` in a comment,
+    saying where those scenarios will go once they exist, so a scan that read
+    the whole file would report the reservation as expired on the strength of a
+    sentence about it -- and every adoption would then fail on a sentence.
+
+    Recursive, because the shape of the canonical directory is the
+    specification's to change: a flat scan would answer "no tags" for a file
+    one directory down, which is silent under-collection, the failure mode the
+    rest of this module exists to stop.
+
+    Empty when the assets are not reachable as files -- an installation from a
+    zipimport, say. Everything built on this then degrades to "cannot tell",
+    which is the honest answer and never a false accusation.
+    """
+    root = canonical_root()
+    if root is None or not root.is_dir():
+        return frozenset()
+
+    tags: set[str] = set()
+    for feature in sorted(root.rglob("*.feature")):
+        for line in feature.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("@"):
+                tags.update(_TAG.findall(stripped))
+    return frozenset(tags)
 
 
 def is_canonical(path: Path) -> bool:
