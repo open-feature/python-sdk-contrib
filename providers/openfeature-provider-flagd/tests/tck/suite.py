@@ -9,6 +9,11 @@ which is exactly the class of thing the conformance suite exists to surface.
 Everything they share lives here; everything that differs lives in the two
 ``test_*_conformance`` modules next to it, where a reader can see the whole of a
 resolver's declaration in one place.
+
+There is no container wiring here any more. The TCK owns the stack -- see
+``conftest.py`` -- so what is left is the timings, which are flagd's own and
+interact, and the one function that turns a resolver plus a running endpoint into
+a ``TckConfig``.
 """
 
 from __future__ import annotations
@@ -17,15 +22,23 @@ from dataclasses import dataclass
 
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
-from openfeature.contrib.tools.provider_tck import (
+from openfeature.contrib.tools.tck import (
     Capability,
-    HttpControl,
+    RunningBackend,
     TckConfig,
 )
 from openfeature.provider import FeatureProvider
-from tests.e2e.flagd_container import FlagdContainer
 
-__all__ = ["ResolverSuite", "build_config"]
+__all__ = ["IN_PROCESS_PORT", "RPC_PORT", "ResolverSuite", "build_config"]
+
+RPC_PORT = 8013
+IN_PROCESS_PORT = 8015
+"""Container-internal ports flagd serves remote evaluation and the sync stream on.
+
+Both are declared in one ``ComposeBackend`` because one flagd process serves both
+and both suites share the stack. Named here rather than in ``conftest.py`` so
+that the declaration and the resolver that uses it cannot drift apart.
+"""
 
 # Timings. flagd exposes several and they interact, so they are named here once
 # rather than scattered through two suites.
@@ -104,6 +117,12 @@ class ResolverSuite:
 
     resolver_type: ResolverType
 
+    backend_port: int
+    """The container-internal port this resolver connects to.
+
+    Resolved to a host port through the endpoint, after the stack is up.
+    """
+
     capabilities: frozenset[Capability]
     """What this resolver was run against the suite and seen to satisfy.
 
@@ -119,24 +138,28 @@ class ResolverSuite:
 
 def build_config(
     suite: ResolverSuite,
-    container: FlagdContainer,
-    control: HttpControl,
+    backend: RunningBackend,
     closed_port: int,
 ) -> TckConfig:
     """Wire one resolver up to the running testbed.
 
-    The ports are read here, after the stack is up: the testbed maps host ports
-    dynamically, so they do not exist earlier -- and they stay valid for the
-    whole session because nothing ever restarts a container. Outages are
-    simulated inside the running stack through ``control`` instead.
+    The host and port are read off ``backend.endpoint`` here, inside the factory
+    and after the stack is up: Compose maps host ports dynamically, so they do
+    not exist earlier -- and they stay valid for the whole session because
+    nothing ever restarts a container. Outages are simulated inside the running
+    stack through ``backend.control`` instead.
+
+    The host comes from the endpoint rather than being written as
+    ``"localhost"``: with a remote Docker daemon, Docker Desktop on some
+    platforms or a rootless setup it is neither localhost nor predictable.
     """
-    port = container.get_port(suite.resolver_type)
+    endpoint = backend.endpoint
 
     def new_provider() -> FeatureProvider:
         return FlagdProvider(
             resolver_type=suite.resolver_type,
-            host="localhost",
-            port=port,
+            host=endpoint.host,
+            port=endpoint.port(suite.backend_port),
             deadline_ms=DEADLINE_MS,
             stream_deadline_ms=STREAM_DEADLINE_MS,
             retry_backoff_ms=RETRY_BACKOFF_MS,
@@ -161,7 +184,7 @@ def build_config(
 
     return TckConfig(
         name=suite.name,
-        control=control,
+        control=backend.control,
         new_provider=new_provider,
         new_unavailable_provider=new_unavailable_provider,
         capabilities=suite.capabilities,
