@@ -12,7 +12,7 @@ question is identical everywhere.
     import pytest
     from pytest_bdd import scenarios
 
-    from openfeature.contrib.tools.provider_tck import (
+    from openfeature.contrib.tools.tck import (
         Capability,
         InProcessControl,
         TckConfig,
@@ -108,7 +108,7 @@ __all__ = [
 # by this repository and are NOT committed to it. They are copies of the
 # language-agnostic conformance artifacts defined in open-feature/spec under
 # specification/assets/provider-tck/, which reaches this package as a git
-# submodule at tools/openfeature-provider-tck/spec and is copied in at build
+# submodule at tools/openfeature-tck/spec and is copied in at build
 # time by hatch_build.py. The copies are gitignored, so the only record of which
 # spec revision this package targets is the submodule pin, and the two cannot
 # drift apart unnoticed.
@@ -121,7 +121,7 @@ __all__ = [
 # the one thing this suite exists to prevent.
 # See https://github.com/open-feature/spec/issues/417.
 
-_PACKAGE = "openfeature.contrib.tools.provider_tck"
+_PACKAGE = "openfeature.contrib.tools.tck"
 
 
 def control_api_spec() -> str:

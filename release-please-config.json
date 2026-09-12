@@ -100,8 +100,8 @@
         "README.md"
       ]
     },
-    "tools/openfeature-provider-tck": {
-      "package-name": "openfeature-provider-tck",
+    "tools/openfeature-tck": {
+      "package-name": "openfeature-tck",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "versioning": "default",

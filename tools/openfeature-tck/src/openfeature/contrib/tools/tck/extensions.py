@@ -68,7 +68,7 @@ __all__ = [
     "uri_for",
 ]
 
-_PACKAGE = "openfeature.contrib.tools.provider_tck"
+_PACKAGE = "openfeature.contrib.tools.tck"
 
 CANONICAL_DIRECTORY = "gherkin"
 """The packaged directory the canonical feature files live in.

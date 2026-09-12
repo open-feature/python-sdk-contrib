@@ -30,9 +30,9 @@ from .state import TckState
 # module defining it is a registered plugin -- importing it here would run the
 # decorators but leave those fixtures where pytest never looks.
 pytest_plugins = [
-    "openfeature.contrib.tools.provider_tck.steps.provider_steps",
-    "openfeature.contrib.tools.provider_tck.steps.flag_steps",
-    "openfeature.contrib.tools.provider_tck.steps.event_steps",
+    "openfeature.contrib.tools.tck.steps.provider_steps",
+    "openfeature.contrib.tools.tck.steps.flag_steps",
+    "openfeature.contrib.tools.tck.steps.event_steps",
 ]
 
 

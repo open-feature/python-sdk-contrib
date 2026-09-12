@@ -9,5 +9,5 @@
   "tools/openfeature-flagd-api": "1.0.0",
   "tools/openfeature-flagd-core": "1.0.0",
   "tools/openfeature-flagd-api-testkit": "0.1.0",
-  "tools/openfeature-provider-tck": "0.1.0"
+  "tools/openfeature-tck": "0.1.0"
 }
