@@ -86,6 +86,75 @@ class Capability(str, Enum):
     makes the value a **MUST**.
     """
 
+    DISABLED_FLAGS = "disabled-flags"
+    """Provider resolves a flag disabled in the management system to the code default.
+
+    Gated because it needs two things and only one of them comes for free. The
+    caller's default value is held by the provider, which always has it. What
+    the provider also needs is a **signal** that the flag was disabled, told
+    apart from an ordinary resolution and from a missing flag -- and that is a
+    property of the backend and its protocol. One that has no disabled state, or
+    that answers ``FLAG_NOT_FOUND`` for a disabled flag, gives the provider
+    nothing to act on, and no care in the provider produces a substitution it
+    was never told to make.
+
+    Appendix F draws the line somewhere else, and what this suite measured does
+    not bear that out. The appendix has it that a provider whose backend decides,
+    "such as one speaking OFREP, cannot: the server never sees the caller's
+    default, so it has no way to return it". Both halves of that are observably
+    not the obstacle. flagd's RPC resolver is a remote evaluator by exactly that
+    description and satisfies the capability: the server answers reason
+    ``DISABLED`` with no variant and no value, and the resolver substitutes the
+    caller's default locally on the strength of that signal
+    (``resolvers/grpc.py``). flagd's OFREP endpoint answers the same flag with
+    ``{"reason": "DISABLED"}`` and no ``value`` and no ``variant`` -- the same
+    signal in another envelope -- and the Python OFREP provider already falls
+    back to the caller's default for the absent value. It fails these scenarios
+    for a reason unrelated to architecture, which its own suite records.
+
+    So the tag is worth gating, but for the reason above rather than the one the
+    appendix gives, and that discrepancy belongs upstream rather than papered
+    over here. What it changes locally is only what a withheld declaration may be
+    read as: not necessarily an impossibility, so a reader has to look at the
+    adoption's own note for which it was.
+
+    Withholding it still needs no :class:`~.config.KnownDeviation`, for the
+    reason every gated capability does -- a deviation records a gap in behaviour
+    the provider is *required* to have, and this one is optional. That holds
+    whether the gap is architectural or a defect; where it is a defect, the
+    adoption's note is where to say so.
+
+    Nothing in the specification says what a provider owes a disabled flag.
+    `Requirement 1.4.7
+    <https://github.com/open-feature/spec/blob/main/specification/sections/01-flag-evaluation.md>`_
+    is about the SDK propagating whatever reason arrived, and `Requirement 2.2.5
+    <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
+    only lists ``DISABLED`` among the reason strings a provider **may** use. So
+    Appendix F states the behaviour, the way it does for
+    :attr:`NUMERIC_COERCION`, and gates it.
+
+    Declaring it runs one Scenario Outline of four rows, over the four
+    ``disabled-*`` flags the canonical set added at spec revision ``009afe06``.
+    They mirror ``boolean-flag``, ``string-flag``, ``integer-flag`` and
+    ``float-flag`` exactly, differing only in ``state``, and each row's caller
+    default differs from the flag's configured value -- so a provider that
+    ignores the state returns the configured value and is caught on the value
+    alone, which rests on 2.2.3, a **MUST**.
+
+    The rows assert the value and the absence of an error, and deliberately
+    **not** the reason: pinning ``DISABLED`` would rest on 2.2.5, a **SHOULD**
+    that permits "some other string". No variant is asserted either, because a
+    disabled flag has resolved no variant and there is none to name -- so this
+    capability and :attr:`VARIANTS` do not compose, which is why the rows are not
+    part of the variant outline.
+
+    The SDK's own ``InMemoryProvider`` cannot declare this, and the reason is
+    worth knowing before adopting it as a reference: ``InMemoryFlag`` accepts a
+    ``state`` of ``DISABLED`` and nothing ever reads it, so a disabled flag is
+    served like any other. ``_decode_canonical_flags`` passes the state through
+    faithfully; the provider is where it stops.
+    """
+
     UNAVAILABLE_INIT = "unavailable"
     """Provider reports an error state promptly against a backend it cannot reach."""
 
