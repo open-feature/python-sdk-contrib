@@ -8,7 +8,7 @@ for in the first place. A ``-k`` expression, a ``-m`` filter, a ``--deselect``, 
 test module that stopped calling ``scenarios()`` on the canonical path: each of
 those runs less of the suite and none of them is an error. The Go implementation
 measured it. ``-run`` on a single scenario passed green and emitted a well-formed
-report covering one of twenty-nine canonical scenarios, and nothing in the
+report covering one scenario out of the whole canonical set, and nothing in the
 document said so.
 
 So the run is checked against what this distribution *ships* rather than against
