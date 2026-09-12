@@ -35,10 +35,12 @@ dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "grpcio-health-checking>=1.82.1,<2.0.0",
   "mypy>=1.18.0,<2.0.0",
-  # The OpenFeature provider conformance suite. Ships the feature files, the flag
-  # set and the control-API client, and registers its step definitions through a
-  # pytest11 entry point, so tests/tck needs no conftest of its own for them.
-  "openfeature-provider-tck",
+  # The OpenFeature conformance suite. Ships the feature files, the flag set,
+  # the control-API client and the Compose harness that owns the container
+  # stack, and registers its step definitions through a pytest11 entry point --
+  # so tests/tck declares a Compose file and nothing else. The `compose` extra
+  # is what pulls testcontainers in for the harness.
+  "openfeature-tck[compose]",
   "poethepoet>=0.37.0",
   "pytest>=9.0.0,<10.0.0",
   "pytest-bdd>=8.1.0,<9.0.0",
@@ -116,7 +118,7 @@ warn_unused_ignores = false
 
 [tool.uv.sources]
 openfeature-flagd-core = { workspace = true }
-openfeature-provider-tck = { workspace = true }
+openfeature-tck = { workspace = true }
 
 [tool.pytest]
 strict = true

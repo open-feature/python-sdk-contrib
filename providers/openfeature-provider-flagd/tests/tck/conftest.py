@@ -1,24 +1,42 @@
-"""One testbed stack and one control, shared by both conformance suites.
+"""One testbed stack, declared rather than wired, and shared by both suites.
 
-The stack is started once per session and **never restarted**. Scenario
-isolation comes from the control API instead, because container orchestrators
-assign host ports dynamically and cannot reliably preserve them across a
-restart: a restarted backend comes back on a different host port, silently
-invalidating every provider already pointed at the old one, and the failure
-looks like a flaky provider rather than a broken test. See the
-no-container-restart invariant in the TCK's ``control-api.yaml``.
+The whole of the container lifecycle belongs to the TCK now: it starts the
+Compose file once per session, discovers the dynamically mapped host ports,
+builds the ``HttpControl`` against the launchpad and waits until it accepts
+commands, and tears the stack down after the last scenario. What is left here is
+the declaration -- which Compose file, which ports the provider connects to --
+and one free port for the scenarios that need a backend that is not there.
 
-``flagd-testbed`` is not modified and the existing e2e suites are untouched: the
-TCK drives the testbed's launchpad through the standardised control API, which
-the launchpad already implements, and reuses the container lifecycle already in
-``tests/e2e``.
+The stack is started once per session and **never restarted** -- container
+orchestrators assign host ports dynamically and cannot reliably preserve them
+across a restart, so a restarted backend comes back on a different host port,
+silently invalidating every provider already pointed at the old one, and the
+failure looks like a flaky provider rather than a broken test. Scenario isolation
+and every simulated outage go through the control API instead.
 
-**The testbed does not yet serve the whole canonical flag set.** The
-conformance assets at spec@009afe06 ask for three flags that flagd-testbed
-v3.8.0 (``openfeature/test-harness/version.txt``) does not seed:
-``large-integer-flag``, ``huge-integer-flag`` and ``integral-float-flag``.
-Until open-feature/flagd-testbed catches up, both suites fail these scenarios
-with ``FLAG_NOT_FOUND``, for every resolver alike:
+One stack for both suites because one flagd process serves both ports the
+resolvers use -- 8013 for RPC and 8015 for sync -- so there is nothing a second
+stack would isolate. One ``HttpControl`` with it, which matters and is not merely
+tidy: the control tracks whether a disconnect has left the backend down so the
+next scenario starts it rather than merely resetting flag state, and two
+instances would each hold half of that knowledge. A session-scoped
+``tck_backend`` is what makes both true by construction.
+
+The launchpad registers only ``/start``, ``/restart``, ``/stop`` and ``/change``
+(flagd-testbed ``launchpad/main.go``), so ``/reset`` answers 404 and every
+``prepare_scenario`` takes the documented ``/start`` fallback. The probe costs
+one 404 for the whole session. It serves no ``/healthz`` either, which the
+control API document defines as ready -- so the readiness wait rests on the
+control port accepting a connection, which the harness establishes before it
+probes.
+
+**The testbed does not yet serve the whole canonical flag set.** The conformance
+assets at spec@009afe06 ask for three flags that flagd-testbed v3.8.0
+(``openfeature/test-harness/version.txt``, and the tag pinned in
+``docker-compose.yaml`` beside this file) does not seed: ``large-integer-flag``,
+``huge-integer-flag`` and ``integral-float-flag``. Until
+open-feature/flagd-testbed catches up, both suites fail these scenarios with
+``FLAG_NOT_FOUND``, for every resolver alike:
 
 * ``A large integer resolves without loss of precision`` -- untagged;
 * ``An integer beyond 32 bits resolves without loss of precision`` -- under
@@ -38,6 +56,23 @@ failures are deliberately left as failures: they say something true about the
 stack under test, and an ``xfail`` would say the provider is at fault when it is
 the backend that is behind. None of them is a ``KnownDeviation`` either: a
 deviation is for a behaviour the *provider* is required to have and does not.
+
+**The seventh failure is the provider's, not the testbed's.** A full run is
+``7 failed, 87 passed, 18 skipped`` -- three of the failures above on each
+resolver, and one more on in-process alone: ``boolean-flag`` requested as a
+Float resolves to ``1.0`` with reason ``STATIC`` and no error code, where the
+mandatory wrong-type scenario asks for the caller's default. ``bool`` is a
+subclass of ``int`` in Python, so the widening at ``flagd_core.py:113-114`` --
+``if isinstance(result.value, int): result.value = float(result.value)`` -- sees
+a boolean as an integer, after ``_resolve`` has already let it through for a
+Float request. It is the same shape as the boolean-satisfies-an-Integer finding
+the suite's own README records against the in-memory provider, and it is a gap
+in ``openfeature-flagd-core`` rather than in either resolver's transport: RPC
+passes the row, because the server type-checks it. Recorded here rather than
+declared as a ``KnownDeviation`` because the scenario is mandatory and
+ungated -- it fails visibly on every run, which is the report, and a deviation
+would add nothing a reader cannot already see. It is not a testbed gap and does
+not go away when the image is bumped.
 
 ``targeting-key-flag``, new in the canonical set at the same revision, needs no
 testbed change. It is the flag flagd-testbed's own ``targeting.feature`` already
@@ -66,56 +101,44 @@ rows were never a gap in the backend, only a disagreement about names.
 from __future__ import annotations
 
 import socket
-import typing
+from pathlib import Path
 
 import pytest
 
-from openfeature.contrib.tools.provider_tck import HttpControl
-from tests.e2e.flagd_container import FlagdContainer
+from openfeature.contrib.tools.tck import ComposeBackend, RunningBackend
+from tests.tck.suite import IN_PROCESS_PORT, RPC_PORT
 
 
 @pytest.fixture(scope="session")
-def flagd_testbed() -> typing.Iterator[FlagdContainer]:
-    """The testbed stack, up for the whole session.
+def compose_backend() -> ComposeBackend:
+    """The stack under test, as the TCK's ``tck_backend`` fixture wants it.
 
-    One stack for both suites because one flagd process serves both ports the
-    resolvers use -- 8013 for RPC and 8015 for sync -- so there is nothing a
-    second stack would isolate.
+    Both resolver ports are declared even though each suite uses one of them,
+    because both suites share this stack and the harness checks at startup that
+    the Compose file publishes everything it was told about. The launchpad's own
+    8080 is exposed automatically and must not be listed.
+
+    The path is absolute rather than relative to the package directory -- which
+    is what the harness resolves a relative one against, and where ``poe test``
+    runs from -- so that running pytest from the repository root works too.
     """
-    container = FlagdContainer()
-    container.start()
-    try:
-        yield container
-    finally:
-        container.stop()
+    return ComposeBackend(
+        compose_file=Path(__file__).parent / "docker-compose.yaml",
+        backend_ports=[RPC_PORT, IN_PROCESS_PORT],
+    )
 
 
 @pytest.fixture(scope="session")
-def flagd_control(flagd_testbed: FlagdContainer) -> HttpControl:
-    """The control API client, shared by both suites.
-
-    Shared rather than one per suite, and that matters: the two suites drive the
-    *same* backend, and ``HttpControl`` tracks whether a disconnect has left it
-    down so the next scenario starts it rather than merely resetting flag state.
-    Two instances would each hold half of that knowledge.
-
-    The launchpad registers only ``/start``, ``/restart``, ``/stop`` and
-    ``/change`` (flagd-testbed ``launchpad/main.go``), so ``/reset`` answers 404
-    and every ``prepare_scenario`` takes the documented ``/start`` fallback. The
-    probe costs one 404 for the whole session.
-    """
-    return HttpControl(flagd_testbed.get_launchpad_url())
-
-
-@pytest.fixture(scope="session")
-def closed_port(flagd_testbed: FlagdContainer) -> int:
+def closed_port(tck_backend: RunningBackend) -> int:
     """A port on localhost with nothing listening, for the ``@unavailable`` scenarios.
 
     Discovered by binding and releasing rather than hard-coded, because the
-    testbed's own host ports are mapped dynamically and a hard-coded number
-    could collide with one. Depending on ``flagd_testbed`` orders this after the
-    stack has taken its ports, which is what makes the remaining race
-    negligible.
+    testbed's own host ports are mapped dynamically and a hard-coded number could
+    collide with one. Depending on ``tck_backend`` orders this after the stack has
+    taken its ports, which is what makes the remaining race negligible.
+
+    Deliberately not a port on the Compose stack: that has to stay up for the
+    whole session, and simulated outages belong to the control API.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", 0))
