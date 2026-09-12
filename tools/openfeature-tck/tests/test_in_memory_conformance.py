@@ -22,6 +22,7 @@ from pytest_bdd import scenarios
 
 from openfeature.contrib.tools.tck import (
     Capability,
+    ControlApi,
     TckConfig,
     canonical_flag_set,
     feature_paths,
@@ -50,6 +51,11 @@ class PlainMemoryControl:
     @property
     def description(self) -> str:
         return "the Python SDK's InMemoryProvider, rebuilt per scenario"
+
+    @property
+    def control_api(self) -> ControlApi:
+        """In-process, and honestly so: there is no backend to speak HTTP to."""
+        return "in-process"
 
     def prepare_scenario(self) -> None:
         return None
