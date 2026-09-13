@@ -47,7 +47,7 @@ Two things that are this provider's rather than the policy's:
   the default build. What decides it is the run: **2 failed, 45 passed, 17 skipped, 1 xfailed** —
   both failures are canonical flags that flagd-testbed v3.8.0 does not seed yet, and the `xfail` is
   the one genuine provider gap, recorded as a `KnownDeviation` rather than hidden.
-  `tests/tck/conftest.py` and `tests/tck/test_ofrep_conformance.py` account for each one, so a
+  `tests/tck/conftest.py` and `tests/tck/test_ofrep.py` account for each one, so a
   reviewer running the suite can tell a new failure from a known one.
 - **The default build still collects the suite** — `poe test` and `poe test-cov` end in
   `pytest tests/tck --collect-only`, which imports every module and starts no container. An excluded
