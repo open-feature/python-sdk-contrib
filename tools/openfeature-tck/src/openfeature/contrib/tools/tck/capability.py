@@ -80,8 +80,8 @@ class Capability(str, Enum):
 
     Declaring it runs one Scenario Outline that asserts the variant for each of
     the eight flags whose variant name the canonical set fixes. Withholding it
-    skips those rows with the reason and changes nothing else: the value and
-    reason assertions live in untagged scenarios, because
+    skips those rows with the reason and changes nothing else: the value
+    assertions live in untagged scenarios, because
     `Requirement 2.2.3
     <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
     makes the value a **MUST**.
@@ -143,8 +143,11 @@ class Capability(str, Enum):
     alone, which rests on 2.2.3, a **MUST**.
 
     The rows assert the value and the absence of an error, and deliberately
-    **not** the reason: pinning ``DISABLED`` would rest on 2.2.5, a **SHOULD**
-    that permits "some other string". No variant is asserted either, because a
+    **not** the reason: pinning ``DISABLED`` here would rest on 2.2.5, a
+    **SHOULD** that permits "some other string". It is pinned in
+    ``reason.feature`` instead, which composes this tag with
+    :attr:`STANDARD_REASONS` so that both must be declared before the reason is
+    asserted. No variant is asserted either, because a
     disabled flag has resolved no variant and there is none to name -- so this
     capability and :attr:`VARIANTS` do not compose, which is why the rows are not
     part of the variant outline.
@@ -280,11 +283,102 @@ class Capability(str, Enum):
     returned the targeted value would pass the first, and one that refuses to
     evaluate a rule with no targeting key present is caught by the third.
 
+    Two more scenarios carry this tag alongside :attr:`STANDARD_REASONS`, in
+    ``reason.feature``, asserting ``TARGETING_MATCH`` for the hit and
+    ``DEFAULT`` for the miss. They need both: a provider with no targeting has
+    no rule to match, so there is no ``TARGETING_MATCH`` for it to report and
+    the scenario would fail it for an absence rather than a defect. Declaring
+    this capability alone leaves them skipped, and changes nothing about the
+    three above.
+
     Declare it if the backend under test can express that rule and the provider
     forwards the targeting key. A backend with no targeting at all leaves it
     undeclared and the three scenarios are skipped with the reason -- which is
     also the right answer for an in-memory flag set whose decoder ignores the
     ``targeting`` member, as this package's own does.
+    """
+
+    STANDARD_REASONS = "standard-reasons"
+    """Provider reports the standard resolution reasons, with the standard meanings.
+
+    **A claim, not an exemption.** `Requirement 2.2.5
+    <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
+    is a **SHOULD**, and it goes further than 2.2.4 does: it lets a provider
+    populate ``reason`` with one of the listed values *"or some other string
+    indicating the semantic reason for the returned flag value"*. A provider
+    whose backend reports vendor-specific reasons is therefore conformant, and
+    asserting an exact reason against it would fail it for something the
+    specification permits.
+
+    An earlier revision of the suite did exactly that, in thirteen places across
+    ``evaluation.feature``, ``errors.feature`` and ``lifecycle.feature``, and
+    Appendix F recorded the narrowing as a deliberate exception. It is not one
+    any more. It bought very little -- every canonical flag resolves to a value
+    distinct from the caller's default, so a provider that silently falls back
+    is already caught by the value assertion, and the reason only said *why* it
+    failed -- and of the thirteen, five sat beside an error-code assertion that
+    already carries the **MUST**, while the other eight asserted ``STATIC``, the
+    one reason the specification genuinely leaves open.
+
+    So the reasons now live in ``reason.feature``, gated as a whole at the
+    feature level. Declaring this capability is a provider saying "I use the
+    standard vocabulary with the standard meanings", and that file is what
+    checks the claim. A provider that does not declare it **loses nothing**: its
+    values, variants and error codes are asserted everywhere else, on **MUST**
+    requirements. What the declaration adds is something a report's reader can
+    act on -- anyone building telemetry, dashboards or debugging on ``reason``
+    can see that the vocabulary was verified rather than assumed.
+
+    The meanings are the content of the claim, and they constrain nobody who
+    does not make it:
+
+    * ``STATIC`` -- the flag was resolved from configuration and carries no
+      targeting rule;
+    * ``TARGETING_MATCH`` -- a targeting rule matched the evaluation context;
+    * ``DEFAULT`` -- a targeting rule exists and did not match;
+    * ``DISABLED`` -- the flag is disabled in the management system;
+    * ``ERROR`` -- the evaluation failed, and an error code is reported with it.
+
+    ``STATIC`` for the first row is the call worth flagging. ``types.md`` types
+    ``DEFAULT`` as *"no dynamic evaluation occurred **or** dynamic evaluation
+    yielded no result"*, which a rule-less flag satisfies as readily as
+    ``STATIC`` does -- two providers can disagree here and both conform. A
+    provider that answers ``DEFAULT`` for a rule-less flag is not defective; it
+    does not use the standard meanings, and should not declare the tag.
+
+    ``ERROR`` is the row where the suite's subject is blurred, and it is
+    asserted anyway. The other four rest on `Requirement 1.4.7
+    <https://github.com/open-feature/spec/blob/main/specification/sections/01-flag-evaluation.md>`_,
+    which makes the SDK propagate the provider's reason -- but only *"in cases of
+    normal execution"*. Abnormal execution is 1.4.9, a **SHOULD** on the *SDK* to
+    "indicate an error", and nothing requires the provider's reason to survive.
+    So a passing ``ERROR`` scenario establishes that what reached the
+    application is coherent, not that the provider produced it. It is still
+    worth asserting, because the pair is what carries the meaning: the error
+    code alone is already covered for every provider by ``errors.feature``,
+    ungated and on a **MUST**, and the reason alone could have been written by
+    the SDK. An evaluation reporting ``FLAG_NOT_FOUND`` with reason ``STATIC``
+    is incoherent whoever wrote it.
+
+    ``SPLIT``, ``UNKNOWN``, ``CACHED`` and ``STALE`` are not asserted. The first
+    two have no scenario that produces them; ``CACHED`` needs a repeat
+    evaluation, which nothing here performs without a configuration change in
+    between, and belongs behind the reserved :attr:`CACHING`; ``STALE`` needs a
+    scenario asserting what a provider serves *during* an outage, which is the
+    same gap.
+
+    **Tags compose, and here that is load-bearing.** ``TARGETING_MATCH`` cannot
+    be observed without targeting and ``DISABLED`` cannot be observed unless the
+    backend distinguishes a disabled flag, so those scenarios carry
+    :attr:`TARGETING` and :attr:`DISABLED_FLAGS` as well. A provider declaring
+    this capability alone runs the four ``STATIC`` rows and the two error
+    scenarios, and skips the other three with their reason.
+
+    This is also the first capability whose tag is carried at the **feature**
+    level rather than on each scenario. pytest-bdd marks a scenario from
+    ``scenario.tags | feature.tags | rule.tags``, so the gate -- which reads
+    markers -- sees it on every scenario in the file, and ``Scenario.tags``
+    alone would not have.
     """
 
     CACHING = "caching"
