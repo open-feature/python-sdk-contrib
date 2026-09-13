@@ -13,6 +13,7 @@ from pytest_bdd import scenarios
 from openfeature.contrib.provider.flagd.config import ResolverType
 from openfeature.contrib.tools.tck import (
     Capability,
+    KnownDeviation,
     RunningBackend,
     TckConfig,
     feature_paths,
@@ -90,75 +91,127 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     passes without a connection, which the SDK's registry turns into
 #     PROVIDER_ERROR.
 #
-#   LARGE_INTEGERS
-#     RPC never narrows an integer. flagd holds every numeric variant as a
-#     float64 -- Go's encoding/json decodes an untyped number into one -- and
-#     2^53 - 1 is exactly the largest integer a float64 represents without
-#     rounding, which is why the canonical set asks for nothing larger. The
-#     server casts it to the int64 of ResolveIntResponse.value, and grpc.py:448
-#     hands that to the SDK as a Python int, unbounded. Nothing in between is
-#     32 bits wide.
+#   LIFECYCLE
+#     Declared on a run, and the run is the point: this capability had been
+#     withheld here since the first pass with nothing anywhere saying why -- the
+#     @reinitialization note below treated it as given rather than justifying it
+#     -- so the six lifecycle scenarios had never been put to this resolver at
+#     all. Declaring it and running them settles it: all six execute, five pass,
+#     and the sixth is the @reinitialization scenario dealt with below.
 #
-# Not declared, and why:
+#     It is a real question here rather than a formality. An SDK synthesises
+#     PROVIDER_READY around `initialize` for any provider, so the readiness
+#     scenario is vacuous for one that does nothing during initialisation -- a
+#     NoOpProvider passes it. This resolver blocks until the evaluation stream
+#     is up and raises ProviderNotReadyError when the deadline passes
+#     (grpc.py:175, grpc.py:261), so both terminal outcomes the feature file
+#     asserts are outcomes this provider actually reaches.
+#
+#     Java, Go and JavaScript all declare it on both resolvers, and Go's
+#     adoption records having made and reverted this exact mistake: withholding
+#     it left that suite blind to six scenarios another language was running
+#     against the same provider. Python was the last of the four still doing so.
 #
 #   NUMERIC_COERCION
+#     Declared, and failing the lossy scenario -- deliberately, and the failure
+#     is the report. See KNOWN_DEVIATIONS below.
+#
 #     RPC does not type-check locally: grpc.py:444-448 asks flagd for an Int and
 #     passes back whatever the server answers, so the whole decision is flagd's.
 #     flagd's evaluator resolves the variant as a float64 and casts it with a
 #     bare `int64(val)` (core/pkg/evaluator/json.go, ResolveIntValue, at the
 #     v0.16.0 the testbed's `flagd/Dockerfile` builds on), so `float-flag`'s 0.5
 #     comes back as 0 with reason STATIC and no error code -- silently narrowed,
-#     which is the one thing the lossy scenario forbids.
+#     which is the one thing the lossy scenario forbids. Measured, not read off
+#     the server source: the scenario fails with `flag 'float-flag' resolved to
+#     0 (int), expected 1 (int)`.
 #
-#     Measured by declaring the tag and running it, rather than read off the
-#     server source: `integer-flag` requested as a Float passes, because a float
-#     accessor sees the float64 the server already holds. `integral-float-flag`
-#     requested as an Integer does not, and not for a reason about coercion at
-#     all -- flagd-testbed seeds no such flag, so it is FLAG_NOT_FOUND, the same
-#     gap the conftest records for `large-integer-flag`. So two of three fail
-#     today, one on the narrowing and one on the missing flag, and what the
-#     server would answer for a seeded 10.0 is unmeasured. A declaration is all
-#     or nothing either way.
+#     Declared rather than withheld because this resolver *attempts* the
+#     coercion and gets one direction wrong, which is the case Appendix F's
+#     guidance is built around: `integer-flag` requested as a Float passes, so
+#     withdrawing the tag would turn a real, specific defect into a skip
+#     indistinguishable from a provider that declines to coerce at all. That is
+#     the failure mode the deviation field exists to prevent.
 #
-#     An earlier revision of this file claimed flagd answers INVALID_ARGUMENT
-#     here. The server source says otherwise: INVALID_ARGUMENT is what
-#     grpc.py:461-462 would map to TypeMismatchError if it ever arrived, and
-#     for a float-valued flag it does not. The Java reference adoption recorded
-#     the same narrowing against the same server. flagd's numeric-coercion ADR
-#     (docs/architecture-decisions/numeric-coercion.md) commits it to lossless
-#     coercion, tracked as open-feature/flagd#1996; this is declared again once
-#     the testbed ships a flagd that implements it.
+#     **The in-process resolver passes this scenario.** It refuses 0.5 as an
+#     Integer with TYPE_MISMATCH, because it evaluates locally and never asks
+#     flagd. One provider, two resolvers, opposite answers -- which is why the
+#     deviation below is on this suite only and is not mirrored onto that one.
+#     Java and Go both attach their equivalent entry to both of their resolvers,
+#     correctly, because in those languages both narrow identically; Python is
+#     the language where that would be false.
+#
+#     Worth flagging for the other adoptions: the Go suite's note currently
+#     asserts that "the Python one does not [narrow], in either resolver: its
+#     RPC path asks flagd for an Int and gets INVALID_ARGUMENT for a
+#     float-valued flag". That is wrong about this resolver, and it is the same
+#     claim an earlier revision of this file made and retracted --
+#     INVALID_ARGUMENT is what grpc.py:461-462 would map to TypeMismatchError if
+#     it ever arrived, and for a float-valued flag it does not. Python's RPC
+#     narrows exactly as Go's and Java's do. Only its in-process resolver is the
+#     exception, and it is the only such resolver in the four languages.
+#
+#     The tag's third scenario fails for a reason that is not flagd's:
+#     flagd-testbed seeds no `integral-float-flag`, so it is FLAG_NOT_FOUND. The
+#     conftest records it and the deviation summary disclaims it, which is the
+#     shape Java uses; it is not a reason to withhold the tag.
+#
+# Not declared, and why:
+#
+#   LARGE_INTEGERS
+#     Withheld, and this is a change: it was declared here until this pass and
+#     failed on every run. Exactly one scenario carries the tag, and it asks for
+#     `huge-integer-flag`, which flagd-testbed v3.8.0 does not seed -- so the
+#     declaration was a claim with no evidence behind it either way, and its
+#     failure read as a provider defect while establishing nothing about the
+#     provider. Nothing in this path would narrow the value: flagd holds every
+#     numeric variant as a float64 and 2^53 - 1 is exactly the largest integer a
+#     float64 represents without rounding, the server casts it to the int64 of
+#     ResolveIntResponse.value, and grpc.py:448 hands that to the SDK as an
+#     unbounded Python int. Nothing in between is 32 bits wide. The suite simply
+#     cannot show that.
+#
+#     The rule this and NUMERIC_COERCION are both decided by, stated once:
+#     **declare when at least one scenario gating the tag can actually be put to
+#     the provider, and record the backend's gap where the others fail; withhold
+#     when none of them can.** The two look like the same missing-fixture
+#     problem and are not. @numeric-coercion has three scenarios and this
+#     backend can ask two of them -- and their answers differ between the two
+#     resolvers, which is the finding a withholding would have buried.
+#     @large-integers has one, and this backend can ask none of it.
+#
+#     No KnownDeviation for it, in either shape. The gap is in the fixture, and
+#     an entry would attribute it to the provider. Go and JavaScript withhold it
+#     for this same reason; Java cannot declare it at all, because its integer
+#     accessor is 32 bits, which is a third thing again and not this one.
+#     open-feature/flagd-testbed#392 adds the flag; declare it then.
 #
 #   REINITIALIZATION
 #     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
-#     down can be initialized again" that had been untagged before it. Withheld
-#     for two independent reasons, either of which is sufficient.
+#     down can be initialized again" that had been untagged before it. Withheld,
+#     and for one reason rather than the two this note used to give.
 #
-#     First, RPC genuinely does not support reuse, which was measured rather
-#     than reasoned about: declaring LIFECYCLE and REINITIALIZATION together
-#     locally makes the scenario run, and it fails with `boolean-flag` resolving
-#     to the code default because grpc.py:420 raises "Cannot invoke RPC on
-#     closed channel!". shutdown() closes the channel and the second initialize()
-#     does not rebuild it, so the provider evaluates against a closed connection
-#     rather than failing outright -- exactly the shape the specification's own
-#     note on this capability describes. Requirement 2.5.2 says a provider
-#     SHOULD revert to its uninitialized state and that "some providers MAY
-#     allow reinitialization", so reuse is permitted rather than required and
-#     declining it is a choice the specification offers. Hence no
+#     RPC genuinely does not support reuse, measured rather than reasoned about:
+#     with LIFECYCLE declared the scenario runs, and it fails with `boolean-flag`
+#     resolving to the code default because grpc.py:420 raises "Cannot invoke RPC
+#     on closed channel!". shutdown() closes the channel and the second
+#     initialize() does not rebuild it, so the provider evaluates against a
+#     closed connection rather than failing outright -- exactly the shape the
+#     specification's own note on this capability describes. Requirement 2.5.2
+#     says a provider SHOULD revert to its uninitialized state and that "some
+#     providers MAY allow reinitialization", so reuse is permitted rather than
+#     required and declining it is a choice the specification offers. Hence no
 #     KnownDeviation entry: there is no requirement to deviate from.
 #
-#     Second, and why this cannot be declared even where reuse does work: the
-#     scenario lives in lifecycle.feature, which carries @lifecycle at the
-#     feature level, so it inherits that tag and carries both. The gate skips a
-#     scenario when any capability gating it is undeclared, and neither resolver
-#     declares LIFECYCLE. Declaring REINITIALIZATION alone would leave the
-#     scenario skipped on @lifecycle and the claim unexamined -- a vacuous
-#     declaration of the kind the reserved tag below is kept out for.
-#
-#     Worth recording that this scenario never ran here, at this pin or the one
-#     before it: it is one of the six @lifecycle skips each resolver reports,
-#     not a scenario that used to pass. Reading its absence from the failure
-#     list as evidence of support is the mistake this note exists to prevent.
+#     The second reason is gone, and it was the load-bearing one for the wrong
+#     thing. It ran: the scenario also carries @lifecycle, neither resolver
+#     declared LIFECYCLE, so declaring REINITIALIZATION alone would leave the
+#     scenario skipped and the claim unexamined. True at the time, but it rested
+#     on a withholding that nothing justified, and it is what kept @lifecycle
+#     unexamined for six passes. LIFECYCLE is declared above now, so the
+#     scenario runs and this withholding rests on the measurement alone -- which
+#     is where it should always have rested. The in-process suite declares
+#     REINITIALIZATION for the same reason in reverse: it runs, and it passes.
 #
 #   STANDARD_REASONS
 #     New at spec@c342461a, which moved every resolution-reason assertion out of
@@ -195,16 +248,60 @@ RPC_CAPABILITIES = frozenset(
         Capability.DISABLED_FLAGS,
         Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
-        Capability.LARGE_INTEGERS,
         Capability.STANDARD_REASONS,
+        Capability.LIFECYCLE,
+        Capability.NUMERIC_COERCION,
     }
 )
+
+KNOWN_DEVIATIONS = (
+    KnownDeviation.tracked(
+        capability=Capability.NUMERIC_COERCION,
+        issue="https://github.com/open-feature/flagd/issues/1996",
+        summary=(
+            "The lossy half of the coercion rule is not enforced: evaluating "
+            "float-flag (0.5) through the integer accessor returns 0 with no "
+            "error code, rather than TYPE_MISMATCH with the code default, so "
+            "the fractional part is discarded silently. Lossless coercion is "
+            "permitted and is not the defect -- this resolver does widen an "
+            "integer to a float correctly, which is why the capability is "
+            "declared and the scenario left to fail rather than the capability "
+            "withheld. The rule is flagd's own accepted numeric-coercion ADR "
+            "rather than a specification requirement, which does not define "
+            "numeric coercion at all (open-feature/spec#430), so this is a "
+            "deviation from a commitment flagd made rather than from the "
+            "provider contract. Unlike the Java and Go flagd providers, whose "
+            "two resolvers narrow identically and which therefore place the "
+            "defect in their shared provider layer, this one is in the server "
+            "alone: the Python in-process resolver evaluates locally and "
+            "refuses 0.5 as an integer correctly, so it is not recorded as "
+            "deviating and carries no equivalent entry. The "
+            "tag's third scenario also fails, but for an unrelated reason that "
+            "is not flagd's: integral-float-flag is absent from the pinned "
+            "flagd-testbed image, open-feature/flagd-testbed#392."
+        ),
+    ),
+)
+"""The one requirement this resolver is known to fail.
+
+Takes the **declared and failing** shape rather than the withheld-and-skipped
+one, which is the shape Appendix F's guidance prefers and this is the case it
+prefers it for: flagd does attempt the coercion -- the widening scenario passes
+-- and gets the narrowing direction wrong, so withdrawing the capability would
+turn a real failure into a skip indistinguishable from a provider that declines
+to coerce. The failure stays visible in the results and this entry says it is
+known and why.
+
+Recorded against this resolver only. See the in-process suite, which passes the
+scenario this deviates on.
+"""
 
 RPC_SUITE = ResolverSuite(
     name="flagd-rpc",
     resolver_type=ResolverType.RPC,
     backend_port=RPC_PORT,
     capabilities=RPC_CAPABILITIES,
+    known_deviations=KNOWN_DEVIATIONS,
     # RPC holds no ruleset of its own: it is ready as soon as the evaluation
     # stream is up, so it needs less headroom than in-process.
     ready_timeout=30.0,
