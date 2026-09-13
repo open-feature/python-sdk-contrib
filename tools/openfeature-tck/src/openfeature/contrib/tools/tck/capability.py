@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import typing
+from collections.abc import Mapping
 from enum import Enum
+from types import MappingProxyType
 
 __all__ = ["Capability"]
 
@@ -24,6 +26,12 @@ class Capability(str, Enum):
     run is worse than no suite at all.
 
     Scenarios with no capability tag are mandatory and always run.
+
+    Two kinds of capability are refused rather than declared, and they are
+    refused for different reasons and with different messages:
+    :data:`RESERVED_CAPABILITIES`, which no scenario anywhere carries yet, and
+    :data:`INEXPRESSIBLE_CAPABILITIES`, whose question this language's SDK cannot
+    put at all. :data:`DECLARABLE_CAPABILITIES` is what is left.
     """
 
     LIFECYCLE = "lifecycle"
@@ -199,8 +207,13 @@ class Capability(str, Enum):
     The SDK's own ``InMemoryProvider`` cannot declare this: it hands values
     back untouched and the client's type check is ``isinstance``-based, so
     ``10.0`` requested as an integer is a ``TYPE_MISMATCH`` rather than ``10``.
-    The width of the integer accessor is a separate property, and a separate
-    capability: :attr:`LARGE_INTEGERS`.
+    That is the provider declining to coerce, not the language refusing to ask:
+    a provider that does coerce returns an ``int`` and the same check passes it.
+    In a language with one numeric type the question could not be put at all,
+    which is why Appendix F names this as inexpressible there and why
+    :data:`INEXPRESSIBLE_CAPABILITIES` is empty here. The width of the integer
+    accessor is a separate property, and a separate capability:
+    :attr:`LARGE_INTEGERS`.
     """
 
     LARGE_INTEGERS = "large-integers"
@@ -214,7 +227,10 @@ class Capability(str, Enum):
 
     Python's ``int`` is unbounded, so a Python provider declares it unless
     something of its own -- a 32-bit field in its wire format, a float on the
-    way through -- narrows the value. Nothing above 2^53 - 1 is asked for:
+    way through -- narrows the value. Which makes this one of the two
+    capabilities Appendix F names as inexpressible somewhere and **not** here:
+    :data:`INEXPRESSIBLE_CAPABILITIES` is empty in Python, and says on what
+    measurement. Nothing above 2^53 - 1 is asked for:
     JavaScript cannot represent it, and what a provider owes a value that does
     not fit the requested accessor is the open question in
     `open-feature/spec#430 <https://github.com/open-feature/spec/issues/430>`_.
@@ -394,6 +410,25 @@ class Capability(str, Enum):
         """Whether this capability exists in the vocabulary but gates no scenario."""
         return self in RESERVED_CAPABILITIES
 
+    @property
+    def inexpressible(self) -> bool:
+        """Whether this SDK cannot put the question this capability's scenarios ask.
+
+        Distinct from :attr:`reserved` in every respect except that both end in a
+        refusal. See :data:`INEXPRESSIBLE_CAPABILITIES`.
+        """
+        return self in INEXPRESSIBLE_CAPABILITIES
+
+    @property
+    def inexpressible_reason(self) -> str | None:
+        """Which property of this SDK puts the question out of reach, or ``None``.
+
+        The property, not the rule: a message that only says "this cannot be
+        declared" leaves the adopter to discover why, and the why is the part
+        they could not have been expected to know.
+        """
+        return INEXPRESSIBLE_CAPABILITIES.get(self)
+
     def __str__(self) -> str:
         return self.tag
 
@@ -418,10 +453,60 @@ has them would be the mirror of the mistake this set exists to prevent: a
 capability that *can* be verified and is refused the chance.
 """
 
+INEXPRESSIBLE_CAPABILITIES: Mapping[Capability, str] = MappingProxyType({})
+"""Capabilities this language's SDK cannot put the question for, and why.
+
+**Empty in Python, and that is a measurement rather than an omission.** The two
+that exist anywhere are :attr:`Capability.LARGE_INTEGERS`, inexpressible where
+the integer accessor is a 32-bit ``Integer``, and
+:attr:`Capability.NUMERIC_COERCION`, inexpressible where the language has a
+single numeric type and "a float requested as an integer" does not name two
+different requests. Python has neither property: ``int`` is arbitrary-precision,
+and ``get_integer_details`` and ``get_float_details`` are separate accessors
+reaching separate provider methods, type-checked against ``int`` and ``float``
+separately. Both were checked by asking all four questions through the SDK
+rather than by reading its source, and every one of them was answered.
+
+So this mapping carries no entries, and the machinery around it carries no load
+here. It exists anyway because the rule is Appendix F's rather than this
+package's, because the next capability may hit it, and because the cost of the
+two is not symmetric: an unused mechanism is a few lines nobody reads, while a
+missing one is discovered by an adopter publishing a claim no scenario could
+have examined.
+
+**Not the same thing as a reservation, and the difference is what the two
+messages have to carry.** A reserved capability is global and temporary -- no
+scenario anywhere carries the tag, and the reservation expires the moment the
+specification writes one. An inexpressible capability is one language's and
+permanent: the scenarios exist, other languages run them and pass them, and
+nothing changes until the SDK does. A reader seeing a capability missing from a
+report has to be able to tell *"this provider declined"* from *"no provider in
+this language can be asked"*, because only the first says anything about the
+provider. Hence a mapping rather than a set: the value is the property of the
+SDK that puts the question out of reach, and it is the half of the message an
+adopter could not have worked out for themselves.
+
+A capability belongs here only when **no** provider in this language could ever
+satisfy it. A provider that gets the answer wrong is a different thing entirely
+and belongs nowhere near this mapping. flagd's two Python resolvers answer the
+three ``@numeric-coercion`` scenarios differently from each other: in-process
+refuses ``0.5`` as an integer and widens ``10`` to a float, while RPC widens
+``10`` and silently narrows ``0.5`` to ``0``. Each is a defect in an
+implementation, recorded where that adoption records its defects, and
+withholding the tag is the honest report for both. Listing it here would say the
+question cannot be asked -- and two resolvers of one provider giving different
+answers to it is the proof that it can.
+
+Never overlaps :data:`RESERVED_CAPABILITIES`: a tag no scenario carries is
+reserved, whatever any SDK could express about it.
+"""
+
 DECLARABLE_CAPABILITIES: frozenset[Capability] = (
-    frozenset(Capability) - RESERVED_CAPABILITIES
+    frozenset(Capability)
+    - RESERVED_CAPABILITIES
+    - frozenset(INEXPRESSIBLE_CAPABILITIES)
 )
-"""Every capability an adoption may declare: the vocabulary minus the reserved tags.
+"""Every capability an adoption may declare: the vocabulary minus what is refused.
 
 A reasonable starting point for a new adoption: declare everything, run the
 suite, and remove only what the provider genuinely cannot do. Narrowing from this
@@ -434,6 +519,12 @@ adopter writing "every capability except X" picks up every reserved tag on the
 way past, which is how one implementation came to report ``@targeting`` and
 ``@caching`` as declared without anyone deciding to claim them -- back when both
 were reserved.
+
+It excludes :data:`INEXPRESSIBLE_CAPABILITIES` for the same reason and one more:
+that set is empty in Python, so a default spanning the whole enum would look
+correct here forever and be wrong the day an entry is added, in the one language
+where it was added. Derived rather than listed, so it cannot be the thing that is
+out of date.
 """
 
 _BY_MARKER: dict[str, Capability] = {c.value: c for c in Capability}
