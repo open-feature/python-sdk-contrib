@@ -141,8 +141,15 @@ strict = true
 # stop importing against the harness while nobody runs it. `--ignore` would
 # otherwise leave nothing checking that, since mypy here is configured over
 # `src` alone.
-test = ["test-default", "test-tck-collect"]
-test-cov = ["test-cov-default", "test-tck-collect"]
+#
+# `ignore_fail = "return_non_zero"` is what makes that true rather than
+# aspirational: poe aborts a sequence at its first failing subtask, and this
+# package's default suite is red on this branch -- the TCK requires
+# openfeature-sdk >= 0.10 and this provider is not updated for it yet -- so the
+# collect step sat behind a step that never succeeds and never ran. Every
+# subtask now runs and a non-zero exit still propagates.
+test = { sequence = ["test-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
+test-cov = { sequence = ["test-cov-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
 test-default = "pytest tests --ignore=tests/tck"
 test-cov-default = "coverage run -m pytest tests --ignore=tests/tck"
 test-tck = "pytest tests/tck"
