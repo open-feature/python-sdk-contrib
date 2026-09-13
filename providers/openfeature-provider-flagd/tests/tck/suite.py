@@ -6,8 +6,8 @@ suites because they are separately conformant. Any difference between the two
 results is a difference an application would see when it switches resolver,
 which is exactly the class of thing the conformance suite exists to surface.
 
-Everything they share lives here; everything that differs lives in the two
-``test_*_conformance`` modules next to it, where a reader can see the whole of a
+Everything they share lives here; everything that differs lives in ``test_rpc.py``
+and ``test_in_process.py`` next to it, where a reader can see the whole of a
 resolver's declaration in one place.
 
 There is no container wiring here any more. The TCK owns the stack -- see

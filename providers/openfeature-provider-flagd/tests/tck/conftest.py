@@ -91,7 +91,7 @@ The eighth is on RPC alone, and it is the one failure here that *does* carry a
 ``0`` with no error code, where ``@numeric-coercion`` requires ``TYPE_MISMATCH``
 and the caller's default. The tag is declared and the scenario left to fail
 rather than the tag withheld, because this resolver does attempt the coercion
-and gets one direction wrong -- see ``test_rpc_conformance.py``. **The
+and gets one direction wrong -- see ``test_rpc.py``. **The
 in-process resolver passes this scenario**, refusing 0.5 locally, so the
 deviation is recorded against RPC only. That asymmetry is the most interesting
 result in this pair of suites and is the thing a shared declaration would have
