@@ -358,6 +358,15 @@ Untagged scenarios are mandatory and always run. `capabilities` defaults to ever
 capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
 the default, run the suite, and remove only what your provider genuinely cannot do.
 
+**What counts as "cannot do" is [Appendix F][appendix-f]'s to say, and the rule is not about the tag
+but about its scenarios**: declare a capability when at least one scenario gating it can actually be
+put to the provider, and withhold it only when none can. Its two consequences are the ones that bite
+in practice — a scenario that fails because the backend serves no fixture for it is not a provider
+defect and must not be recorded as one, and a capability withheld for a backend gap is temporary in
+a way one withheld by choice is not, so it needs a note saying why or it outlives its reason. The
+flagd adoption in this repository decides `@numeric-coercion` and `@large-integers` by that rule and
+gets opposite answers; its suite files cite it rather than restating it, and so should yours.
+
 Leaving a capability out is the only way to withhold it, and one skip carrying its reason is the
 whole mechanism: the scenario's tags say what was asked, the declaration says whether it was
 claimed, and the skip says why it was not.
@@ -384,10 +393,13 @@ declaring `@numeric-coercion` in both flagd suites and running it: flagd's in-pr
 refuses `0.5` as an integer and widens `10` to a float, and its RPC resolver widens `10` and
 silently narrows `0.5` to `0`, which is the one thing the lossy scenario forbids. Two different
 answers to the same three questions, from two resolvers of one provider — which is what a language
-that *could not ask* them would make impossible. Both are defects in an implementation, withholding
-the tag is the honest report for each, and neither has anything to do with Python. (The third
-scenario fails on both for a third reason again: flagd-testbed does not seed `integral-float-flag`
-at all.)
+that *could not ask* them would make impossible. That split is a defect in one resolver of one
+implementation, and **both** resolvers declare the tag: the one that narrows carries a
+`KnownDeviation` and the one that does not carries none, which is the shape [Appendix F][appendix-f]
+prefers and the opposite of what this paragraph used to prescribe. Neither has anything to do with
+Python. (The third scenario fails on both for a third reason again: flagd-testbed seeds no
+`integral-float-flag` at all — the backend's gap, not the provider's, and recorded as such rather
+than as a reason to withhold.)
 
 **A reservation and an inexpressibility are not the same refusal**, and the messages and the skip
 reasons deliberately differ:
@@ -447,8 +459,14 @@ It comes from flagd's
 [numeric coercion ADR](https://github.com/open-feature/flagd/blob/main/docs/architecture-decisions/numeric-coercion.md),
 which is scoped to flagd's own implementations, and the tag carries that name — it was
 `@strict-numeric-typing` — because two vocabularies for one observable property is worse than one
-borrowed name. **A provider that behaves differently is not violating the specification**, so
-withholding this capability may be a deliberate choice as readily as a defect.
+borrowed name. **A provider that behaves differently is not violating the specification** — but that
+does not leave a missing declaration free to interpret, and [Appendix F][appendix-f]'s note on this
+tag says which is which. A provider that *attempts* the coercion and gets one direction wrong
+declares the capability, lets the lossy scenario fail and records a `KnownDeviation` beside it,
+because "it coerces, and one direction is wrong" is what a skip cannot say. Withholding is for a
+provider that *cannot attempt* it: a language with a single numeric type, or one that hands every
+variant back untouched and never coerces — which is what this SDK's `InMemoryProvider` does, and why
+neither in-memory self-test declares the tag.
 
 Both halves are tested, and a provider declaring the tag must satisfy all three scenarios: `float-flag`
 (`0.5`) requested as an integer is a `TYPE_MISMATCH`; `integral-float-flag` (`10.0`) requested as an
@@ -694,6 +712,14 @@ Only half the machinery is missing — `AbstractProvider` already supplies
 `emit_provider_configuration_changed` — which is why `ControllableInMemoryProvider` here is a small
 subclass rather than a reimplementation, and why it should port back to the SDK as a method.
 
+`test_in_memory_conformance` therefore withholds `CONFIGURATION_CHANGE` for a defect, which again is
+the [Appendix F][appendix-f] self-test carve-out rather than something an adoption may copy. It meets
+the condition differently from finding 4: the scenarios are not only skipped, they are *run* — by
+`test_controllable_conformance`, against the subclass that supplies what the SDK lacks, so the step
+definitions and the change path stay covered and the gap is written down in `PlainMemoryControl`'s
+`change_flag`, which raises rather than pretends. The one thing this pin does not do is go red on
+its own when the SDK is fixed; nothing fails at that point, the subclass just becomes redundant.
+
 ### 3. The in-memory provider does not coerce numbers
 
 `integral-float-flag` (`10.0`) requested as an integer returns the code default with `TYPE_MISMATCH`,
@@ -722,9 +748,17 @@ Measured before the tag was gated: all four rows failed on the value in both in-
 `disabled-boolean-flag` resolving to `True` against a caller default of `false`. So neither suite
 declares `@disabled-flags` and the four scenarios are skipped with that reason.
 
-Unlike finding 3 this is a field the SDK offers and does not honour, which is closer to a defect than
-to a choice — but the capability is optional, so the honest report is still a withheld declaration
-rather than a `KnownDeviation`. It is not filed against the SDK yet.
+Unlike finding 3 this is a field the SDK offers and does not honour, so it is a defect rather than a
+choice — and withholding a capability for a defect is the thing [Appendix F][appendix-f] tells an
+*adoption* not to do. What licenses it here is the appendix's self-test carve-out: these two suites
+are a fixture for the harness rather than a report about a third party, they run in the ordinary
+build where a permanently failing scenario is a broken build rather than a finding, and the fix is an
+SDK release away. **The carve-out's condition is that the defect is pinned by a test of its own, and
+it is**: `test_every_packaged_flag_resolves_to_its_packaged_default_variant` sweeps the four
+`disabled-*` flags with everything else and asserts that each resolves to its own default variant —
+so the behaviour is asserted rather than merely skipped, and that test turns red the day the SDK
+starts honouring `DISABLED`, which is when the capability becomes declarable here. It is not filed
+against the SDK yet.
 
 ## Where the assets come from
 
