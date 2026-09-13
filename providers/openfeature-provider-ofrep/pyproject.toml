@@ -85,7 +85,7 @@ strict = true
 # linked from tools/openfeature-tck/README.md -- and is deliberately not
 # restated here.
 #
-# What is local to this package: a full run is 2 failed, 37 passed, 16 skipped,
+# What is local to this package: a full run is 2 failed, 45 passed, 17 skipped,
 # 1 xfailed. Both failures are canonical flags flagd-testbed does not seed yet,
 # and the xfail is the one genuine provider gap; tests/tck/conftest.py accounts
 # for them. Docker is not what decides the exclusion -- the flagd package's
