@@ -168,20 +168,30 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     with `json.loads` (flagd_core.py:73), so nothing here would narrow the
 #     value; the suite simply cannot show that.
 #
-#     The rule this and NUMERIC_COERCION are both decided by, stated once:
-#     **declare when at least one scenario gating the tag can actually be put to
-#     the provider, and record the backend's gap where the others fail; withhold
-#     when none of them can.** The two look like the same missing-fixture
-#     problem and are not. @numeric-coercion has three scenarios and this
-#     backend can ask two of them, which is what makes the declaration mean
-#     something and the third failure a footnote. @large-integers has one, and
-#     this backend can ask none of it.
+#     The rule this and NUMERIC_COERCION are both decided by is **Appendix F's
+#     sixth declaring rule** -- declare when at least one scenario gating the tag
+#     can actually be put to the provider, withhold only when none can, the unit
+#     being the scenario and not the tag. It is cited rather than restated: the
+#     wording these two suites used last pass is what went into the appendix at
+#     spec@4cab0320, so the appendix is now where it lives and a copy here would
+#     be a second place for it to drift. The two gaps look like the same
+#     missing-fixture problem and are not. @numeric-coercion has three scenarios
+#     and this backend can ask two of them, which is what makes the declaration
+#     mean something and the third failure a footnote. @large-integers has one,
+#     and this backend can ask none of it.
 #
-#     No KnownDeviation for it, in either shape. The gap is in the fixture, and
-#     an entry would attribute it to the provider. Go and JavaScript withhold it
-#     for this same reason; Java cannot declare it at all, because its integer
-#     accessor is 32 bits, which is a third thing again and not this one.
-#     open-feature/flagd-testbed#392 adds the flag; declare it then.
+#     No KnownDeviation for it, in either shape. That is the rule's first
+#     consequence: a scenario failing because the backend serves no fixture for
+#     it is not a provider defect, and an entry would attribute the testbed's gap
+#     to the provider. Go and JavaScript withhold it for this same reason; Java
+#     cannot declare it at all, because its integer accessor is 32 bits, which is
+#     a third thing again and not this one.
+#
+#     And the second consequence, which this sentence exists to satisfy: a
+#     capability withheld for a backend gap is temporary in a way one withheld by
+#     choice is not. open-feature/flagd-testbed#392 adds `huge-integer-flag`;
+#     declare the tag when the image carries it, or this withholding outlives its
+#     reason and starts reading as a claim about the provider.
 #
 #   STANDARD_REASONS
 #     New at spec@c342461a, which moved every resolution-reason assertion out of
