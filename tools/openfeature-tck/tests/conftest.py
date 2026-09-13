@@ -48,8 +48,18 @@ KNOWN_DEVIATIONS = (KnownDeviation(issue=_ISSUE, summary=_REASON),)
 No ``capability``: the scenario carries no capability tag, because returning the
 code default on a type mismatch is mandatory. ``@numeric-coercion`` is a
 neighbouring question -- whether 0.5 satisfies an integer request -- and this
-provider satisfies it, so attributing the deviation there would be wrong twice
-over.
+provider answers *that* one the way the tag asks, by refusing it, so attributing
+the deviation there would be wrong twice over.
+
+Which is not the same as satisfying the capability, and the distinction matters
+now that Appendix F has corrected its note on it. The tag is withheld here
+because this provider does not coerce at all: it passes the lossy row by
+rejecting every float, which is the shortcut the two lossless rows exist to
+catch, and it fails both of those. That is the withholding the appendix still
+calls right -- a provider that cannot attempt the behaviour -- rather than the
+one it now rules out, where a provider attempts it and gets a direction wrong.
+The boolean-as-Integer gap is a third thing again: mandatory, ungated, and the
+reason this entry names no capability.
 """
 
 
