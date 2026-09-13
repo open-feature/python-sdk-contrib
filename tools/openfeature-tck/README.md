@@ -230,6 +230,7 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly; undeclarable where the SDK's integer accessor is 32-bit |
 | `Capability.REINITIALIZATION` | `@reinitialization` | can be initialised again after `shutdown`, which [Requirement 2.5.2](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md) permits rather than requires |
 | `Capability.TARGETING` | `@targeting` | resolves a flag differently for a matching evaluation context |
+| `Capability.STANDARD_REASONS` | `@standard-reasons` | reports the standard resolution reasons, with the meanings [Appendix F][appendix-f] gives them |
 | `Capability.CACHING` | `@caching` | reserved; **not declarable** — no scenarios yet |
 
 `@lifecycle` and `@events` are deliberately separate, and the split matters in both directions. An
@@ -275,8 +276,8 @@ conformant provider for something its author could not fix, and nothing could be
 [Requirement 2.2.4](https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md)
 is a **SHOULD** and `types.md` types the field `variant (string, optional)`, so the suite was
 asserting a `MUST` neither of them states. Since spec revision `26362f85` the variant assertions
-live in one gated Scenario Outline of eight rows; the value and reason assertions stay untagged,
-because 2.2.3 makes the value a `MUST`.
+live in one gated Scenario Outline of eight rows; the value assertions stay untagged, because 2.2.3
+makes the value a `MUST`.
 
 `@targeting` was **reserved and undeclarable** until the same revision, on the reading that targeting
 is backend evaluation logic and out of scope. The scope argument still holds — its three scenarios do
@@ -320,8 +321,38 @@ four `disabled-*` flags mirroring `boolean-flag`, `string-flag`, `integer-flag` 
 exactly, differing only in `state`, and one Scenario Outline of four rows asserts that each resolves
 to the caller's default. Each row's default differs from the flag's configured value, so a provider
 that ignores the state is caught on the value alone — 2.2.3, a `MUST`. The rows assert neither the
-reason, which would rest on 2.2.5's `SHOULD` and its "some other string", nor the variant, since a
-disabled flag has resolved none: `@disabled-flags` and `@variants` deliberately do not compose.
+reason, which would rest on 2.2.5's `SHOULD` and its "some other string" — it is pinned in
+`gherkin/reason.feature` instead, for a provider that opts into the standard meanings — nor the
+variant, since a disabled flag has resolved none: `@disabled-flags` and `@variants` deliberately do
+not compose.
+
+`@standard-reasons` is **a claim, not an exemption**, and it is the one capability whose tag is
+carried at the *feature* level. 2.2.5 is a `SHOULD` that goes further than 2.2.4 does: it lets a
+provider populate `reason` with one of the listed values *"or some other string indicating the
+semantic reason for the returned flag value"*. A provider whose backend reports vendor-specific
+reasons is therefore conformant, and asserting an exact reason against it would fail it for something
+the specification permits. The suite did exactly that until spec revision `c342461a`, in thirteen
+places across `evaluation.feature`, `errors.feature` and `lifecycle.feature`, and it bought very
+little: every canonical flag resolves to a value distinct from the caller's default, so a provider
+that silently falls back is already caught by the value.
+
+So the reasons live in `gherkin/reason.feature`, gated as a whole. Declaring the capability is a
+provider saying *"I use the standard vocabulary with the standard meanings"*, and that file is what
+checks the claim — `STATIC` for a rule-less flag, `TARGETING_MATCH` for a matched rule, `DEFAULT` for
+an unmatched one, `DISABLED` for a disabled flag, `ERROR` beside an error code. A provider that does
+not declare it **loses nothing**: its values, variants and error codes are asserted everywhere else,
+on `MUST` requirements. What the declaration adds is something a report's reader can act on — anyone
+building telemetry, dashboards or debugging on `reason` can see that the vocabulary was verified
+rather than assumed. `STATIC` for the rule-less rows is the call worth flagging: `types.md` types
+`DEFAULT` as *"no dynamic evaluation occurred **or** dynamic evaluation yielded no result"*, so a
+provider answering `DEFAULT` there is not defective — it does not use the standard meanings, and
+should not declare the tag.
+
+**Tags compose, and here that is load-bearing.** `TARGETING_MATCH` cannot be observed without
+targeting and `DISABLED` cannot be observed unless the backend distinguishes a disabled flag, so two
+of the file's scenarios also carry `@targeting` and one also carries `@disabled-flags`. Declaring
+`@standard-reasons` alone runs the four `STATIC` rows and the two error scenarios, and skips the
+other three with their reason.
 
 Untagged scenarios are mandatory and always run. `capabilities` defaults to every *declarable*
 capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
@@ -698,7 +729,7 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping, the control API it reports and the absence of a `/restart` binding, against a stubbed control API |
 
 ```
-196 passed, 35 skipped, 2 xfailed
+208 passed, 41 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
@@ -715,6 +746,14 @@ rather than becoming a second implementation of somebody else's evaluator, so th
 are skipped as well. Neither declares `@disabled-flags` either, for the reason in finding 4 — the
 state reaches the flag set and the SDK's provider never reads it — so its four rows are skipped in
 both. Both declare `@variants`, since an in-memory flag set is keyed by variant name.
+
+Both declare `@standard-reasons`, and it was measured before it was declared: `InMemoryFlag.resolve`
+reports `Reason.STATIC` for every flag in the decoded set, and a missing flag and a type mismatch
+both arrive with reason `ERROR` beside their error code, so the four rule-less rows and the two error
+scenarios pass in each suite. The remaining three scenarios in `reason.feature` compose the tag with
+`@targeting` and `@disabled-flags`, neither of which is declared, so they are skipped in both — which
+is the composition working rather than a gap, since a reason cannot be observed without the behaviour
+that produces it.
 
 ## Known gaps
 
