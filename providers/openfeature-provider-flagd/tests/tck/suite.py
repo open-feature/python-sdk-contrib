@@ -24,6 +24,7 @@ from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 from openfeature.contrib.tools.tck import (
     Capability,
+    KnownDeviation,
     RunningBackend,
     TckConfig,
 )
@@ -135,6 +136,18 @@ class ResolverSuite:
 
     ready_timeout: float
 
+    known_deviations: tuple[KnownDeviation, ...] = ()
+    """Requirements this resolver is known to fail, acknowledged rather than hidden.
+
+    **Per resolver, and that is the whole reason this field is here rather than
+    shared.** The two resolvers do not deviate alike: RPC narrows ``float-flag``
+    to ``0`` where in-process refuses it, so an entry naming
+    :attr:`~Capability.NUMERIC_COERCION` is true of one and false of the other.
+    Attaching it to both -- which is what Java and Go each do, correctly, because
+    *their* two resolvers do behave identically -- would publish a defect against
+    the resolver that does not have it.
+    """
+
 
 def build_config(
     suite: ResolverSuite,
@@ -188,6 +201,7 @@ def build_config(
         new_provider=new_provider,
         new_unavailable_provider=new_unavailable_provider,
         capabilities=suite.capabilities,
+        known_deviations=suite.known_deviations,
         event_timeout=EVENT_TIMEOUT,
         ready_timeout=suite.ready_timeout,
     )

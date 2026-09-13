@@ -83,64 +83,105 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     deadline passes without a synced ruleset, which the SDK's registry turns
 #     into PROVIDER_ERROR.
 #
-#   LARGE_INTEGERS
-#     The ruleset arrives as JSON text over the sync stream and FlagdCore parses
-#     it with `json.loads` (flagd_core.py:73), which gives an unbounded Python
-#     int for 9007199254740991; nothing between the parser and the SDK routes
-#     the value through a float or a 32-bit field.
+#   LIFECYCLE
+#     Declared on a run, and the run is the point: this capability had been
+#     withheld here since the first pass with nothing anywhere saying why, so
+#     the six lifecycle scenarios had never been put to this resolver at all.
+#     Declaring it and running them settles it -- all six execute and all six
+#     pass. There was no reason; there was an omission that every later pass
+#     inherited because the file next door treated it as given.
 #
-# Not declared, and why:
+#     It is a real question here rather than a formality, which is the test the
+#     capability's own documentation sets. An SDK synthesises PROVIDER_READY
+#     around `initialize` for any provider, so the readiness scenario is vacuous
+#     for a provider that does nothing during initialisation -- a NoOpProvider
+#     passes it. This resolver syncs the entire ruleset and applies it to the
+#     evaluator before ready is emitted (grpc_watcher.py:254-262), and
+#     initialisation can and does fail (grpc_watcher.py:151), so both terminal
+#     outcomes the feature file asserts are outcomes this provider actually
+#     reaches.
+#
+#     Java, Go and JavaScript all declare it on both resolvers, and Go's
+#     adoption records having made and reverted this exact mistake: withholding
+#     it left that suite blind to six scenarios another language was running
+#     against the same provider. Python was the last of the four still doing so.
 #
 #   NUMERIC_COERCION
-#     Local, and strict in one direction only. flagd_core.py:25 admits only
-#     `int` for an integer request and `_check_type` (flagd_core.py:228-231)
-#     raises TypeMismatchError for anything else, so `float-flag`'s 0.5 is a
-#     mismatch rather than 0 -- the lossy half holds. The float mapping at
-#     flagd_core.py:26 is the wider `(int, float)`, and `resolve_float_value`
-#     (flagd_core.py:113-114) widens an int result to a float, so `integer-flag`
-#     requested as a Float is 10.0 -- that lossless half holds too. Both halves
-#     were measured by declaring the tag and running it, not read off the
-#     source, and both pass.
+#     Declared here and declared on RPC too, but they are not the same claim,
+#     and that is the most interesting thing in this pair of suites: **this
+#     resolver satisfies the lossy half and RPC does not.** Measured, both
+#     resolvers, same run -- `float-flag` (0.5) requested as an Integer is a
+#     TYPE_MISMATCH returning the caller's default here, and comes back as `0`
+#     with no error code at all on RPC. One provider, two resolvers, opposite
+#     answers to the question the capability exists to ask.
 #
-#     The third scenario fails, and the reason it fails is not the one this note
-#     used to give. The same `(int,)` rule would reject `integral-float-flag`'s
-#     10.0 requested as an Integer where the tag requires 10 -- but that is a
-#     reading of the source and nothing here can observe it, because
-#     flagd-testbed seeds no `integral-float-flag`: the scenario fails
-#     FLAG_NOT_FOUND, the same gap the conftest records for `large-integer-flag`
-#     and `huge-integer-flag`. So this resolver is two of three with the third
-#     unmeasured, rather than two of three with a known coercion gap, and a
-#     declaration is all or nothing either way. flagd's numeric-coercion ADR
-#     (docs/architecture-decisions/numeric-coercion.md) commits every flagd
-#     implementation to the lossless rule; when openfeature-flagd-core follows
-#     it, this is declared again.
+#     Why it holds here: evaluation is local, so flagd_core.py:25 admits only
+#     `int` for an integer request and `_check_type` (flagd_core.py:228-231)
+#     raises TypeMismatchError for anything else. The float mapping at
+#     flagd_core.py:26 is the wider `(int, float)` and `resolve_float_value`
+#     (flagd_core.py:113-114) widens an int result, so `integer-flag` requested
+#     as a Float is 10.0. Both of the scenarios this backend can put to the
+#     provider pass, and no KnownDeviation is recorded against this resolver --
+#     there is no defect here to record. The entry on the RPC suite is
+#     deliberately not mirrored onto this one.
+#
+#     The tag's third scenario fails, and not for a reason about coercion:
+#     flagd-testbed seeds no `integral-float-flag`, so it fails FLAG_NOT_FOUND
+#     (`Flag with key integral-float-flag not present in flag store.`), the same
+#     backend gap the conftest records for `large-integer-flag`. What this
+#     resolver would do with a seeded 10.0 is still unmeasured -- the `(int,)`
+#     rule above says it would refuse it, but that is a reading of the source
+#     and nothing here observes it. The gap is recorded rather than treated as a
+#     reason to withhold: two of the three scenarios do reach this provider and
+#     both pass, and withholding on the strength of the one the backend cannot
+#     ask would discard the finding that the two resolvers differ.
 #
 #   REINITIALIZATION
 #     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
-#     down can be initialized again" that had been untagged before it. Withheld
-#     here even though this resolver does support reuse, which is the
-#     interesting half of the story and was measured rather than assumed:
-#     declaring LIFECYCLE and REINITIALIZATION together locally makes the
-#     scenario run, and in-process passes it, while RPC fails it against a
-#     closed channel. The two resolvers genuinely differ.
+#     down can be initialized again" that had been untagged before it. Declared
+#     here and withheld on RPC, and again the two resolvers genuinely differ:
+#     this one shuts down and starts again serving `boolean-flag` correctly,
+#     while RPC evaluates against a closed channel. Measured on the same run.
 #
-#     It stays withheld because declaring it would be vacuous. The scenario
-#     lives in lifecycle.feature, which carries @lifecycle at the feature level,
-#     so it inherits that tag and carries both; the gate skips a scenario when
-#     any capability gating it is undeclared, and this suite does not declare
-#     LIFECYCLE. Declaring REINITIALIZATION alone would leave the scenario
-#     skipped on @lifecycle and the claim unexamined -- the same
-#     declare-what-nothing-exercises error the reserved tag below is kept out
-#     for. Declaring LIFECYCLE is a separate question from this one and is not
-#     settled here.
+#     This was withheld until this pass, on the argument that declaring it would
+#     be vacuous -- the scenario also carries @lifecycle, which this suite did
+#     not declare, so it would have skipped on that tag regardless. The argument
+#     was sound and is now spent: @lifecycle is declared above, the scenario
+#     runs, and the claim is examined rather than asserted.
 #
 #     Requirement 2.5.2 says a provider SHOULD revert to its uninitialized
 #     state and that "some providers MAY allow reinitialization", so reuse is
-#     permitted rather than required and withholding needs no KnownDeviation.
+#     permitted rather than required -- which is why RPC's withholding needs no
+#     KnownDeviation, and why declaring it here is a claim worth making rather
+#     than a mandatory box ticked.
 #
-#     Worth recording that this scenario never ran here, at this pin or the one
-#     before it: it is one of the six @lifecycle skips each resolver reports,
-#     not a scenario that used to pass.
+# Not declared, and why:
+#
+#   LARGE_INTEGERS
+#     Withheld, and this is a change: it was declared here until this pass and
+#     failed on every run. Exactly one scenario carries the tag, and it asks for
+#     `huge-integer-flag`, which flagd-testbed v3.8.0 does not seed -- so the
+#     declaration was a claim with no evidence behind it either way, and its
+#     failure (`Flag with key huge-integer-flag not present in flag store.`)
+#     read as a provider defect while establishing nothing about the provider.
+#     Python's `int` is unbounded and the ruleset arrives as JSON text parsed
+#     with `json.loads` (flagd_core.py:73), so nothing here would narrow the
+#     value; the suite simply cannot show that.
+#
+#     The rule this and NUMERIC_COERCION are both decided by, stated once:
+#     **declare when at least one scenario gating the tag can actually be put to
+#     the provider, and record the backend's gap where the others fail; withhold
+#     when none of them can.** The two look like the same missing-fixture
+#     problem and are not. @numeric-coercion has three scenarios and this
+#     backend can ask two of them, which is what makes the declaration mean
+#     something and the third failure a footnote. @large-integers has one, and
+#     this backend can ask none of it.
+#
+#     No KnownDeviation for it, in either shape. The gap is in the fixture, and
+#     an entry would attribute it to the provider. Go and JavaScript withhold it
+#     for this same reason; Java cannot declare it at all, because its integer
+#     accessor is 32 bits, which is a third thing again and not this one.
+#     open-feature/flagd-testbed#392 adds the flag; declare it then.
 #
 #   STANDARD_REASONS
 #     New at spec@c342461a, which moved every resolution-reason assertion out of
@@ -175,8 +216,10 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.DISABLED_FLAGS,
         Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
-        Capability.LARGE_INTEGERS,
         Capability.STANDARD_REASONS,
+        Capability.LIFECYCLE,
+        Capability.NUMERIC_COERCION,
+        Capability.REINITIALIZATION,
     }
 )
 
