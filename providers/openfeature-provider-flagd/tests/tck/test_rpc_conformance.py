@@ -108,10 +108,17 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     bare `int64(val)` (core/pkg/evaluator/json.go, ResolveIntValue, at the
 #     v0.16.0 the testbed's `flagd/Dockerfile` builds on), so `float-flag`'s 0.5
 #     comes back as 0 with reason STATIC and no error code -- silently narrowed,
-#     which is the one thing the lossy scenario forbids. The two lossless
-#     scenarios pass for the same reason: 10.0 casts to 10, and a float
-#     accessor sees the float64 the server already holds. One of three is a
-#     failure, and a declaration is all or nothing.
+#     which is the one thing the lossy scenario forbids.
+#
+#     Measured by declaring the tag and running it, rather than read off the
+#     server source: `integer-flag` requested as a Float passes, because a float
+#     accessor sees the float64 the server already holds. `integral-float-flag`
+#     requested as an Integer does not, and not for a reason about coercion at
+#     all -- flagd-testbed seeds no such flag, so it is FLAG_NOT_FOUND, the same
+#     gap the conftest records for `large-integer-flag`. So two of three fail
+#     today, one on the narrowing and one on the missing flag, and what the
+#     server would answer for a seeded 10.0 is unmeasured. A declaration is all
+#     or nothing either way.
 #
 #     An earlier revision of this file claimed flagd answers INVALID_ARGUMENT
 #     here. The server source says otherwise: INVALID_ARGUMENT is what
