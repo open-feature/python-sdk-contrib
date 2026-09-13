@@ -203,7 +203,7 @@ with the reason in a comment above them. Why a conformance suite is not a requir
 Two things that are this provider's rather than the policy's:
 
 - **Docker is not what decides it.** `tests/e2e` needs Docker too and does run in the default build.
-  What decides it is the run: **7 failed, 87 passed, 18 skipped**, being three canonical flags that
+  What decides it is the run: **7 failed, 105 passed, 18 skipped**, being three canonical flags that
   flagd-testbed v3.8.0 does not seed yet, failing on each resolver, plus one genuine provider-side
   gap in `openfeature-flagd-core`. `tests/tck/conftest.py` accounts for all seven individually, with
   the flag or requirement each one turns on, so a reviewer running the suite can tell a new failure
