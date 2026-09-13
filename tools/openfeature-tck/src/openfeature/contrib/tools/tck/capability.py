@@ -192,10 +192,21 @@ class Capability(str, Enum):
 
     **A provider that behaves differently is not violating the specification.**
     So this is genuinely optional, rather than optional as a concession to a
-    defect: withholding it may be a deliberate choice as readily as a known bug.
-    Where it is a bug, say so -- a report's ``knownDeviations`` is for exactly
-    that, and flagd's instance is tracked as `open-feature/flagd#1996
-    <https://github.com/open-feature/flagd/issues/1996>`_.
+    defect -- but *which* of those a missing declaration means is not a free
+    choice, and this paragraph used to say it was. Appendix F's numeric-coercion
+    note settles it: a provider that **attempts** the coercion and gets one
+    direction wrong declares the capability, lets the lossy scenario fail, and
+    records a :class:`~.config.KnownDeviation` beside the failure -- because "it
+    coerces, and one direction is wrong" is exactly what a skip cannot say.
+    flagd is that provider (`open-feature/flagd#1996
+    <https://github.com/open-feature/flagd/issues/1996>`_), and the flagd
+    adoption declares the tag and deviates rather than withholding.
+
+    Withholding is for a provider that **cannot attempt** the behaviour: a
+    language with a single numeric type, where the distinction does not exist to
+    get wrong, or a provider that hands every variant back untouched and never
+    coerces at all. The SDK's own ``InMemoryProvider`` is the second kind, and
+    the paragraph below is what that looks like.
 
     Both halves have scenarios, and a provider declaring the tag must satisfy
     all three. The lossy half asks for ``float-flag`` (``0.5``) as an integer
@@ -491,11 +502,12 @@ satisfy it. A provider that gets the answer wrong is a different thing entirely
 and belongs nowhere near this mapping. flagd's two Python resolvers answer the
 three ``@numeric-coercion`` scenarios differently from each other: in-process
 refuses ``0.5`` as an integer and widens ``10`` to a float, while RPC widens
-``10`` and silently narrows ``0.5`` to ``0``. Each is a defect in an
-implementation, recorded where that adoption records its defects, and
-withholding the tag is the honest report for both. Listing it here would say the
-question cannot be asked -- and two resolvers of one provider giving different
-answers to it is the proof that it can.
+``10`` and silently narrows ``0.5`` to ``0``. That split is a defect in one
+resolver of one implementation, and **both** resolvers declare the tag: the one
+that narrows carries the :class:`~.config.KnownDeviation` and the one that does
+not carries none, which is the shape Appendix F prefers. Listing it here would
+say the question cannot be asked -- and two resolvers of one provider giving
+different answers to it is the proof that it can.
 
 Never overlaps :data:`RESERVED_CAPABILITIES`: a tag no scenario carries is
 reserved, whatever any SDK could express about it.

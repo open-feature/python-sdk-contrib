@@ -52,6 +52,14 @@ class KnownDeviation:
     the failure mode this field exists to prevent. If the provider attempts the
     behaviour and gets it wrong, shape 1 is the honest report.
 
+    **A scenario that fails because the backend serves no fixture for it is not a
+    provider defect and does not belong here.** That is the first consequence
+    Appendix F draws from its declaring rules, and an entry recording it would
+    accuse the provider of the backend's gap. Where such a failure sits under the
+    same tag as a real one -- which is the ordinary case, since the tag is
+    declared on the scenarios that *can* be asked -- say so in the summary of the
+    entry that covers the real one.
+
     It changes nothing about how the suite runs. The scenario still fails, and
     the results payload still reports it as failed -- a report that softened a
     failure into a footnote would hide exactly what the acknowledgement exists to

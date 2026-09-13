@@ -83,7 +83,11 @@ def tck_config() -> TckConfig:
 
     * ``CONFIGURATION_CHANGE`` -- omitted because the SDK's in-memory provider
       cannot update its flag set. That is a finding, not a configuration choice;
-      see ``PlainMemoryControl``.
+      see ``PlainMemoryControl``. Withheld for a defect under the same Appendix F
+      self-test carve-out as ``DISABLED_FLAGS`` below, and pinned differently:
+      ``test_controllable_conformance`` *runs* these scenarios against
+      ``ControllableInMemoryProvider``, which supplies what the SDK lacks, so the
+      skip here is not the only record of them.
     * ``STALE`` and ``UNAVAILABLE_INIT`` -- omitted because there is no
       connection to lose. ``PlainMemoryControl`` does not implement
       ``ConnectionControl`` for the same reason, and the two omissions keep each
@@ -116,11 +120,20 @@ def tck_config() -> TckConfig:
       flags are served at their own default variant with reason ``STATIC``,
       where the scenarios expect the caller's default. Measured before it was
       gated: the four rows failed on the value, ``disabled-boolean-flag``
-      resolving to ``True`` against a caller default of ``false``. The
-      capability is optional, so the honest report is a withheld declaration
-      rather than a ``KnownDeviation`` -- but unlike ``NUMERIC_COERCION`` this
-      one is a field the SDK offers and does not honour, which is finding 4 in
-      the README.
+      resolving to ``True`` against a caller default of ``false``.
+
+      Unlike ``NUMERIC_COERCION`` this is a field the SDK offers and does not
+      honour, so it is a defect (finding 4 in the README) -- and **withholding a
+      capability for a defect is what Appendix F's self-test carve-out
+      licenses, not something an adoption may copy**. This suite is a fixture
+      for the harness rather than a report about a third party, and it runs in
+      the ordinary build where a permanently failing scenario is a broken build
+      rather than a finding. The carve-out's condition is that the defect be
+      pinned by a test of its own, and it is:
+      ``test_every_packaged_flag_resolves_to_its_packaged_default_variant``
+      sweeps the four flags with the rest and asserts each resolves to its own
+      default variant, so the behaviour is asserted rather than only skipped and
+      the sweep turns red the day the SDK honours ``DISABLED``.
     * ``NUMERIC_COERCION`` -- omitted because the SDK's in-memory provider does
       not coerce. It hands each variant back untouched, and the client's type
       check is ``isinstance``-based, so ``integral-float-flag`` (``10.0``)
@@ -128,9 +141,10 @@ def tck_config() -> TckConfig:
       ``integer-flag`` (``10``) requested as a float is one rather than
       ``10.0``. The lossy scenario passes for the wrong reason -- every float
       is rejected -- which is exactly what the two lossless scenarios exist to
-      catch, and declaring the tag would have them catch it here. The
-      capability is optional, so this is a choice the provider is entitled to
-      rather than a deviation.
+      catch, and declaring the tag would have them catch it here. This is the
+      withholding Appendix F still calls right after its correction: a provider
+      that does not attempt the coercion at all, rather than one that attempts
+      it and gets a direction wrong. It needs no carve-out and no deviation.
 
     ``LARGE_INTEGERS`` is declared: a Python ``int`` is unbounded and nothing
     in this provider routes a value through a float. ``VARIANTS`` is declared
