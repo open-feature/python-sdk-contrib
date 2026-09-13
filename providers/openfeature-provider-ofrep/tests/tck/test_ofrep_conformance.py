@@ -163,9 +163,12 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # obstacle here.
 #
 # Measured first. Declaring the tag fails all four rows -- 6 failed, 37 passed,
-# 12 skipped, 1 xfailed, against the 2 failed of the run without it -- and each
-# fails on the error code rather than on the value: "error-code was 'GENERAL',
-# expected none". Then read back, and probed at the wire to be sure of the
+# 12 skipped, 1 xfailed at the time, against the 2 failed of the run without it
+# -- and each fails on the error code rather than on the value: "error-code was
+# 'GENERAL', expected none". That probe predates reason.feature, which took this
+# suite from 56 collected to 65; today's run without the tag is 2 failed, 45
+# passed, 17 skipped, 1 xfailed, and declaring it would move the same four rows
+# from skipped to failed. Then read back, and probed at the wire to be sure of the
 # reading. flagd's OFREP endpoint answers a disabled flag
 # `200 {"key": ..., "reason": "DISABLED", "metadata": {}}`: no `value`, and no
 # `variant`. The server does indeed never return a value, exactly as the
