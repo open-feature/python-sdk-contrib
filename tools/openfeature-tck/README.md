@@ -242,12 +242,16 @@ own rollout rule — belongs in the same run rather than a second harness. Creat
 directory beside the module that calls `scenarios()`, with step definitions in a `conftest.py`:
 
 ```
-tests/
+tests/tck/
 ├── conftest.py                    # your step definitions
-├── test_conformance.py            # the fixture and the one call, unchanged
+├── test_my_provider.py            # the fixtures and the one call, unchanged
 └── extensions/
     └── fractional.feature
 ```
+
+The directory is `tests/tck` because that is what the tasks above exclude and what `poe test-tck`
+runs; the module inside it needs no `conformance` or `tck` in its name, since the directory is what
+selects the suite. Both adoptions in this repository are laid out that way.
 
 ```python
 # conftest.py
