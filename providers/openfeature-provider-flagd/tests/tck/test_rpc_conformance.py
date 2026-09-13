@@ -128,10 +128,14 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #
 #     Declared rather than withheld because this resolver *attempts* the
 #     coercion and gets one direction wrong, which is the case Appendix F's
-#     guidance is built around: `integer-flag` requested as a Float passes, so
-#     withdrawing the tag would turn a real, specific defect into a skip
-#     indistinguishable from a provider that declines to coerce at all. That is
-#     the failure mode the deviation field exists to prevent.
+#     numeric-coercion note now names outright: a provider in that position
+#     declares the capability and lets the scenario fail. That note said the
+#     opposite until spec@045950ca -- withhold, and say which it is -- and two
+#     of the four adoptions followed it there. `integer-flag` requested as a
+#     Float passes here, so withdrawing the tag would turn a real, specific
+#     defect into a skip indistinguishable from a provider that declines to
+#     coerce at all, which is the failure mode the deviation field exists to
+#     prevent.
 #
 #     **The in-process resolver passes this scenario.** It refuses 0.5 as an
 #     Integer with TYPE_MISMATCH, because it evaluates locally and never asks
@@ -141,15 +145,15 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     correctly, because in those languages both narrow identically; Python is
 #     the language where that would be false.
 #
-#     Worth flagging for the other adoptions: the Go suite's note currently
-#     asserts that "the Python one does not [narrow], in either resolver: its
-#     RPC path asks flagd for an Int and gets INVALID_ARGUMENT for a
-#     float-valued flag". That is wrong about this resolver, and it is the same
-#     claim an earlier revision of this file made and retracted --
-#     INVALID_ARGUMENT is what grpc.py:461-462 would map to TypeMismatchError if
-#     it ever arrived, and for a float-valued flag it does not. Python's RPC
-#     narrows exactly as Go's and Java's do. Only its in-process resolver is the
-#     exception, and it is the only such resolver in the four languages.
+#     Worth keeping because it was got wrong twice, in two languages, by reading
+#     the source: Python's RPC resolver narrows exactly as Go's and Java's do,
+#     and only its in-process resolver is the exception -- the only such resolver
+#     in the four languages. The claim that this path returns INVALID_ARGUMENT
+#     for a float-valued flag was made and retracted by an earlier revision of
+#     this file, and asserted about Python by the Go suite until it was corrected
+#     there. INVALID_ARGUMENT is what grpc.py:461-462 would map to
+#     TypeMismatchError if it ever arrived; for a float-valued flag it does not.
+#     A run settled it; neither reading did.
 #
 #     The tag's third scenario fails for a reason that is not flagd's:
 #     flagd-testbed seeds no `integral-float-flag`, so it is FLAG_NOT_FOUND. The
@@ -171,20 +175,30 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     unbounded Python int. Nothing in between is 32 bits wide. The suite simply
 #     cannot show that.
 #
-#     The rule this and NUMERIC_COERCION are both decided by, stated once:
-#     **declare when at least one scenario gating the tag can actually be put to
-#     the provider, and record the backend's gap where the others fail; withhold
-#     when none of them can.** The two look like the same missing-fixture
-#     problem and are not. @numeric-coercion has three scenarios and this
-#     backend can ask two of them -- and their answers differ between the two
-#     resolvers, which is the finding a withholding would have buried.
+#     The rule this and NUMERIC_COERCION are both decided by is **Appendix F's
+#     sixth declaring rule** -- declare when at least one scenario gating the tag
+#     can actually be put to the provider, withhold only when none can, the unit
+#     being the scenario and not the tag. It is cited rather than restated: the
+#     wording these two suites used last pass is what went into the appendix at
+#     spec@4cab0320, so the appendix is now where it lives and a copy here would
+#     be a second place for it to drift. The two gaps look like the same
+#     missing-fixture problem and are not. @numeric-coercion has three scenarios
+#     and this backend can ask two of them -- and their answers differ between
+#     the two resolvers, which is the finding a withholding would have buried.
 #     @large-integers has one, and this backend can ask none of it.
 #
-#     No KnownDeviation for it, in either shape. The gap is in the fixture, and
-#     an entry would attribute it to the provider. Go and JavaScript withhold it
-#     for this same reason; Java cannot declare it at all, because its integer
-#     accessor is 32 bits, which is a third thing again and not this one.
-#     open-feature/flagd-testbed#392 adds the flag; declare it then.
+#     No KnownDeviation for it, in either shape. That is the rule's first
+#     consequence: a scenario failing because the backend serves no fixture for
+#     it is not a provider defect, and an entry would attribute the testbed's gap
+#     to the provider. Go and JavaScript withhold it for this same reason; Java
+#     cannot declare it at all, because its integer accessor is 32 bits, which is
+#     a third thing again and not this one.
+#
+#     And the second consequence, which this sentence exists to satisfy: a
+#     capability withheld for a backend gap is temporary in a way one withheld by
+#     choice is not. open-feature/flagd-testbed#392 adds `huge-integer-flag`;
+#     declare the tag when the image carries it, or this withholding outlives its
+#     reason and starts reading as a claim about the provider.
 #
 #   REINITIALIZATION
 #     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
