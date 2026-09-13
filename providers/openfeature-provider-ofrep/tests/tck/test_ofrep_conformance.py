@@ -75,6 +75,32 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     is verified is that the key reached flagd, since nothing else about the
 #     context is keyed on by any canonical flag.
 #
+#   STANDARD_REASONS
+#     New at spec@c342461a, which moved every resolution-reason assertion out of
+#     the other feature files and into reason.feature, gated as a whole. A claim
+#     rather than an exemption: 2.2.5 is a SHOULD that permits "some other
+#     string", so declaring the tag says this provider uses the standard
+#     vocabulary with the standard meanings.
+#
+#     Eight of the file's nine scenarios run here and all eight pass: the four
+#     rule-less rows as STATIC, an unknown flag and a type mismatch as ERROR
+#     beside their error codes, and -- because TARGETING is declared above --
+#     TARGETING_MATCH for the matched rule and DEFAULT for the miss. The ninth
+#     composes with @disabled-flags, withheld below, so it is skipped with that
+#     reason.
+#
+#     The obstacle that was expected here is not the one that exists, and it was
+#     measured rather than reasoned about. ofrep/__init__.py:159 indexes
+#     `Reason[data["reason"]]` by *name*, so a server reporting a reason outside
+#     the SDK's enum raises KeyError -- which is why this capability looked like
+#     the risky one. It is not: every reason reason.feature asserts is an enum
+#     member, DISABLED included. Declaring @disabled-flags alongside this one and
+#     running the ninth scenario shows the index surviving the DISABLED reason
+#     and the *next* keyword argument failing, `variant=data["variant"]` on line
+#     160, with KeyError: 'variant' reported to the application as GENERAL. That
+#     is the same one-line defect the @disabled-flags note below records, and it
+#     is unrelated to the reason vocabulary.
+#
 # NUMERIC_COERCION is withheld, and the reason is worth recording because two
 # other languages answered it differently over the same protocol.
 #
@@ -228,6 +254,7 @@ CAPABILITIES = frozenset(
         Capability.OBJECT,
         Capability.VARIANTS,
         Capability.TARGETING,
+        Capability.STANDARD_REASONS,
     }
 )
 
