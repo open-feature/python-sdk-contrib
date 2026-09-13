@@ -35,32 +35,44 @@ assets at spec@89b1519a ask for three flags that flagd-testbed v3.8.0
 (``openfeature/test-harness/version.txt``, and the tag pinned in
 ``docker-compose.yaml`` beside this file) does not seed: ``large-integer-flag``,
 ``huge-integer-flag`` and ``integral-float-flag``. Until
-open-feature/flagd-testbed catches up, both suites fail these scenarios with
-``FLAG_NOT_FOUND``, for every resolver alike:
+open-feature/flagd-testbed#392 lands, three scenarios fail with
+``FLAG_NOT_FOUND`` on each resolver alike:
 
-* ``A large integer resolves without loss of precision`` -- untagged;
-* ``An integer beyond 32 bits resolves without loss of precision`` -- under
-  ``@large-integers``, which both suites declare;
+* ``A large integer resolves without loss of precision`` -- untagged, so it runs
+  unconditionally and fails on ``large-integer-flag``;
 * ``The resolved details name the variant``, the ``large-integer-flag`` row of
   it -- under ``@variants``, which both suites declare. New at spec@26362f85,
   and the same gap rather than a new one: the row asks for the variant
-  ``max-int32`` of a flag that is not there, so it fails with the same
-  ``FLAG_NOT_FOUND`` as the two above. The other seven rows pass on both
+  ``max-int32`` of a flag that is not there. The other seven rows pass on both
   resolvers, which is the evidence the capability is declared on -- withholding
   it would say flagd does not name variants, which is false, and would
-  attribute a missing flag to a capability the provider has.
+  attribute a missing flag to a capability the provider has;
+* ``An integral float requested as an integer is coerced without loss`` -- under
+  ``@numeric-coercion``, which both suites declare as of this pass. It asks for
+  ``integral-float-flag``. This one is new to the failure list and is the price
+  of declaring that tag; the two suites explain why paying it is the honest
+  report, and the RPC suite's ``KnownDeviation`` summary disclaims it explicitly
+  so that a reader does not attribute it to flagd.
 
-``integral-float-flag`` is asked for only under ``@numeric-coercion``, which
-neither suite declares, so its scenario is skipped rather than failed. The
-failures are deliberately left as failures: they say something true about the
-stack under test, and an ``xfail`` would say the provider is at fault when it is
-the backend that is behind. None of them is a ``KnownDeviation`` either: a
-deviation is for a behaviour the *provider* is required to have and does not.
+``huge-integer-flag`` is asked for only by the single scenario under
+``@large-integers``, which neither suite declares any more, so it is skipped
+rather than failed -- the backend can put none of that tag's scenarios to the
+provider, so a declaration would rest on nothing. ``@numeric-coercion`` is the
+opposite case and is declared: two of its three scenarios do reach the provider,
+and the two resolvers answer them differently. Both suites state the rule that
+decides this.
 
-**The seventh failure is the provider's, not the testbed's.** A full run is
-``7 failed, 105 passed, 18 skipped`` -- three of the failures above on each
-resolver, and one more on in-process alone: ``boolean-flag`` requested as a
-Float resolves to ``1.0`` with reason ``STATIC`` and no error code, where the
+The failures are deliberately left as failures: they say something true about
+the stack under test, and an ``xfail`` would say the provider is at fault when
+it is the backend that is behind. **None of them is a ``KnownDeviation``**: a
+deviation is for a behaviour the *provider* is required to have and does not,
+and the provider was never given the flag to get wrong. Go and JavaScript both
+record their equivalent gaps the same way and say so in the same words.
+
+**Two failures are the provider's, not the testbed's.** A full run is
+``8 failed, 119 passed, 3 skipped``. Six of the eight are the three above on
+each resolver. The seventh is on in-process alone: ``boolean-flag`` requested as
+a Float resolves to ``1.0`` with reason ``STATIC`` and no error code, where the
 mandatory wrong-type scenario asks for the caller's default. ``bool`` is a
 subclass of ``int`` in Python, so the widening at ``flagd_core.py:113-114`` --
 ``if isinstance(result.value, int): result.value = float(result.value)`` -- sees
@@ -73,6 +85,46 @@ declared as a ``KnownDeviation`` because the scenario is mandatory and
 ungated -- it fails visibly on every run, which is the report, and a deviation
 would add nothing a reader cannot already see. It is not a testbed gap and does
 not go away when the image is bumped.
+
+The eighth is on RPC alone, and it is the one failure here that *does* carry a
+``KnownDeviation``: ``float-flag`` (0.5) requested as an Integer comes back as
+``0`` with no error code, where ``@numeric-coercion`` requires ``TYPE_MISMATCH``
+and the caller's default. The tag is declared and the scenario left to fail
+rather than the tag withheld, because this resolver does attempt the coercion
+and gets one direction wrong -- see ``test_rpc_conformance.py``. **The
+in-process resolver passes this scenario**, refusing 0.5 locally, so the
+deviation is recorded against RPC only. That asymmetry is the most interesting
+result in this pair of suites and is the thing a shared declaration would have
+hidden: the Java and Go flagd adoptions each record the same defect against both
+of their resolvers, correctly, because theirs both narrow; Python is the
+language where that would have been false.
+
+**Declaring ``@lifecycle`` surfaced one thing beyond a pass or a fail, and it is
+worth reading before anyone treats the warning as noise.** The in-process
+scenario ``Shutting down a provider that cannot reach its backend completes
+promptly`` passes -- shutdown does return well inside the bound -- but it leaves
+a ``PytestUnhandledThreadExceptionWarning`` behind it: gRPC's connectivity
+polling thread raises ``ValueError: Cannot invoke RPC: Channel closed!`` from
+``_poll_connectivity`` after ``shutdown`` has closed the channel underneath it.
+So the provider closes the channel without first stopping the watcher that is
+still using it. Reproducible on every run.
+
+It is **not** a ``KnownDeviation`` and not a scenario failure: nothing the
+specification requires is unmet, the scenario asserts that shutdown completes
+promptly and it does, and 2.5.3's double-shutdown scenario passes as well. It is
+a shutdown-ordering race in ``openfeature-flagd-core``'s watcher that surfaces
+as a stray traceback in a host application's logs during its own shutdown.
+Recorded here because it is the one finding the six lifecycle scenarios produced
+that neither a pass nor a failure would have carried, and because the six had
+never been run against this provider before -- the capability was withheld from
+the first pass to the sixth with nothing saying why.
+
+**The three skips are two scenarios, not three.** ``@large-integers`` gates a
+single scenario and is withheld on both resolvers for the backend gap above, so
+it skips twice; ``@reinitialization`` gates a single scenario and is declared on
+in-process, which passes it, and withheld on RPC, which cannot reuse a closed
+channel and is permitted not to by 2.5.2, so it skips once. Neither withholding
+is a defect and neither carries a deviation.
 
 ``targeting-key-flag``, new in the canonical set at the same revision, needs no
 testbed change. It is the flag flagd-testbed's own ``targeting.feature`` already
