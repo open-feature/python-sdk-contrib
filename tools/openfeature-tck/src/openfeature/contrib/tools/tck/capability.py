@@ -62,7 +62,32 @@ class Capability(str, Enum):
     """Provider enters ``STALE`` and emits ``PROVIDER_STALE`` when it loses its backend."""
 
     CONFIGURATION_CHANGE = "configuration-change"
-    """Provider detects configuration changes and emits ``PROVIDER_CONFIGURATION_CHANGED``."""
+    """Provider detects configuration changes and emits ``PROVIDER_CONFIGURATION_CHANGED``.
+
+    **The worked example of one skip meaning two different things**, which is
+    why it is spelled out on this tag rather than left abstract. Both of this
+    repository's withholdings of it are real and neither is the other:
+
+    * **A choice.** The OFREP adoption withholds it because every evaluation is
+      an independent HTTP request: there is no stream, no poll and no background
+      thread, so nothing is watching the backend and there is nothing to notice.
+      A provider built that way is not defective, and a
+      :class:`~.config.KnownDeviation` there would assert a defect that does not
+      exist. The next evaluation does return the new value -- what is missing is
+      the *signal*, which is what the scenario asserts.
+    * **A defect.** The in-memory self-test withholds it because the SDK's
+      ``InMemoryProvider`` copies its flag mapping in the constructor and exposes
+      no way to change it, and `Appendix A
+      <https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md>`_
+      **requires** an SDK's in-memory provider to support updating the flag set
+      and emitting this event. Tracked as `open-feature/python-sdk#620
+      <https://github.com/open-feature/python-sdk/issues/620>`_.
+
+    A report shows the same absence in both cases, which is the whole reason the
+    declaration is not the last word: the adoption's note says which, and for the
+    second kind there is a ``ControllableInMemoryProvider`` here supplying what
+    the SDK lacks, so the scenarios still run somewhere.
+    """
 
     OBJECT = "object"
     """Provider supports structured (object) flag values."""
@@ -127,11 +152,19 @@ class Capability(str, Enum):
     read as: not necessarily an impossibility, so a reader has to look at the
     adoption's own note for which it was.
 
-    Withholding it still needs no :class:`~.config.KnownDeviation`, for the
-    reason every gated capability does -- a deviation records a gap in behaviour
-    the provider is *required* to have, and this one is optional. That holds
-    whether the gap is architectural or a defect; where it is a defect, the
-    adoption's note is where to say so.
+    Withholding it **because the backend gives the provider nothing to act on**
+    needs no :class:`~.config.KnownDeviation`: a deviation records a gap in
+    behaviour the provider is *required* to have, and this one is optional, so an
+    entry would assert a defect that does not exist.
+
+    A defect is the other case and does not get the same treatment, which this
+    docstring used to blur by sending both to "the adoption's own note". Where
+    the provider does attempt the resolution and gets it wrong -- the Python
+    OFREP provider above is exactly that, one unconditional index away from
+    passing -- Appendix F prefers the tag declared, the scenarios left to fail
+    and the deviation recorded beside them, because withdrawing the tag turns a
+    specific defect into a skip that reads as a design decision. Withholding is
+    for the provider that cannot attempt the behaviour at all.
 
     Nothing in the specification says what a provider owes a disabled flag.
     `Requirement 1.4.7

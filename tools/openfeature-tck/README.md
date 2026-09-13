@@ -358,18 +358,32 @@ Untagged scenarios are mandatory and always run. `capabilities` defaults to ever
 capability — `DECLARABLE_CAPABILITIES` — and you should narrow it rather than widen it: start from
 the default, run the suite, and remove only what your provider genuinely cannot do.
 
-**What counts as "cannot do" is [Appendix F][appendix-f]'s to say, and the rule is not about the tag
-but about its scenarios**: declare a capability when at least one scenario gating it can actually be
-put to the provider, and withhold it only when none can. Its two consequences are the ones that bite
-in practice — a scenario that fails because the backend serves no fixture for it is not a provider
-defect and must not be recorded as one, and a capability withheld for a backend gap is temporary in
-a way one withheld by choice is not, so it needs a note saying why or it outlives its reason. The
-flagd adoption in this repository decides `@numeric-coercion` and `@large-integers` by that rule and
-gets opposite answers; its suite files cite it rather than restating it, and so should yours.
+**What counts as "cannot do" is [Appendix F][appendix-f]'s to say, and there are two questions in it,
+asked in order.** First: does your provider owe an answer at all? Where the specification permits
+declining — `@numeric-coercion` is defined by no requirement, so a provider that simply does not
+coerce is entitled to withhold it — withholding is the honest report however reachable the scenarios
+are. Only once a provider *is* attempting the capability does the second question arise, and it is
+not about the tag but about its scenarios: declare when at least one scenario gating it can actually
+be put to the provider, and withhold only when none can.
+
+That second rule's two consequences are the ones that bite in practice — a scenario that fails
+because the backend serves no fixture for it is not a provider defect and must not be recorded as
+one, and a capability withheld for a backend gap is temporary in a way one withheld by choice is
+not, so it needs a note saying why or it outlives its reason. The flagd adoption in this repository
+decides `@numeric-coercion` and `@large-integers` by it and gets opposite answers; its suite files
+cite it rather than restating it, and so should yours.
 
 Leaving a capability out is the only way to withhold it, and one skip carrying its reason is the
 whole mechanism: the scenario's tags say what was asked, the declaration says whether it was
 claimed, and the skip says why it was not.
+
+**The same skip can mean two different things, so say which in your own note.** Both are in this
+repository, on one capability: the OFREP adoption withholds `@configuration-change` because nothing
+watches the backend — every evaluation is an independent request, and a provider built that way is
+not defective — while the in-memory self-test withholds it because the SDK's provider cannot update
+its flag set at all, which [Appendix A][appendix-a] requires of it
+([python-sdk#620](https://github.com/open-feature/python-sdk/issues/620)). A choice and a defect,
+identical in the results, distinguishable only from what the adoption wrote down.
 
 ### A capability this SDK cannot express
 
