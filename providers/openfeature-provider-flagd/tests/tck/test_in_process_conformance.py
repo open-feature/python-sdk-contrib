@@ -98,10 +98,19 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     mismatch rather than 0 -- the lossy half holds. The float mapping at
 #     flagd_core.py:26 is the wider `(int, float)`, and `resolve_float_value`
 #     (flagd_core.py:113-114) widens an int result to a float, so `integer-flag`
-#     requested as a Float is 10.0 -- that lossless half holds too. But the
-#     same `(int,)` rule rejects `integral-float-flag`'s 10.0 requested as an
-#     Integer, where the tag requires 10: two of three, and a declaration is
-#     all or nothing. flagd's numeric-coercion ADR
+#     requested as a Float is 10.0 -- that lossless half holds too. Both halves
+#     were measured by declaring the tag and running it, not read off the
+#     source, and both pass.
+#
+#     The third scenario fails, and the reason it fails is not the one this note
+#     used to give. The same `(int,)` rule would reject `integral-float-flag`'s
+#     10.0 requested as an Integer where the tag requires 10 -- but that is a
+#     reading of the source and nothing here can observe it, because
+#     flagd-testbed seeds no `integral-float-flag`: the scenario fails
+#     FLAG_NOT_FOUND, the same gap the conftest records for `large-integer-flag`
+#     and `huge-integer-flag`. So this resolver is two of three with the third
+#     unmeasured, rather than two of three with a known coercion gap, and a
+#     declaration is all or nothing either way. flagd's numeric-coercion ADR
 #     (docs/architecture-decisions/numeric-coercion.md) commits every flagd
 #     implementation to the lossless rule; when openfeature-flagd-core follows
 #     it, this is declared again.
