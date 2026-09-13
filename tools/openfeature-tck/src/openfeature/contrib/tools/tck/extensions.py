@@ -193,9 +193,14 @@ def canonical_root() -> Path | None:
 def canonical_tags() -> frozenset[str]:
     """Every Gherkin tag the packaged canonical feature files carry.
 
-    What a reservation is checked against: a tag is reserved because no
-    canonical scenario carries it, and this is the set that says whether that
-    is still true. See :func:`~.capability.expired_reservations`.
+    The specification's half of what a reservation is checked against: a tag is
+    reserved because no canonical scenario carries it, and this is the set that
+    says whether that is still true. Read off the packaged files rather than
+    off a collected run, so a ``-k`` or a ``--deselect`` cannot narrow a run
+    past it. An adopter's own features have no equivalent source -- the
+    directory is found from their test module -- so the other half of the check
+    reads them from what was collected. See
+    :func:`~.capability.expired_reservations`.
 
     **Tag lines only**, which is what tells a tag apart from the same word
     written in prose. ``events.feature`` mentions ``@caching`` in a comment,
