@@ -89,7 +89,11 @@ class KnownDeviation:
     to no capability.
 
     A reserved capability is refused: no scenario carries the tag, so there is
-    nothing to deviate from. See :data:`~.capability.RESERVED_CAPABILITIES`.
+    nothing to deviate from. See :data:`~.capability.RESERVED_CAPABILITIES`. So
+    is one this SDK cannot express, for the opposite reason -- the scenarios
+    exist and no provider here can attempt them, so the gap is the language's
+    and not this provider's. See
+    :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`.
     """
 
     @classmethod
@@ -214,11 +218,14 @@ class TckConfig:
     Naming a reserved capability here is rejected at construction rather than
     passed into a report. See :data:`~.capability.RESERVED_CAPABILITIES`.
 
-    A capability that cannot hold in a language at all -- ``@numeric-coercion``
-    where the language has a single numeric type, ``@large-integers`` on a
-    32-bit accessor -- is a property of the SDK rather than of the provider, and
-    Appendix F records it once rather than every report restating it. Here it is
-    simply left undeclared, and the skip carries the reason.
+    So is one this language's SDK cannot put the question for at all --
+    ``@numeric-coercion`` where the language has a single numeric type,
+    ``@large-integers`` on a 32-bit accessor. That is a property of the SDK
+    rather than of the provider, so it is refused here rather than left for
+    every adopter to know and remember, and the error names the property. The
+    two refusals are deliberately not the same message, and the scenarios they
+    skip do not carry the same reason: see
+    :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`, which is empty in Python.
     """
 
     known_deviations: Sequence[KnownDeviation] = ()
@@ -283,6 +290,7 @@ class TckConfig:
         object.__setattr__(self, "known_deviations", tuple(self.known_deviations))
 
         problems.extend(reserved_problems(self.capabilities))
+        problems.extend(inexpressible_problems(self.capabilities))
         problems.extend(deviation_problems(self.known_deviations))
 
         if (
@@ -353,6 +361,51 @@ def reserved_problems(declared: Iterable[Capability]) -> list[str]:
     ]
 
 
+def inexpressible_problems(declared: Iterable[Capability]) -> list[str]:
+    """Refuse a capability this language's SDK cannot put the question for.
+
+    Refused here rather than left to adopters, because leaving it to adopters
+    means every adopter in the language has to know a fact about their language
+    and remember to act on it. Three suites in one implementation each left the
+    same capability undeclared with its own comment restating the same property
+    of the language: three places to get right, every one of them re-paid by the
+    next adoption, and a single wrong one puts a claim in a report that no
+    scenario could have verified. Appendix F makes this the implementation's job
+    for exactly that reason.
+
+    **The message names the property of the SDK, not the rule.** An adopter who
+    reaches this has done nothing wrong -- they declared a capability their
+    provider may well have -- so the error has to tell them something they could
+    not have known, and "the specification says you may not" is not it.
+
+    Separate from :func:`reserved_problems` on purpose, and it stays separate
+    even though both end in the same refusal. A reserved capability is global and
+    temporary: nothing anywhere carries the tag, and the reservation expires when
+    the specification writes a scenario. An inexpressible one is this language's
+    and permanent: the scenarios exist and other languages pass them. Collapsing
+    them into one predicate would make the two indistinguishable at the only
+    moment anybody is looking.
+    """
+    refused = [
+        capability
+        for capability in declared
+        if isinstance(capability, Capability) and capability.inexpressible
+    ]
+    if not refused:
+        return []
+    return [
+        f"{capability.tag} cannot be declared in this language: {reason}. No "
+        f"provider in this SDK can be asked the question its scenarios put, so a "
+        f"declaration could not be verified either way, and its absence from a "
+        f"report says nothing about your provider. Its scenarios are skipped with "
+        f"that reason. This is not a reservation -- the scenarios exist and other "
+        f"languages run them -- and there is nothing for you to fix; it changes "
+        f"when the SDK does"
+        for capability in sorted(refused, key=lambda c: c.tag)
+        if (reason := capability.inexpressible_reason) is not None
+    ]
+
+
 def deviation_problems(deviations: Sequence[KnownDeviation]) -> list[str]:
     """Refuse a deviation that says nothing a consumer can use.
 
@@ -397,6 +450,15 @@ def deviation_problems(deviations: Sequence[KnownDeviation]) -> list[str]:
                 f"failed or skipped for this deviation to explain and no result "
                 f"could show the gap. Remove it, or name the capability whose "
                 f"scenarios the gap actually affects"
+            )
+        elif capability.inexpressible:
+            problems.append(
+                f"known_deviations[{index}] names {capability.tag}, which cannot "
+                f"be expressed in this language: {capability.inexpressible_reason}. "
+                f"A deviation says this provider fails something it is required to "
+                f"do, and no provider in this SDK can attempt these scenarios at "
+                f"all -- so the entry would attribute to your provider a gap that "
+                f"belongs to the language. The skip already carries that reason"
             )
 
     return problems
