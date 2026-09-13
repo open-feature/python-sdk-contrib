@@ -133,6 +133,24 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     before it: it is one of the six @lifecycle skips each resolver reports,
 #     not a scenario that used to pass.
 #
+#   STANDARD_REASONS
+#     New at spec@c342461a, which moved every resolution-reason assertion out of
+#     the other feature files and into reason.feature, gated as a whole. A claim
+#     rather than an exemption: 2.2.5 is a SHOULD that permits "some other
+#     string", so declaring the tag says this provider uses the standard
+#     vocabulary with the standard meanings.
+#
+#     Declared on a run rather than on the source. All nine scenarios pass --
+#     the four rule-less rows as STATIC, an unknown flag and a type mismatch as
+#     ERROR beside their error codes, TARGETING_MATCH for the matched rule and
+#     DEFAULT for the miss, DISABLED for a disabled flag. The last three need
+#     @targeting and @disabled-flags as well, which this suite declares, so none
+#     of the file is skipped here.
+#
+#     The DISABLED row resolves through Reason.DISABLED here, the SDK's own
+#     enum, where RPC hands back flagd's bare 'DISABLED' string -- noted under
+#     DISABLED_FLAGS above. The step compares the reason as text, so both pass.
+#
 #   CACHING
 #     Reserved in the Capability enum; no scenario carries the tag. Declaring a
 #     capability nothing exercises would be a claim with no evidence behind it,
@@ -149,6 +167,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.TARGETING,
         Capability.UNAVAILABLE_INIT,
         Capability.LARGE_INTEGERS,
+        Capability.STANDARD_REASONS,
     }
 )
 

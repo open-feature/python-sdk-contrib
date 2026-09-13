@@ -31,7 +31,7 @@ control port accepting a connection, which the harness establishes before it
 probes.
 
 **The testbed does not yet serve the whole canonical flag set.** The conformance
-assets at spec@93eb1a58 ask for three flags that flagd-testbed v3.8.0
+assets at spec@c342461a ask for three flags that flagd-testbed v3.8.0
 (``openfeature/test-harness/version.txt``, and the tag pinned in
 ``docker-compose.yaml`` beside this file) does not seed: ``large-integer-flag``,
 ``huge-integer-flag`` and ``integral-float-flag``. Until
@@ -58,7 +58,7 @@ the backend that is behind. None of them is a ``KnownDeviation`` either: a
 deviation is for a behaviour the *provider* is required to have and does not.
 
 **The seventh failure is the provider's, not the testbed's.** A full run is
-``7 failed, 87 passed, 18 skipped`` -- three of the failures above on each
+``7 failed, 105 passed, 18 skipped`` -- three of the failures above on each
 resolver, and one more on in-process alone: ``boolean-flag`` requested as a
 Float resolves to ``1.0`` with reason ``STATIC`` and no error code, where the
 mandatory wrong-type scenario asks for the caller's default. ``bool`` is a
