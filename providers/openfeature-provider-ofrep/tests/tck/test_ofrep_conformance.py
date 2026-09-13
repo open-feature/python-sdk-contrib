@@ -133,6 +133,16 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # as normative OpenFeature. The honest record is the undeclared tag and the three
 # skips it produces.
 #
+# This withholding survives the correction that appendix made at spec@045950ca,
+# and it is worth saying which side of it this is on, because the flagd adoption
+# in this repository reads the opposite way. That note now says a provider which
+# *attempts* the coercion and gets a direction wrong declares the tag and lets
+# the scenario fail -- flagd's RPC resolver narrows 0.5 to 0 and does exactly
+# that -- and that withholding is for a provider which cannot attempt it at all.
+# This provider is the second kind: it never widens or narrows anything, the two
+# JSON types stay apart end to end, and there is no coercion here to get wrong.
+# Same rule, different provider, opposite answer.
+#
 # DISABLED_FLAGS is withheld as well, new at spec@009afe06, and this one is a
 # provider defect rather than an architecture. Which is the opposite of what the
 # appendix predicts, so it is worth being exact about.
@@ -173,6 +183,23 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # @disabled-flags is a declared capability rather than a requirement. The honest
 # record is the undeclared tag, the four skips it produces, and this note saying
 # the gap is a bug somebody can fix rather than a fact of the protocol.
+#
+# **That reasoning does not survive spec@045950ca, and this is the one decision
+# in these suites that the corrected appendix says should change.** It is left
+# standing here only because the pass that found it was a documentation pass and
+# changing it moves a count. The difference from the numeric-coercion note above
+# is that this provider *does* attempt the behaviour: it resolves a disabled flag
+# and gets it wrong on one unconditional index, which is the case the appendix
+# tells an adopter to declare and let fail, with a KnownDeviation.untracked
+# beside it -- "withdrawing the capability replaces a failing scenario with a
+# skip and hides a defect behind something that looks deliberate". The self-test
+# carve-out in that same revision, which does license a withholding for an
+# identified defect, is explicit that an adoption has none: this suite exists to
+# report on a provider, and a skip here is a claim about that provider.
+#
+# So the next change to this file declares @disabled-flags, accepts four failing
+# rows, and records the `data["variant"]` defect as an untracked deviation -- and
+# files it, which is what makes the deviation tracked and the failures temporary.
 #
 # Not declared, and why. Each is a fact about the provider, established by
 # reading it -- OFREPProvider is stateless: it holds a requests.Session and a
@@ -239,6 +266,30 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #     would leave the scenario skipped on @lifecycle and the claim unexamined:
 #     the same declare-what-nothing-exercises error the reserved tag below is
 #     kept out for.
+#
+#   LARGE_INTEGERS
+#     The one withholding in this list that is about the backend rather than the
+#     provider, and until this pass the one with no reason written down at all.
+#     Appendix F's sixth declaring rule (spec@4cab0320) is what decides it:
+#     exactly one scenario carries the tag, it asks for `huge-integer-flag`, and
+#     flagd-testbed v3.8.0 seeds no such flag -- so not one of the tag's
+#     scenarios can be put to this provider, and nothing about the capability
+#     can be established either way. Contrast VARIANTS above, where seven of
+#     eight rows do reach the provider and the tag is declared on their strength.
+#
+#     Nothing in this path would narrow the value: a JSON number decodes through
+#     `json.loads` into an unbounded Python `int` and the type check at
+#     ofrep/__init__.py:249-256 admits it unchanged. The suite cannot show that,
+#     which is the point -- a declaration would be a claim with no evidence
+#     behind it in either direction.
+#
+#     No KnownDeviation, in either shape: the gap is the fixture's, and an entry
+#     would attribute it to the provider. And per the same rule's second
+#     consequence this withholding is temporary in a way the ones above are not.
+#     open-feature/flagd-testbed#392 adds the flag; declare the tag when the
+#     image carries it, or this outlives its reason and starts reading as a
+#     claim about the provider. Both flagd suites here withhold it on the same
+#     ground and say so in the same terms.
 #
 #   CACHING
 #     Reserved in the Capability enum; no scenario carries the tag. Declaring a
