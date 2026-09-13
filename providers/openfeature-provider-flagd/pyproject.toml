@@ -130,11 +130,12 @@ strict = true
 # linked from tools/openfeature-tck/README.md -- and is deliberately not
 # restated here.
 #
-# What is local to this package: a full run is 7 failed, 87 passed, 18 skipped.
-# Six of those failures are three canonical flags flagd-testbed does not seed
-# yet, on each of the two resolvers, and the seventh is a real provider-side
-# gap; tests/tck/conftest.py accounts for all seven. Docker is not what decides
-# the exclusion -- `tests/e2e` needs Docker too and does run here.
+# What is local to this package: a full run is 8 failed, 119 passed, 3 skipped.
+# Six of those failures are canonical flags flagd-testbed does not seed yet, on
+# each of the two resolvers; the other two are real provider-side gaps, one per
+# resolver. tests/tck/conftest.py accounts for all eight and for the three
+# skips. Docker is not what decides the exclusion -- `tests/e2e` needs Docker
+# too and does run here.
 #
 # The suite is still *collected* on every default build, so it cannot quietly
 # stop importing against the harness while nobody runs it. `--ignore` would
