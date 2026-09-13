@@ -213,8 +213,8 @@ these tasks, which CI reaches through `poe cov`:
 
 ```toml
 [tool.poe.tasks]
-test = ["test-default", "test-tck-collect"]
-test-cov = ["test-cov-default", "test-tck-collect"]
+test = { sequence = ["test-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
+test-cov = { sequence = ["test-cov-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
 test-default = "pytest tests --ignore=tests/tck"
 test-cov-default = "coverage run -m pytest tests --ignore=tests/tck"
 test-tck = "pytest tests/tck"
@@ -233,7 +233,11 @@ Two Python-specific notes on top of the appendix:
 - **`--ignore` does not import the suite, so nothing checks that it still would**, and `mypy` here is
   configured over `src` alone. Hence `test-tck-collect` in both default tasks: it imports every test
   module and resolves the feature files while starting no container, which is the appendix's "keep it
-  compiling" in the form Python has available.
+  compiling" in the form Python has available. It cannot pass vacuously — pytest exits 5 on a
+  directory that collects nothing and 4 on a path that does not exist, so a suite that moved out from
+  under the task fails it rather than skipping it. `ignore_fail = "return_non_zero"` is what keeps the
+  check reachable: poe otherwise aborts the sequence at the first failing subtask, and a compile check
+  that only runs while the rest of the build is green is not a check.
 
 ## Extending it
 
