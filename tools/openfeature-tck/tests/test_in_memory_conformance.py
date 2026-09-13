@@ -136,6 +136,16 @@ def tck_config() -> TckConfig:
     in this provider routes a value through a float. ``VARIANTS`` is declared
     too: the in-memory flag set is keyed by variant name, so the provider has
     one to report for every flag and does.
+
+    ``STANDARD_REASONS`` is declared, and it was measured before it was: the six
+    scenarios this provider can reach all pass. ``InMemoryFlag.resolve`` reports
+    ``Reason.STATIC`` for every flag in the decoded set, so the four rule-less
+    rows hold; a missing flag and a type mismatch both arrive with reason
+    ``ERROR`` beside their error code. The other three scenarios in
+    ``reason.feature`` compose the tag with ``TARGETING`` and ``DISABLED_FLAGS``,
+    neither of which is declared here, so they skip with that reason -- which is
+    the capability working as intended rather than a gap: a reason cannot be
+    observed without the behaviour that produces it.
     """
     return TckConfig(
         name="in-memory",
@@ -146,6 +156,7 @@ def tck_config() -> TckConfig:
             Capability.OBJECT,
             Capability.VARIANTS,
             Capability.LARGE_INTEGERS,
+            Capability.STANDARD_REASONS,
         },
     )
 

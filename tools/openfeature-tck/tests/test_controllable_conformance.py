@@ -54,6 +54,11 @@ def tck_config() -> TckConfig:
     changes only how the flag set is *replaced*, and resolution -- including the
     fact that ``InMemoryFlag.resolve`` never reads ``state`` -- is still the
     SDK's. Measured the same way, with the same four failures.
+
+    ``STANDARD_REASONS`` is declared, for the reason given there and on the same
+    measurement: resolution is the SDK's, so the four ``STATIC`` rows and the two
+    error scenarios pass here identically. The three that compose the tag with
+    ``TARGETING`` or ``DISABLED_FLAGS`` skip, since neither is declared.
     """
     control = InProcessControl()
     return TckConfig(
@@ -66,6 +71,7 @@ def tck_config() -> TckConfig:
             Capability.OBJECT,
             Capability.VARIANTS,
             Capability.LARGE_INTEGERS,
+            Capability.STANDARD_REASONS,
         },
     )
 
