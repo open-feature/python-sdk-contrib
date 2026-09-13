@@ -44,7 +44,7 @@ with the reason in a comment above them. Why a conformance suite is not a requir
 Two things that are this provider's rather than the policy's:
 
 - **Docker is not what decides it.** The flagd package's `tests/e2e` needs Docker too and does run in
-  the default build. What decides it is the run: **2 failed, 37 passed, 16 skipped, 1 xfailed** —
+  the default build. What decides it is the run: **2 failed, 45 passed, 17 skipped, 1 xfailed** —
   both failures are canonical flags that flagd-testbed v3.8.0 does not seed yet, and the `xfail` is
   the one genuine provider gap, recorded as a `KnownDeviation` rather than hidden.
   `tests/tck/conftest.py` and `tests/tck/test_ofrep_conformance.py` account for each one, so a
