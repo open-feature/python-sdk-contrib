@@ -169,12 +169,21 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     value; the suite simply cannot show that.
 #
 #     The rule this and NUMERIC_COERCION are both decided by is **Appendix F's
-#     sixth declaring rule** -- declare when at least one scenario gating the tag
-#     can actually be put to the provider, withhold only when none can, the unit
-#     being the scenario and not the tag. It is cited rather than restated: the
-#     wording these two suites used last pass is what went into the appendix at
-#     spec@4cab0320, so the appendix is now where it lives and a copy here would
-#     be a second place for it to drift. The two gaps look like the same
+#     sixth declaring rule** -- once a provider is attempting a capability,
+#     declare it when at least one scenario gating it can actually be put to the
+#     provider and withhold only when none can, the unit being the scenario and
+#     not the tag. It is cited rather than restated: the wording these two suites
+#     used last pass is what went into the appendix at spec@4cab0320, so the
+#     appendix is now where it lives and a copy here would be a second place for
+#     it to drift.
+#
+#     The opening clause matters and was added at spec@aa2ad24f after the Go
+#     implementation found the rule forcing declarations it should not: it
+#     decides whether a question is *askable*, not whether the provider owes an
+#     answer, and that second question comes first. Both tags clear it here --
+#     this resolver does coerce, correctly in both directions it can be asked,
+#     and nothing about it declines to resolve a large integer -- so what is left
+#     for rule six to decide is the fixture gap. The two gaps look like the same
 #     missing-fixture problem and are not. @numeric-coercion has three scenarios
 #     and this backend can ask two of them, which is what makes the declaration
 #     mean something and the third failure a footnote. @large-integers has one,
