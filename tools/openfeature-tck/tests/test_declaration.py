@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import types
 import typing
+from pathlib import Path
 
 import pytest
 
@@ -166,16 +167,25 @@ def test_a_reservation_expires_when_a_scenario_carries_it() -> None:
     assert expired_reservations([first.tag, first.tag, "@events"]) == (first,)
 
 
-def _scenario_item(filename: str) -> typing.Any:
+def _scenario_item(filename: str, *tags: str) -> typing.Any:
     """A collected node shaped the way pytest-bdd shapes one.
 
     ``__scenario__`` on the generated function, carrying the feature it came
-    from, which is the only part of a node the check reads.
+    from, and the tags as the markers pytest-bdd turns them into. Those two are
+    the whole of what the check reads off a node.
+
+    Markers rather than the scenario's own ``tags``, which is the same choice
+    the capability gate makes and for the same reason: pytest-bdd applies a
+    marker for every tag on the scenario, on its feature *and* on its rule, so
+    a feature-level tag is absent from ``Scenario.tags`` and gates every
+    scenario in the file regardless. Reading what the gate reads is what keeps
+    the two from disagreeing about which scenarios are unclaimable.
     """
     feature = types.SimpleNamespace(filename=filename)
     function = types.SimpleNamespace()
     function.__scenario__ = types.SimpleNamespace(feature=feature)
-    return types.SimpleNamespace(function=function)
+    markers = [types.SimpleNamespace(name=tag.lstrip("@")) for tag in tags]
+    return types.SimpleNamespace(function=function, iter_markers=lambda: iter(markers))
 
 
 def _a_canonical_feature() -> str:
@@ -196,6 +206,10 @@ def test_the_plugin_fails_a_run_over_an_expired_reservation(
     adoption that re-pinned the assets and ran the suite would see the new
     scenarios skipped, for a capability it is refused permission to declare,
     and nothing would say so. This is what says so.
+
+    The upstream half of the check: the tags come off the packaged files, so
+    nothing an adopter's run does to its selection gets past it. The half that
+    arrives from the adopter's own side is below.
     """
     items = [_scenario_item(_a_canonical_feature())]
 
@@ -219,17 +233,82 @@ def test_the_plugin_fails_a_run_over_an_expired_reservation(
     assert "RESERVED_CAPABILITIES" in message
 
 
+def test_the_plugin_fails_a_run_over_an_adopters_own_reserved_tag(
+    tmp_path: Path,
+) -> None:
+    """The same failure, arriving from the adopter's side instead of upstream.
+
+    A reserved capability cannot be declared, so the capability gate skips
+    every scenario carrying its tag -- an extension's included. That scenario
+    can never run and can never be claimed, which is precisely what this check
+    exists to surface, so where the tag came from changes the remedy and not
+    the consequence. The check used to read the canonical set alone and let
+    this one through.
+
+    Nothing is monkeypatched here: the tag is reserved for real and it is the
+    adopter's own scenario carrying it, which is the whole of the case.
+    """
+    reserved = sorted(RESERVED_CAPABILITIES, key=lambda c: c.tag)
+    items = [
+        _scenario_item(_a_canonical_feature()),
+        _scenario_item(
+            str(tmp_path / "extensions" / "vendor.feature"),
+            *(capability.tag for capability in reserved),
+        ),
+    ]
+
+    with pytest.raises(pytest.UsageError) as raised:
+        plugin.pytest_collection_modifyitems(items)
+
+    message = str(raised.value)
+    for capability in reserved:
+        assert capability.tag in message
+    # Both remedies, because the check cannot tell which mistake it caught.
+    assert "RESERVED_CAPABILITIES" in message, "the upstream remedy is named"
+    assert "extensions/" in message, "so is the adopter's"
+
+
+def test_a_scenario_this_suite_does_not_run_is_not_read(tmp_path: Path) -> None:
+    """One pytest session can hold more than this suite.
+
+    A project adopting the TCK may have a pytest-bdd suite of its own, and it
+    is collected into the same session. Its tags are not this suite's business:
+    a scenario of theirs tagged ``@caching`` is gated by nothing here, runs
+    normally, and is claimed by nobody -- so failing their run over it would be
+    an accusation about a file this package has no say in.
+
+    The discriminator is the uri derivation, which answers for the canonical
+    assets and for an ``extensions`` directory and for nothing else.
+    """
+    items = [
+        _scenario_item(_a_canonical_feature()),
+        _scenario_item(
+            str(tmp_path / "features" / "billing.feature"),
+            *(capability.tag for capability in RESERVED_CAPABILITIES),
+        ),
+    ]
+
+    plugin.pytest_collection_modifyitems(items)
+
+
 def test_the_plugin_leaves_a_session_that_is_not_running_the_suite_alone(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The plugin is installed for every pytest run in the environment.
 
     Which makes the check's trigger part of its correctness: an unrelated test
     suite in a project that happens to depend on this package has no business
-    failing over the contents of these feature files. So the expiry is only
-    looked for once a canonical scenario is actually collected -- and a node
-    that is not a scenario at all, or a scenario from an adopter's own
-    ``extensions`` directory, is neither.
+    failing over the contents of these feature files. So the check waits for a
+    canonical scenario to be collected, and nothing but ``feature_paths()``
+    produces one of those. A node that is not a scenario at all is not one.
+
+    Neither is an adopter's extension, and that is the one asymmetry worth
+    stating: an extension's tags are read, but an extension is not what says
+    the suite is running. Nothing an adopter selects reaches that distinction
+    anyway -- the hook is handed the whole collection before anything is
+    deselected -- so this is about a session that genuinely collected no
+    canonical scenario: somebody else's pytest-bdd suite, in an environment
+    that merely has this package installed.
     """
     monkeypatch.setattr(
         plugin,
@@ -242,6 +321,9 @@ def test_the_plugin_leaves_a_session_that_is_not_running_the_suite_alone(
     plugin.pytest_collection_modifyitems([])
     plugin.pytest_collection_modifyitems([not_a_scenario])
     plugin.pytest_collection_modifyitems([_scenario_item(__file__)])
+    plugin.pytest_collection_modifyitems(
+        [_scenario_item(str(tmp_path / "extensions" / "vendor.feature"))]
+    )
 
 
 def test_a_tag_maps_onto_the_capability_it_gates() -> None:

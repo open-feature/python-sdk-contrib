@@ -369,22 +369,25 @@ def capability_for_tag(tag: str) -> Capability | None:
 def expired_reservations(tags: typing.Iterable[str]) -> tuple[Capability, ...]:
     """Reserved capabilities that the tags handed in turn out to carry.
 
-    A non-empty answer means :data:`RESERVED_CAPABILITIES` is out of date: the
-    scenarios the tag was being held open for now exist, so the capability can
-    be verified and an adoption should be allowed -- and required -- to say
-    whether it has it.
+    A non-empty answer means some scenario is both unrunnable and unclaimable.
+    Declaring a reserved capability is refused, so the capability gate skips
+    every scenario carrying its tag, and the report says a gap exists where the
+    provider may well have none. Appendix F names that the unclaimable
+    capability, and it is the quieter mirror of declaring a capability nothing
+    verifies: nobody can claim the tag, so nothing else about the run changes.
 
-    Leaving the reservation in place instead is the mirror of declaring an
-    unverified capability, and it is the quieter mistake of the two. Declaring
-    a reserved capability is refused, so nobody can claim it; the new scenarios
-    are therefore skipped for a capability an adopter has no way to declare,
-    and the report says a gap exists where the provider may well have none.
-    Appendix F names that the unclaimable capability.
+    Two things put a reserved tag on a scenario and this reports only that one
+    of them happened. Either :data:`RESERVED_CAPABILITIES` is out of date --
+    the scenarios the tag was held open for now exist, so the capability can be
+    verified and an adoption should be allowed, and required, to say whether it
+    has it -- or an adopter has used a reserved name for a tag of their own.
+    Telling the two apart is the caller's, because the caller is what knows
+    where the tags came from: the remedies differ and the consequence does not.
 
-    Read off the feature files rather than compared against a second list,
-    because a reservation expires in the specification repository while this
-    set lives here. Deduplicated and ordered by tag: the tags arrive from every
-    scenario of every feature file, and one carried twice is not two expiries.
+    Compared against tags rather than against a second list, because a
+    reservation expires in the specification repository while this set lives
+    here. Deduplicated and ordered by tag: the tags arrive from every scenario
+    of every feature file, and one carried twice is not two expiries.
     """
     carried = set(tags)
     expired = (c for c in RESERVED_CAPABILITIES if c.tag in carried)

@@ -347,17 +347,25 @@ reason, back when both were reserved.
 mirror of the mistake the set exists to prevent — a capability that can be verified, refused the
 chance — so `@targeting` moved out of it the moment the specification gave it three.
 
-**A reservation this package has outgrown fails the run.** The reservation expires in the
-specification repository and `RESERVED_CAPABILITIES` lives here, so on every run the plugin reads the
-tags the packaged feature files actually carry and refuses to continue if one of them is still listed
-as reserved. Without that, re-pinning the assets onto a revision that gave `@caching` scenarios would
-skip them — for a capability `TckConfig` refuses to let anyone declare — and the only visible trace
-would be a few more skips. Appendix F calls that the unclaimable capability. The fix when it fires is
-to take the tag out of `RESERVED_CAPABILITIES` and decide, per adoption, whether to declare it.
+**A scenario carrying a reserved tag fails the run.** `TckConfig` refuses to let anyone declare a
+reserved capability, so the gate skips every scenario carrying one — for a capability nobody is
+permitted to claim, which leaves a gap in the report that the provider may not have. Appendix F calls
+that the unclaimable capability, and nothing else notices it: the run is green and the report is
+well-formed. So the plugin refuses to continue, naming the tags.
 
-Only the canonical set can expire a reservation. A feature file of your own reaching for a reserved
-tag is a mistake in that file, not news about the specification, so the check reads the packaged
-assets — which also means a `-k` or `--deselect` cannot narrow the run past it.
+Two mistakes end there and the message names both remedies. Either the tag arrived with the canonical
+feature files, because the specification wrote the scenarios the reservation was held open for and
+this package has not followed — take the tag out of `RESERVED_CAPABILITIES` and decide, per adoption,
+whether to declare it. Or it arrived from a feature file of your own under `extensions/`, in which
+case pick a tag of your own: a reserved tag gates nothing and can never be declared, so a scenario
+carrying one can never run.
+
+The two halves are read differently, and that is deliberate. The canonical tags come from the
+packaged files rather than from the collected run, so a `-k` or `--deselect` cannot narrow a run past
+the specification's half; your extensions have no such source — the directory is found from your test
+module — so those tags come from what was collected. Both are the parsed Gherkin tags, never the file
+text: `gherkin/events.feature` names `@caching` in a `#` comment saying where those scenarios will go
+once they exist, and a text scan would fail every adoption over a sentence.
 
 `@numeric-coercion` deserves a note, because it is the one capability here that **the specification
 does not define**. OpenFeature has a single numeric type on purpose — `number` is "a numeric value of
@@ -690,7 +698,7 @@ This mirrors what `openfeature-flagd-api-testkit` already does for the flagd tes
 | `test_http_control` | `HttpControl` | the `/reset` fallback, the disconnect bookkeeping, the control API it reports and the absence of a `/restart` binding, against a stubbed control API |
 
 ```
-194 passed, 35 skipped, 2 xfailed
+196 passed, 35 skipped, 2 xfailed
 ```
 
 No Docker and no network beyond loopback. The conformance suites take under a second;
