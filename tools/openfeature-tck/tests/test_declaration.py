@@ -29,6 +29,7 @@ import pytest
 
 from openfeature.contrib.tools.tck import (
     DECLARABLE_CAPABILITIES,
+    INEXPRESSIBLE_CAPABILITIES,
     RESERVED_CAPABILITIES,
     BackendControl,
     Capability,
@@ -39,6 +40,8 @@ from openfeature.contrib.tools.tck import (
     canonical_root,
     plugin,
 )
+from openfeature.contrib.tools.tck import capability as capability_module
+from openfeature.contrib.tools.tck import config as config_module
 from openfeature.contrib.tools.tck.capability import (
     capability_for_marker,
     capability_for_tag,
@@ -82,19 +85,32 @@ def _config(**overrides: typing.Any) -> TckConfig:
 # -- the vocabulary ----------------------------------------------------------
 
 
-def test_every_capability_is_either_declarable_or_reserved() -> None:
-    """Two sets, one enum, and no member in both or neither.
+def test_every_capability_is_declarable_reserved_or_inexpressible() -> None:
+    """Three sets, one enum, and no member in two of them or in none.
 
-    ``DECLARABLE_CAPABILITIES`` is derived from ``RESERVED_CAPABILITIES`` rather
-    than listed beside it, so this is really a check that the derivation is the
-    one the documentation promises.
+    ``DECLARABLE_CAPABILITIES`` is derived from the other two rather than listed
+    beside them, so this is really a check that the derivation is the one the
+    documentation promises. It is worth pinning precisely because the third set
+    is empty here: a derivation that quietly dropped it would look right in
+    Python forever and be wrong the day an entry is added.
+
+    Nothing may be both reserved and inexpressible. A reservation says no
+    scenario anywhere carries the tag; inexpressibility says the scenarios exist
+    and this SDK cannot put their question. The second presupposes what the first
+    denies.
     """
-    assert frozenset(Capability) == DECLARABLE_CAPABILITIES | RESERVED_CAPABILITIES
+    inexpressible = frozenset(INEXPRESSIBLE_CAPABILITIES)
+    assert frozenset(Capability) == (
+        DECLARABLE_CAPABILITIES | RESERVED_CAPABILITIES | inexpressible
+    )
     assert not DECLARABLE_CAPABILITIES & RESERVED_CAPABILITIES
+    assert not DECLARABLE_CAPABILITIES & inexpressible
+    assert not RESERVED_CAPABILITIES & inexpressible
     assert RESERVED_CAPABILITIES, "the whole rule is vacuous if nothing is reserved"
 
     for capability in Capability:
         assert capability.reserved is (capability in RESERVED_CAPABILITIES)
+        assert capability.inexpressible is (capability in inexpressible)
 
 
 def test_a_reserved_capability_is_one_no_canonical_scenario_carries() -> None:
@@ -417,6 +433,211 @@ def test_the_refusal_says_what_may_be_declared_instead() -> None:
     assert "DECLARABLE_CAPABILITIES" in message
     for capability in DECLARABLE_CAPABILITIES:
         assert capability.tag in message
+
+
+# -- what this SDK cannot express --------------------------------------------
+#
+# INEXPRESSIBLE_CAPABILITIES is empty in Python, and that was measured: `int` is
+# arbitrary-precision and `get_integer_details` and `get_float_details` are
+# separate accessors reaching separate provider methods, so all four questions
+# the two tagged groups ask can be put, and were. The machinery is here anyway,
+# because the rule belongs to Appendix F rather than to this package and the next
+# capability may hit it -- and a mechanism nothing exercises is indistinguishable
+# from a mechanism that does not work. So these tests supply an entry rather than
+# skipping for want of one, and the fabricated entry is Java's real case.
+
+
+_AS_IN_JAVA = (
+    "the integer accessor is a 32-bit Integer, so 2^53 - 1 cannot be asked for"
+)
+
+
+@pytest.fixture
+def one_inexpressible(monkeypatch: pytest.MonkeyPatch) -> Capability:
+    """Pretend, for one test, that this SDK cannot express ``@large-integers``.
+
+    Patched on the module rather than injected, because the production code
+    reads the mapping through the module global at call time and an injected
+    copy would test a seam nothing else uses.
+    """
+    monkeypatch.setattr(
+        capability_module,
+        "INEXPRESSIBLE_CAPABILITIES",
+        types.MappingProxyType({Capability.LARGE_INTEGERS: _AS_IN_JAVA}),
+    )
+    return Capability.LARGE_INTEGERS
+
+
+def test_an_inexpressible_capability_is_one_whose_scenarios_exist() -> None:
+    """The property that tells it from a reservation, read off the assets.
+
+    A capability nothing carries is reserved, whatever any SDK could express
+    about it -- so an entry here whose tag no canonical scenario carries is
+    misfiled, and the two would then differ only in their wording. Every entry
+    also has to say *which* property of the SDK puts the question out of reach,
+    because that is the half of the message an adopter could not have worked out.
+
+    Vacuous while the mapping is empty, and kept for the pass where it is not.
+    """
+    carried = canonical_tags()
+    for capability, reason in INEXPRESSIBLE_CAPABILITIES.items():
+        assert capability.tag in carried, (
+            f"{capability.tag} is recorded as inexpressible but no canonical "
+            f"scenario carries it, which makes it a reservation instead"
+        )
+        assert reason.strip(), (
+            f"{capability.tag} does not say what puts it out of reach"
+        )
+
+
+def test_a_capability_this_sdk_cannot_express_cannot_be_declared(
+    one_inexpressible: Capability,
+) -> None:
+    """Refused by the implementation, rather than left for adopters to remember.
+
+    Which is the whole change: the fact is about the language, so an adopter
+    should not have to know it, and three suites each remembering it separately
+    is three chances to put an unverifiable claim in a report.
+    """
+    with pytest.raises(ValueError) as raised:
+        _config(capabilities={Capability.EVENTS, one_inexpressible})
+
+    message = str(raised.value)
+    assert f"{one_inexpressible.tag} cannot be declared in this language" in message
+    # The property of the SDK, not the rule. An adopter reaching this has done
+    # nothing wrong and needs to be told something they could not have known.
+    assert _AS_IN_JAVA in message
+    assert "nothing for you to fix" in message
+
+
+def test_the_two_refusals_do_not_read_the_same(one_inexpressible: Capability) -> None:
+    """A reader has to be able to tell a reservation from an impossibility.
+
+    Reserved: global, temporary, expires when the specification writes a
+    scenario. Inexpressible: one language's, permanent, and the scenarios
+    already exist and pass elsewhere. Both end in a refusal and nothing else
+    about them is the same, so neither message may be reachable from the other's
+    predicate.
+    """
+    reserved = next(iter(sorted(RESERVED_CAPABILITIES, key=lambda c: c.tag)))
+
+    with pytest.raises(ValueError) as raised:
+        _config(capabilities={reserved})
+    reserved_message = str(raised.value)
+
+    with pytest.raises(ValueError) as raised:
+        _config(capabilities={one_inexpressible})
+    inexpressible_message = str(raised.value)
+
+    assert "no scenario carries them" in reserved_message
+    assert "no scenario carries" not in inexpressible_message, (
+        "its scenarios do exist -- that is what makes it not a reservation"
+    )
+    assert "is not a reservation" in inexpressible_message
+    assert _AS_IN_JAVA not in reserved_message
+
+    # And they are produced by separate predicates, so neither can start
+    # answering for the other.
+    assert config_module.reserved_problems([one_inexpressible]) == []
+    assert config_module.inexpressible_problems([reserved]) == []
+
+
+def test_a_deviation_may_not_name_a_capability_this_sdk_cannot_express(
+    one_inexpressible: Capability,
+) -> None:
+    """A deviation is about this provider; this gap belongs to the language.
+
+    Refused for the opposite reason a reserved one is. There the scenarios do
+    not exist, so there is nothing to deviate from; here they exist and no
+    provider in this SDK can attempt them, so the entry would attribute to one
+    provider something none of them could have done.
+    """
+    with pytest.raises(ValueError) as raised:
+        _config(
+            known_deviations=[
+                KnownDeviation.untracked(summary="a gap", capability=one_inexpressible)
+            ]
+        )
+
+    message = str(raised.value)
+    assert f"names {one_inexpressible.tag}, which cannot be expressed" in message
+    assert _AS_IN_JAVA in message
+    assert "belongs to the language" in message
+
+
+def test_the_skip_reason_says_no_provider_here_could_have_been_asked(
+    one_inexpressible: Capability,
+) -> None:
+    """The second half, and the one a report's reader actually sees.
+
+    Refusing the declaration is not enough on its own: the scenarios are skipped
+    either way, and a skip reading "provider does not declare capability
+    @large-integers" describes a decision no provider in this language had the
+    chance to make.
+    """
+    reason = plugin.inexpressible_skip_reason([one_inexpressible])
+    assert reason is not None
+    assert _AS_IN_JAVA in reason
+    assert "no provider in this language can be asked" in reason
+    assert "Nothing about the provider under test follows" in reason
+
+    declined = plugin.undeclared_skip_reason(
+        [Capability.EVENTS], _config(capabilities=frozenset())
+    )
+    assert declined is not None
+    assert "provider does not declare capability @events" in declined
+    assert declined != reason
+
+
+def test_the_gate_prefers_the_language_reason_over_the_declaration_one(
+    one_inexpressible: Capability,
+) -> None:
+    """A scenario gated by both kinds reports the permanent one.
+
+    ``@large-integers`` and ``@events`` on one scenario, neither declared: the
+    marker iterator decides which comes first, and the message must not. The
+    language-wide reason is the true one -- the provider's declaration could not
+    have made this scenario run.
+    """
+    node = types.SimpleNamespace(
+        iter_markers=lambda: iter(
+            [
+                types.SimpleNamespace(name=Capability.EVENTS.value),
+                types.SimpleNamespace(name=one_inexpressible.value),
+            ]
+        )
+    )
+    request = types.SimpleNamespace(
+        node=node,
+        getfixturevalue=lambda name: _config(capabilities=frozenset()),
+    )
+
+    with pytest.raises(pytest.skip.Exception) as raised:
+        plugin.capability_gate(typing.cast("pytest.FixtureRequest", request))
+
+    assert _AS_IN_JAVA in str(raised.value)
+
+
+def test_the_gate_still_skips_for_a_declaration_nobody_made() -> None:
+    """The unchanged half, checked here because the branch above is new.
+
+    Nothing is patched: ``@events`` is expressible and undeclared, which is the
+    ordinary case and the one that must keep its own wording.
+    """
+    node = types.SimpleNamespace(
+        iter_markers=lambda: iter([types.SimpleNamespace(name=Capability.EVENTS.value)])
+    )
+    request = types.SimpleNamespace(
+        node=node,
+        getfixturevalue=lambda name: _config(capabilities={Capability.OBJECT}),
+    )
+
+    with pytest.raises(pytest.skip.Exception) as raised:
+        plugin.capability_gate(typing.cast("pytest.FixtureRequest", request))
+
+    message = str(raised.value)
+    assert "provider does not declare capability @events" in message
+    assert "Declared: @object" in message
 
 
 # -- acknowledging a gap -----------------------------------------------------

@@ -81,7 +81,12 @@ from __future__ import annotations
 
 import importlib.resources
 
-from .capability import DECLARABLE_CAPABILITIES, RESERVED_CAPABILITIES, Capability
+from .capability import (
+    DECLARABLE_CAPABILITIES,
+    INEXPRESSIBLE_CAPABILITIES,
+    RESERVED_CAPABILITIES,
+    Capability,
+)
 from .compose import (
     DEFAULT_BACKEND_SERVICE,
     DEFAULT_CONTROL_PORT,
@@ -125,6 +130,7 @@ __all__ = [
     "DEFAULT_CONTROL_PORT",
     "DEFAULT_STARTUP_TIMEOUT",
     "EXTENSIONS_DIRECTORY",
+    "INEXPRESSIBLE_CAPABILITIES",
     "RESERVED_CAPABILITIES",
     "BackendControl",
     "BackendEndpoint",

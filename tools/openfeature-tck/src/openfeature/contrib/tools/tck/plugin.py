@@ -20,6 +20,7 @@ the run outright rather than being skipped for a capability nobody may claim.
 from __future__ import annotations
 
 import typing
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -212,6 +213,16 @@ def tck_state(tck_config: TckConfig) -> typing.Iterator[TckState]:
 
 @pytest.fixture(autouse=True)
 def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
+    """Autouse wrapper around :func:`capability_gate`.
+
+    A one-line fixture over a plain function, so the decision it makes can be
+    put under test without reaching inside a fixture object for the callable
+    pytest wrapped -- which is private, and has moved between pytest versions.
+    """
+    capability_gate(request)
+
+
+def capability_gate(request: pytest.FixtureRequest) -> None:
     """Skip a scenario whose capability the provider did not declare.
 
     ``pytest.skip`` here reports the scenario as skipped **with the reason**,
@@ -226,6 +237,17 @@ def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
 
     Checking markers first also means the gate costs nothing, and instantiates
     nothing, for tests that are not TCK scenarios.
+
+    **A capability this SDK cannot express is skipped first, and says so.** Its
+    scenarios would be skipped anyway -- nothing may declare it, so nothing
+    does -- but with the wrong reason. "The provider does not declare it" reads
+    as a decision the provider made, and no provider in this language had one to
+    make; a reader of the report has to be able to tell those apart, because only
+    the first says anything about the provider. Checked before the declaration
+    loop rather than inside it so that a scenario gated by both kinds reports the
+    permanent, language-wide reason rather than whichever tag came first off the
+    marker iterator. Empty in Python; see
+    :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`.
     """
     gated = [
         capability
@@ -235,17 +257,59 @@ def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
     if not gated:
         return
 
+    inexpressible = inexpressible_skip_reason(gated)
+    if inexpressible is not None:
+        pytest.skip(inexpressible)
+
     try:
         config: TckConfig = request.getfixturevalue("tck_config")
     except pytest.FixtureLookupError:
         return
 
+    undeclared = undeclared_skip_reason(gated, config)
+    if undeclared is not None:
+        pytest.skip(undeclared)
+
+
+def inexpressible_skip_reason(gated: Iterable[Capability]) -> str | None:
+    """Why these scenarios cannot be run in this language at all, or ``None``.
+
+    Says nothing about the provider, and says so, because the alternative
+    reading is the one a reader will reach for: a capability missing from a
+    report usually means the provider declined. Here nothing declined -- no
+    provider in this SDK could be asked -- and Appendix F makes telling those
+    two apart the implementation's job rather than the reader's.
+
+    Deterministic when more than one applies: the tags are sorted, so the
+    message does not depend on the order markers come off a node.
+    """
+    for capability in sorted(gated, key=lambda c: c.tag):
+        reason = capability.inexpressible_reason
+        if reason is not None:
+            return (
+                f"{capability.tag} cannot be expressed by this SDK, so no provider "
+                f"in this language can be asked: {reason}. Nothing about the "
+                f"provider under test follows from this skip"
+            )
+    return None
+
+
+def undeclared_skip_reason(
+    gated: Iterable[Capability], config: TckConfig
+) -> str | None:
+    """Why this provider is not being asked these scenarios, or ``None``.
+
+    The other half of the pair, and the one that *is* about the provider: it
+    declined, and the declaration it did make is quoted so a reader can see what
+    was claimed instead.
+    """
     for capability in gated:
         if not config.declares(capability):
-            pytest.skip(
+            return (
                 f"provider does not declare capability {capability.tag}. "
                 f"Declared: {' '.join(config.sorted_capabilities) or '(none)'}"
             )
+    return None
 
 
 @pytest.fixture(scope="session", autouse=True)
