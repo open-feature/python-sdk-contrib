@@ -13,8 +13,8 @@ plugin ships, so their scenarios need no glue and no second harness. See
 
 It is also where the two things a run must refuse to do quietly are checked:
 skipping a scenario whose capability was not declared happens loudly, with the
-reason, and a reservation the canonical assets have outgrown fails the run
-outright rather than skipping scenarios for a capability nobody may claim.
+reason, and a scenario carrying a tag this package still calls reserved fails
+the run outright rather than being skipped for a capability nobody may claim.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from openfeature import api
 from .capability import Capability, capability_for_marker, expired_reservations
 from .compose import ComposeBackend, RunningBackend, run_compose_backend
 from .config import TckConfig
-from .extensions import canonical_tags, is_canonical
+from .extensions import canonical_tags, is_canonical, uri_for
 from .state import TckState
 
 # The step modules are registered as plugins in their own right, not merely
@@ -60,60 +60,110 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Fail the run if a canonical feature carries a tag still called reserved.
+    """Fail the run if any scenario it collected carries a reserved tag.
 
     A reservation is a name held open for scenarios that do not exist yet, and
-    it is only ever temporary: the specification writes them, the tag starts
-    gating something, and the capability becomes declarable. Until this package
-    follows, declaring it is refused -- so those scenarios are skipped for a
-    capability an adopter cannot claim, and the report shows a gap the provider
-    may not have. Appendix F calls that the unclaimable capability, and it has
-    no local symptom at all, which is why it is checked rather than watched
-    for: ``@targeting`` was reserved until spec revision ``26362f85`` gave it
-    three scenarios.
+    a reserved capability cannot be declared -- :class:`~.config.TckConfig`
+    refuses it. So a scenario carrying one reaches the capability gate below
+    and is skipped, for a capability nobody is permitted to claim: a question
+    put and silently withdrawn. Appendix F calls that the unclaimable
+    capability. The run stays green, the report stays well-formed, and nothing
+    else here notices, which is why it is checked rather than watched for.
 
-    Refused rather than worked around. Dropping the reservation here instead
-    would let a run declare a capability against a package that does not know
-    the tag exists, and the point of the check is that a human re-reads
-    :data:`~.capability.RESERVED_CAPABILITIES` against the specification.
+    Two different mistakes end there. The check does not tell them apart,
+    because the consequence is identical and the message names both remedies:
 
-    Only the canonical set can expire a reservation. An adopter's own feature
-    reaching for a reserved tag is a mistake in that file rather than news
-    about the specification, so the tags come from the packaged assets and not
-    from what was collected -- which also means a narrowed run cannot select
-    its way past the check. What *is* read off the collection is whether this
-    session runs the conformance suite at all: the plugin is installed for
-    every pytest run in the environment, and an unrelated test suite has no
-    business failing over the contents of these feature files.
+    * the specification wrote the scenarios the tag was held open for and
+      :data:`~.capability.RESERVED_CAPABILITIES` has not followed --
+      ``@targeting`` was reserved until spec revision ``26362f85`` gave it
+      three scenarios;
+    * an extension of the adopter's own used a reserved name for a tag of its
+      own, which is unclaimable from the day the file is written.
+
+    This once fired for the canonical set alone, on the reasoning that only the
+    specification can expire a reservation. That much is true and it is beside
+    the point: an extension scenario carrying a reserved tag can never run and
+    can never be claimed either, which is exactly the failure being surfaced.
+    It arrives from the adopter rather than from upstream; the consequence does
+    not care. Go and Java check every scenario the run collected, and so does
+    this.
+
+    Refused rather than worked around. Treating the tag as declarable here
+    would let a run claim a capability against a package that does not know the
+    tag exists, and the point of the check is that a human re-reads that set
+    against the specification -- or renames their own tag.
+
+    **The two halves have different sources, and only one of them is
+    collected.** The canonical tags are read off the packaged files rather than
+    off the items, so a ``-k`` or a ``--deselect`` cannot narrow a run past the
+    specification's half. An extension's tags have no such source -- the
+    directory is found from the adopter's own test module, at the moment
+    :func:`~.extensions.feature_paths` is called -- so they come from what was
+    collected, as they do in every other language. In practice this hook is
+    handed the whole collection before anything is deselected, so a selection
+    does not narrow that half either; that is pytest's hook order rather than a
+    promise, and the half that must not be narrowable does not lean on it.
+
+    What is read off the collection either way is whether this session runs the
+    conformance suite at all. This package is a ``pytest11`` plugin, so the
+    hook fires for every pytest run in an environment that merely has it
+    installed, and an unrelated test suite has no business failing over the
+    contents of these feature files. So the check waits for a canonical
+    scenario, which nothing but :func:`~.extensions.feature_paths` produces,
+    and it reads tags only from scenarios this suite is running. Go, Java and
+    JS have an explicit entry point and no equivalent problem.
     """
-    if not any(_is_canonical_scenario(item) for item in items):
+    running = False
+    carried: set[str] = set()
+    for item in items:
+        feature = _suite_feature(item)
+        if feature is None:
+            continue
+        running = running or is_canonical(feature)
+        carried.update(f"@{marker.name}" for marker in item.iter_markers())
+
+    if not running:
         return
 
-    expired = expired_reservations(canonical_tags())
+    expired = expired_reservations(carried | canonical_tags())
     if not expired:
         return
 
     named = " ".join(capability.tag for capability in expired)
     raise pytest.UsageError(
-        f"reserved capabilities {named} are carried by the canonical feature "
-        f"files, so the scenarios they were held open for now exist. Remove "
-        f"them from RESERVED_CAPABILITIES, so an adoption can declare them and "
-        f"be held to them -- until then those scenarios are skipped for a "
-        f"capability nobody is allowed to claim."
+        f"reserved capabilities {named} are carried by scenarios this run "
+        f"collected, and a reserved capability cannot be declared -- so every "
+        f"scenario carrying one is skipped for a capability nobody is allowed "
+        f"to claim, and the report shows a gap the provider may not have. "
+        f"Either they came with the canonical feature files, and the scenarios "
+        f"they were held open for now exist: remove them from "
+        f"RESERVED_CAPABILITIES, so an adoption can declare them and be held "
+        f"to them. Or they came from a feature file of your own under "
+        f"extensions/, in which case pick tags of your own: a reserved tag "
+        f"gates nothing and can never be declared."
     )
 
 
-def _is_canonical_scenario(item: pytest.Item) -> bool:
-    """Whether a collected node is a scenario from the packaged feature files.
+def _suite_feature(item: pytest.Item) -> Path | None:
+    """The feature file behind a collected node, when this suite is what runs it.
 
     ``__scenario__`` is what pytest-bdd hangs on the function it generates, and
-    it is readable at collection without running a fixture. The feature file is
-    then matched by path rather than by the uri it reports, so the check does
-    not rest on the derivation in :mod:`~.extensions`.
+    it is readable at collection without running a fixture. ``None`` for a node
+    that is not a scenario at all, and for a pytest-bdd scenario belonging to
+    some other suite that happens to share the session -- neither is this
+    suite's to fail.
+
+    Which scenarios are this suite's is decided by
+    :func:`~.extensions.uri_for`, the same derivation a report identifies a
+    scenario by, so what is checked and what is recorded cannot disagree about
+    what the run consisted of.
     """
     scenario = getattr(getattr(item, "function", None), "__scenario__", None)
     filename = getattr(getattr(scenario, "feature", None), "filename", None)
-    return bool(filename) and is_canonical(Path(str(filename)))
+    if not filename:
+        return None
+    feature = Path(str(filename))
+    return feature if uri_for(feature) is not None else None
 
 
 @pytest.fixture(scope="session")
