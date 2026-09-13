@@ -143,6 +143,16 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # JSON types stay apart end to end, and there is no coercion here to get wrong.
 # Same rule, different provider, opposite answer.
 #
+# It also survives rule six, and spec@aa2ad24f is why. As that rule was first
+# written -- declare when at least one scenario gating the tag can be put to the
+# provider -- it would have forced a declaration here, since all three scenarios
+# are perfectly askable of this provider and two of them fail. The rule now
+# opens by saying it applies *once a provider is attempting the capability*, and
+# decides whether a question is askable rather than whether an answer is owed.
+# Nothing requires numeric coercion, this provider does not attempt it, so the
+# question never reaches rule six. The Go implementation found that over-reach
+# against its own self-tests; this suite would have been the second casualty.
+#
 # DISABLED_FLAGS is withheld as well, new at spec@009afe06, and this one is a
 # provider defect rather than an architecture. Which is the opposite of what the
 # appendix predicts, so it is worth being exact about.
@@ -196,6 +206,18 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 # carve-out in that same revision, which does license a withholding for an
 # identified defect, is explicit that an adoption has none: this suite exists to
 # report on a provider, and a skip here is a claim about that provider.
+#
+# Note which rule that turns on, because spec@aa2ad24f makes the difference
+# sharp. It is *not* rule six: that rule decides askability and applies only
+# once a provider is attempting the capability, and if attempting were in doubt
+# it would not reach the question. It is the two-shapes rule, and the evidence
+# says this provider attempts and fails rather than declining -- it has no
+# design position on disabled flags at all, it parses the response flagd sends
+# for one and raises KeyError on a member the protocol types as optional, which
+# breaks on any variant-less response and not only this one. A provider that
+# declined by design would look like the numeric-coercion entry above: nothing
+# in the code path that could be right or wrong, rather than one index that is
+# wrong.
 #
 # So the next change to this file declares @disabled-flags, accepts four failing
 # rows, and records the `data["variant"]` defect as an untracked deviation -- and
@@ -270,8 +292,11 @@ timeouts, ready timeouts -- has nothing to bound, for the reasons below.
 #   LARGE_INTEGERS
 #     The one withholding in this list that is about the backend rather than the
 #     provider, and until this pass the one with no reason written down at all.
-#     Appendix F's sixth declaring rule (spec@4cab0320) is what decides it:
-#     exactly one scenario carries the tag, it asks for `huge-integer-flag`, and
+#     Appendix F's sixth declaring rule (spec@4cab0320, narrowed at
+#     spec@aa2ad24f) is what decides it, and this is a tag that reaches that
+#     rule: nothing about this provider declines to resolve a large integer, so
+#     it is attempting the capability and only askability is left in question.
+#     Exactly one scenario carries the tag, it asks for `huge-integer-flag`, and
 #     flagd-testbed v3.8.0 seeds no such flag -- so not one of the tag's
 #     scenarios can be put to this provider, and nothing about the capability
 #     can be established either way. Contrast VARIANTS above, where seven of
