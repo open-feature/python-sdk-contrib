@@ -1,17 +1,16 @@
 """Session fixtures for the OFREP conformance suite, and one recorded deviation.
 
-The container lifecycle belongs to the TCK: it starts the Compose file beside
-this module once per session, discovers the dynamically mapped host ports, builds
-the ``HttpControl`` against the launchpad and waits for it to accept commands.
-What is left here is the declaration, the one wrapper this provider needs around
-the control, and the xfail for the single scenario it cannot satisfy.
+The container lifecycle belongs to the TCK -- see its README for what
+``tck_backend`` does with the declaration below, and Appendix F, "The control
+API", for why the stack is started once and never restarted. What is left here is
+the declaration, the one wrapper this provider needs around the control, and the
+xfail for the single scenario it cannot satisfy.
 
-The stack is started once and never restarted, because Compose assigns host
-ports dynamically and cannot preserve them across a restart: a restarted backend
-comes back on a different port, silently invalidating a provider already pointed
-at the old one, and the failure reads as a flaky provider rather than a broken
-test. Scenario isolation comes from the control API instead -- see the
-no-container-restart invariant in the TCK's ``control-api.yaml``.
+A full run is ``2 failed, 45 passed, 17 skipped, 1 xfailed``. Both failures ask
+for ``large-integer-flag``, which flagd-testbed v3.8.0 does not seed --
+open-feature/flagd-testbed#392 adds it, along with the two other canonical flags
+the image is missing, and says what each catches. Neither carries a
+``KnownDeviation``: the gap is the backend's flag set, not the provider's.
 """
 
 from __future__ import annotations
@@ -24,12 +23,10 @@ from openfeature.contrib.tools.tck import ComposeBackend, RunningBackend
 from tests.tck.settled_control import SettledControl
 
 OFREP_PORT = 8016
-"""flagd's OFREP HTTP port.
+"""flagd's OFREP HTTP port, and the one port this provider connects to.
 
-flagd's own default (``flags.Int32P("ofrep-port", "r", 8016, ...)`` in flagd's
-``cmd/start.go``). The testbed's launchpad starts flagd with no
-``--ofrep-port`` override, so this is what it listens on, and it is the one port
-the provider connects to. The launchpad's own 8080 is exposed automatically.
+flagd's own default, which the testbed's launchpad does not override. The
+launchpad's control port is exposed by the harness and must not be listed here.
 """
 
 
@@ -37,9 +34,13 @@ the provider connects to. The launchpad's own 8080 is exposed automatically.
 def compose_backend() -> ComposeBackend:
     """The stack under test, as the TCK's ``tck_backend`` fixture wants it.
 
-    The path is absolute rather than relative to the package directory -- which
-    is what the harness resolves a relative one against, and where ``poe test``
-    runs from -- so that running pytest from the repository root works too.
+    The Compose file is the same one the flagd adoption uses -- one definition of
+    the backend, copied per package -- so it publishes flagd's two resolver ports
+    as well. Nothing here declares them, and a port nobody declares is neither
+    waited on nor looked up.
+
+    The path is absolute so that pytest run from the repository root works too;
+    a relative one resolves against the working directory.
     """
     return ComposeBackend(
         compose_file=Path(__file__).parent / "docker-compose.yaml",
@@ -65,19 +66,13 @@ def ofrep_control(tck_backend: RunningBackend, ofrep_base_url: str) -> SettledCo
     """The control API client, wrapped in a wait for the flag set to be served.
 
     ``tck_backend.control`` is the TCK's own ``HttpControl``, already pointed at
-    the launchpad's mapped port and awaited ready. The launchpad registers only
-    ``/start``, ``/restart``, ``/stop`` and ``/change`` (flagd-testbed
-    ``launchpad/main.go:29-32``), so ``/reset`` answers 404 and every
-    ``prepare_scenario`` takes the documented ``/start`` fallback. The probe
-    costs one 404 for the whole session.
+    the launchpad's mapped port and awaited ready. The launchpad registers no
+    ``/reset``, so every ``prepare_scenario`` takes the harness's documented
+    ``/start`` fallback and one 404 is logged per session.
 
-    Wrapped in :class:`SettledControl` because this backend's ``/start``
-    returns before it serves the flag set -- which ``control-api.yaml`` forbids
-    in those words -- and a stateless provider has no initialisation to hide
-    that window behind. See that module: it is a named workaround for one
-    backend's defect, which is where Appendix F says such a wait belongs, and it
-    is a readiness probe over the provider's own public endpoint rather than a
-    sleep.
+    Wrapped in :class:`SettledControl` because this backend's ``/start`` returns
+    before it serves the flag set, and a stateless provider has no initialisation
+    to hide that window behind. See that module.
     """
     return SettledControl(tck_backend.control, ofrep_base_url)
 
