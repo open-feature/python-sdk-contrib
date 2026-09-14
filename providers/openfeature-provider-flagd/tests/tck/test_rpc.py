@@ -21,96 +21,61 @@ from openfeature.contrib.tools.tck import (
 from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 
 # Every capability below was declared, the suite run, and the scenarios seen to
-# pass. The code references say where the behaviour lives, so a reader can check
-# the claim -- they are not the evidence for it.
+# pass. The code references say where the behaviour lives, so that a reader can
+# check the claim -- the run is what it rests on, which is Appendix F's rule and
+# not a preference here. @reinitialization is the case in point: this resolver's
+# shutdown reverts enough of its own state to read as support for reuse, and the
+# channel underneath cannot be rebuilt.
 #
-# The distinction is Appendix F's, stated there since spec@26362f85 and worth
-# repeating here because this file used to get it backwards: source inspection is
-# unreliable in both directions. @reinitialization below is the case in point --
-# RPC's shutdown reverts enough of its own state to read as support for reuse,
-# and the channel underneath cannot be rebuilt.
-#
-#   EVENTS
-#     grpc.py:261 emits PROVIDER_READY when the evaluation stream delivers its
-#     'provider_ready' message.
-#
-#   STALE
-#     grpc.py:202-212: the channel-connectivity callback emits PROVIDER_STALE on
-#     TRANSIENT_FAILURE and only then starts a timer that escalates to
-#     PROVIDER_ERROR once retry_grace_period expires.
-#
-#     Worth calling out, because the Go provider does NOT do this: its RPC
-#     resolver sends ProviderError directly on connection loss and never emits
-#     PROVIDER_STALE, which is filed as go-sdk-contrib#939 and is why the Go
-#     adoption withholds this capability for RPC. Python has no such asymmetry --
-#     both of its resolvers share the same state-change callback shape -- so the
-#     capability is declared here.
-#
+#   EVENTS      grpc.py:261 emits PROVIDER_READY when the evaluation stream
+#               delivers its 'provider_ready' message.
+#   STALE       grpc.py:202-212 emits PROVIDER_STALE on TRANSIENT_FAILURE and
+#               only then starts the timer escalating to PROVIDER_ERROR once
+#               retry_grace_period expires.
 #   CONFIGURATION_CHANGE
-#     grpc.py:302 emits PROVIDER_CONFIGURATION_CHANGED with the changed keys, and
-#     grpc.py:298-300 evicts exactly those keys from the LRU cache, so the
-#     re-evaluation the scenario performs afterwards cannot be served a stale
-#     cached value.
-#
-#   OBJECT
-#     grpc.py:336 resolves structured values through ResolveObject.
-#
-#   VARIANTS
-#     grpc.py:449 carries the response's `variant` field into the resolution
-#     details for every typed call, and flagd names a variant for every flag in
-#     the testbed's set.
+#               grpc.py:302 emits PROVIDER_CONFIGURATION_CHANGED with the changed
+#               keys, and grpc.py:298-300 evicts exactly those keys from the LRU
+#               cache -- so the re-evaluation the scenario performs afterwards
+#               cannot be served a stale cached value.
+#   OBJECT      grpc.py:336 resolves structured values through ResolveObject.
+#   VARIANTS    grpc.py:449 carries the response's `variant` into the resolution
+#               details for every typed call. Seven of the outline's eight rows
+#               pass; the eighth asks for a flag the backend does not seed.
+#   TARGETING   grpc.py:492 puts the evaluation context's targeting key into the
+#               request's context struct, so the server evaluates
+#               targeting-key-flag's rule against it and answers hit or miss.
+#   UNAVAILABLE_INIT
+#               grpc.py:175 raises ProviderNotReadyError once the blocking init
+#               deadline passes without a connection, which the SDK's registry
+#               turns into PROVIDER_ERROR.
 #
 #   DISABLED_FLAGS
-#     New at spec@009afe06. All four rows pass, which is worth saying plainly
-#     because the appendix's own rationale for gating the tag predicts they
-#     would not: it reasons that a provider "whose backend decides, such as one
-#     speaking OFREP", cannot substitute a default the server never saw. RPC is
-#     a remote evaluator by exactly that description, and it substitutes anyway.
-#
-#     Measured, and then read back to find out how. flagd answers a disabled
-#     flag with reason DISABLED, no variant, and the zero value of the response
-#     proto -- ResolveBoolean's `value` field is simply unset -- and
-#     grpc.py:468-472 replaces that with the caller's `default_value` whenever
-#     the reason is DEFAULT or DISABLED and no variant came back. So the
-#     substitution is local even though the evaluation is not: what crosses the
-#     wire is the signal, and the provider already holds the default.
+#     All four rows pass, and the measurement is worth keeping because a remote
+#     evaluator satisfying this is not obvious. flagd answers a disabled flag
+#     with reason DISABLED, no variant, and the zero value of the response proto
+#     -- ResolveBoolean's `value` field is simply unset -- and grpc.py:468-472
+#     replaces that with the caller's `default_value` whenever the reason is
+#     DEFAULT or DISABLED and no variant came back. So the substitution is local
+#     even though the evaluation is not: what crosses the wire is the signal, and
+#     the provider already holds the default.
 #
 #     Probed directly, each of the four flags resolves to the caller's default
-#     with reason 'DISABLED', no variant and no error code. The reason arrives
-#     as the server's bare string rather than the SDK's Reason enum, which the
-#     scenarios do not assert and 2.2.5 does not require -- worth noting only
-#     because the in-process resolver differs there, returning Reason.DISABLED.
-#
-#   TARGETING
-#     grpc.py:492 puts the evaluation context's targeting key into the request's
-#     context struct, so the server evaluates targeting-key-flag's rule against
-#     it and answers `hit` or `miss`.
-#
-#   UNAVAILABLE_INIT
-#     grpc.py:175 raises ProviderNotReadyError once the blocking init deadline
-#     passes without a connection, which the SDK's registry turns into
-#     PROVIDER_ERROR.
+#     with reason 'DISABLED', no variant and no error code. The reason arrives as
+#     the server's bare string rather than the SDK's Reason enum, which nothing
+#     asserts -- noted only because the in-process resolver differs, returning
+#     Reason.DISABLED.
 #
 #   LIFECYCLE
-#     Declared on a run, and the run is the point: this capability had been
-#     withheld here since the first pass with nothing anywhere saying why -- the
-#     @reinitialization note below treated it as given rather than justifying it
-#     -- so the six lifecycle scenarios had never been put to this resolver at
-#     all. Declaring it and running them settles it: all six execute, five pass,
-#     and the sixth is the @reinitialization scenario dealt with below.
+#     All six scenarios execute, five pass, and the sixth is the
+#     @reinitialization one dealt with below.
 #
-#     It is a real question here rather than a formality. An SDK synthesises
-#     PROVIDER_READY around `initialize` for any provider, so the readiness
-#     scenario is vacuous for one that does nothing during initialisation -- a
-#     NoOpProvider passes it. This resolver blocks until the evaluation stream
-#     is up and raises ProviderNotReadyError when the deadline passes
-#     (grpc.py:175, grpc.py:261), so both terminal outcomes the feature file
-#     asserts are outcomes this provider actually reaches.
-#
-#     Java, Go and JavaScript all declare it on both resolvers, and Go's
-#     adoption records having made and reverted this exact mistake: withholding
-#     it left that suite blind to six scenarios another language was running
-#     against the same provider. Python was the last of the four still doing so.
+#     It is a real question here rather than a formality, which is the test the
+#     capability's own documentation sets: an SDK synthesises PROVIDER_READY
+#     around `initialize` for any provider, so the readiness scenario is vacuous
+#     for one that does nothing during initialisation. This resolver blocks until
+#     the evaluation stream is up and raises ProviderNotReadyError when the
+#     deadline passes (grpc.py:175, grpc.py:261), so both terminal outcomes the
+#     feature file asserts are outcomes this provider actually reaches.
 #
 #   NUMERIC_COERCION
 #     Declared, and failing the lossy scenario -- deliberately, and the failure
@@ -126,141 +91,68 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     the server source: the scenario fails with `flag 'float-flag' resolved to
 #     0 (int), expected 1 (int)`.
 #
-#     Declared rather than withheld because this resolver *attempts* the
-#     coercion and gets one direction wrong, which is the case Appendix F's
-#     numeric-coercion note now names outright: a provider in that position
-#     declares the capability and lets the scenario fail. That note said the
-#     opposite until spec@045950ca -- withhold, and say which it is -- and two
-#     of the four adoptions followed it there. `integer-flag` requested as a
-#     Float passes here, so withdrawing the tag would turn a real, specific
-#     defect into a skip indistinguishable from a provider that declines to
-#     coerce at all, which is the failure mode the deviation field exists to
-#     prevent.
-#
-#     **The in-process resolver passes this scenario.** It refuses 0.5 as an
+#     **The in-process resolver passes that scenario.** It refuses 0.5 as an
 #     Integer with TYPE_MISMATCH, because it evaluates locally and never asks
-#     flagd. One provider, two resolvers, opposite answers -- which is why the
-#     deviation below is on this suite only and is not mirrored onto that one.
-#     Java and Go both attach their equivalent entry to both of their resolvers,
-#     correctly, because in those languages both narrow identically; Python is
-#     the language where that would be false.
-#
-#     Worth keeping because it was got wrong twice, in two languages, by reading
-#     the source: Python's RPC resolver narrows exactly as Go's and Java's do,
-#     and only its in-process resolver is the exception -- the only such resolver
-#     in the four languages. The claim that this path returns INVALID_ARGUMENT
-#     for a float-valued flag was made and retracted by an earlier revision of
-#     this file, and asserted about Python by the Go suite until it was corrected
-#     there. INVALID_ARGUMENT is what grpc.py:461-462 would map to
-#     TypeMismatchError if it ever arrived; for a float-valued flag it does not.
-#     A run settled it; neither reading did.
+#     flagd, while `integer-flag` requested as a Float widens correctly on both.
+#     One provider, two resolvers, opposite answers to the question this
+#     capability exists to ask -- which is why the deviation below is on this
+#     suite only and is deliberately not mirrored onto that one, and why the tag
+#     is declared and left to fail rather than withheld: a skip cannot say "it
+#     coerces, and one direction is wrong". Filed as
+#     open-feature/python-sdk-contrib#420.
 #
 #     The tag's third scenario fails for a reason that is not flagd's:
 #     flagd-testbed seeds no `integral-float-flag`, so it is FLAG_NOT_FOUND. The
-#     conftest records it and the deviation summary disclaims it, which is the
-#     shape Java uses; it is not a reason to withhold the tag.
+#     conftest records it and the deviation summary disclaims it; it is not a
+#     reason to withhold the tag.
 #
 # Not declared, and why:
 #
 #   LARGE_INTEGERS
-#     Withheld, and this is a change: it was declared here until this pass and
-#     failed on every run. Exactly one scenario carries the tag, and it asks for
-#     `huge-integer-flag`, which flagd-testbed v3.8.0 does not seed -- so the
-#     declaration was a claim with no evidence behind it either way, and its
-#     failure read as a provider defect while establishing nothing about the
-#     provider. Nothing in this path would narrow the value: flagd holds every
-#     numeric variant as a float64 and 2^53 - 1 is exactly the largest integer a
-#     float64 represents without rounding, the server casts it to the int64 of
-#     ResolveIntResponse.value, and grpc.py:448 hands that to the SDK as an
-#     unbounded Python int. Nothing in between is 32 bits wide. The suite simply
-#     cannot show that.
+#     Withheld. Exactly one scenario carries the tag, it asks for
+#     `huge-integer-flag`, and flagd-testbed v3.8.0 seeds no such flag -- so this
+#     backend can put none of the tag's scenarios to this provider, and Appendix
+#     F's sixth declaring rule says withhold. Nothing in this path would narrow
+#     the value: flagd holds every numeric variant as a float64 and 2^53 - 1 is
+#     exactly the largest integer a float64 represents without rounding, the
+#     server casts it to the int64 of ResolveIntResponse.value, and grpc.py:448
+#     hands that to the SDK as an unbounded Python int. Nothing in between is 32
+#     bits wide -- and the suite cannot show that, which is the point.
 #
-#     The rule this and NUMERIC_COERCION are both decided by is **Appendix F's
-#     sixth declaring rule** -- once a provider is attempting a capability,
-#     declare it when at least one scenario gating it can actually be put to the
-#     provider and withhold only when none can, the unit being the scenario and
-#     not the tag. It is cited rather than restated: the wording these two suites
-#     used last pass is what went into the appendix at spec@4cab0320, so the
-#     appendix is now where it lives and a copy here would be a second place for
-#     it to drift.
+#     Contrast @numeric-coercion above, which is a fixture gap too and is
+#     declared: two of its three scenarios do reach the provider, and the two
+#     resolvers answer them differently. The rule counts scenarios, not tags.
 #
-#     The opening clause matters and was added at spec@aa2ad24f after the Go
-#     implementation found the rule forcing declarations it should not: it
-#     decides whether a question is *askable*, not whether the provider owes an
-#     answer, and that second question comes first. Both tags clear it here --
-#     this resolver does attempt the coercion, and nothing about it declines to
-#     resolve a large integer -- so what is left for rule six to decide is the
-#     fixture gap. The two gaps look like the same
-#     missing-fixture problem and are not. @numeric-coercion has three scenarios
-#     and this backend can ask two of them -- and their answers differ between
-#     the two resolvers, which is the finding a withholding would have buried.
-#     @large-integers has one, and this backend can ask none of it.
-#
-#     No KnownDeviation for it, in either shape. That is the rule's first
-#     consequence: a scenario failing because the backend serves no fixture for
-#     it is not a provider defect, and an entry would attribute the testbed's gap
-#     to the provider. Go and JavaScript withhold it for this same reason; Java
-#     cannot declare it at all, because its integer accessor is 32 bits, which is
-#     a third thing again and not this one.
-#
-#     And the second consequence, which this sentence exists to satisfy: a
-#     capability withheld for a backend gap is temporary in a way one withheld by
-#     choice is not. open-feature/flagd-testbed#392 adds `huge-integer-flag`;
-#     declare the tag when the image carries it, or this withholding outlives its
-#     reason and starts reading as a claim about the provider.
+#     No KnownDeviation, in either shape: the gap is the backend's and an entry
+#     would attribute it to the provider. This withholding is temporary in a way
+#     the ones above are not -- open-feature/flagd-testbed#392 adds the flag;
+#     declare the tag when the image carries it, or it outlives its reason and
+#     starts reading as a claim about the provider.
 #
 #   REINITIALIZATION
-#     New at spec@fc99d5ac, which gated the scenario "A provider that was shut
-#     down can be initialized again" that had been untagged before it. Withheld,
-#     and for one reason rather than the two this note used to give.
-#
-#     RPC genuinely does not support reuse, measured rather than reasoned about:
-#     with LIFECYCLE declared the scenario runs, and it fails with `boolean-flag`
-#     resolving to the code default because grpc.py:420 raises "Cannot invoke RPC
-#     on closed channel!". shutdown() closes the channel and the second
-#     initialize() does not rebuild it, so the provider evaluates against a
-#     closed connection rather than failing outright -- exactly the shape the
-#     specification's own note on this capability describes. Requirement 2.5.2
-#     says a provider SHOULD revert to its uninitialized state and that "some
-#     providers MAY allow reinitialization", so reuse is permitted rather than
-#     required and declining it is a choice the specification offers. Hence no
-#     KnownDeviation entry: there is no requirement to deviate from.
-#
-#     The second reason is gone, and it was the load-bearing one for the wrong
-#     thing. It ran: the scenario also carries @lifecycle, neither resolver
-#     declared LIFECYCLE, so declaring REINITIALIZATION alone would leave the
-#     scenario skipped and the claim unexamined. True at the time, but it rested
-#     on a withholding that nothing justified, and it is what kept @lifecycle
-#     unexamined for six passes. LIFECYCLE is declared above now, so the
-#     scenario runs and this withholding rests on the measurement alone -- which
-#     is where it should always have rested. The in-process suite declares
-#     REINITIALIZATION for the same reason in reverse: it runs, and it passes.
+#     Withheld, on the measurement: with LIFECYCLE declared the scenario runs,
+#     and it fails with `boolean-flag` resolving to the code default because
+#     grpc.py:420 raises "Cannot invoke RPC on closed channel!". shutdown()
+#     closes the channel and the second initialize() does not rebuild it, so the
+#     provider evaluates against a closed connection rather than failing
+#     outright. Requirement 2.5.2 permits reuse rather than requiring it, so this
+#     is a choice the specification offers and there is no requirement to deviate
+#     from: no KnownDeviation. The in-process suite declares it for the same
+#     reason in reverse -- it runs, and it passes.
 #
 #   STANDARD_REASONS
-#     New at spec@c342461a, which moved every resolution-reason assertion out of
-#     the other feature files and into reason.feature, gated as a whole. A claim
-#     rather than an exemption: 2.2.5 is a SHOULD that permits "some other
-#     string", so declaring the tag says this provider uses the standard
-#     vocabulary with the standard meanings.
+#     Declared on a run rather than on the source. All nine scenarios pass -- the
+#     four rule-less rows as STATIC, an unknown flag and a type mismatch as ERROR
+#     beside their error codes, TARGETING_MATCH for the matched rule and DEFAULT
+#     for the miss, DISABLED for a disabled flag. The last three need @targeting
+#     and @disabled-flags as well, which this suite declares, so none of the file
+#     is skipped here.
 #
-#     Declared on a run rather than on the source. All nine scenarios pass --
-#     the four rule-less rows as STATIC, an unknown flag and a type mismatch as
-#     ERROR beside their error codes, TARGETING_MATCH for the matched rule and
-#     DEFAULT for the miss, DISABLED for a disabled flag. The last three need
-#     @targeting and @disabled-flags as well, which this suite declares, so none
-#     of the file is skipped here.
-#
-#     Worth recording that the DISABLED row passes despite the reason arriving as
-#     flagd's bare string rather than the SDK's Reason enum, noted under
-#     DISABLED_FLAGS above: the step compares the reason as text, and "DISABLED"
-#     is "DISABLED" either way. The in-process resolver returns Reason.DISABLED
-#     and passes identically.
+#     The DISABLED row passes despite the reason arriving as flagd's bare string
+#     rather than the SDK's Reason enum: the step compares the reason as text.
 #
 #   CACHING
-#     Reserved in the Capability enum; no scenario carries the tag. Declaring a
-#     capability nothing exercises would be a claim with no evidence behind it,
-#     so it is left out of both suites. @targeting was reserved alongside it
-#     until spec@26362f85 gave it three scenarios, and is now declared above.
+#     Reserved, and the harness refuses it: no scenario carries the tag.
 RPC_CAPABILITIES = frozenset(
     {
         Capability.EVENTS,
@@ -307,16 +199,8 @@ KNOWN_DEVIATIONS = (
 )
 """The one requirement this resolver is known to fail.
 
-Takes the **declared and failing** shape rather than the withheld-and-skipped
-one, which is the shape Appendix F's guidance prefers and this is the case it
-prefers it for: flagd does attempt the coercion -- the widening scenario passes
--- and gets the narrowing direction wrong, so withdrawing the capability would
-turn a real failure into a skip indistinguishable from a provider that declines
-to coerce. The failure stays visible in the results and this entry says it is
-known and why.
-
-Recorded against this resolver only. See the in-process suite, which passes the
-scenario this deviates on.
+Declared-and-failing rather than withheld-and-skipped, and recorded against this
+resolver only: the in-process suite passes the scenario this deviates on.
 """
 
 RPC_SUITE = ResolverSuite(
@@ -335,10 +219,8 @@ RPC_SUITE = ResolverSuite(
 def tck_config(tck_backend: RunningBackend, closed_port: int) -> TckConfig:
     """The whole of this adoption's wiring.
 
-    ``tck_backend`` is the TCK's own session-scoped fixture: it has already
-    started the Compose file ``tests/tck/conftest.py`` declares, discovered the
-    dynamically mapped host ports, built the control against the launchpad and
-    waited for it to accept commands.
+    ``tck_backend`` is the TCK's own session-scoped fixture: the stack is up and
+    its control is ready by the time this runs.
     """
     return build_config(RPC_SUITE, tck_backend, closed_port)
 
