@@ -126,7 +126,7 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #
 #   LARGE_INTEGERS
 #     Withheld. Exactly one scenario carries the tag, it asks for
-#     `huge-integer-flag`, and flagd-testbed v3.8.0 seeds no such flag -- so this
+#     `huge-integer-flag`, and no released flagd-testbed seeds such a flag -- so this
 #     backend can put none of the tag's scenarios to this provider, and Appendix
 #     F's sixth declaring rule says withhold. Python's `int` is unbounded and the
 #     ruleset arrives as JSON text parsed with `json.loads` (flagd_core.py:73),
