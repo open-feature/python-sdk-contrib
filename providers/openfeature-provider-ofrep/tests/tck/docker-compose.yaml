@@ -1,26 +1,20 @@
-# Backend stack for the OpenFeature TCK, wrapping the unmodified flagd testbed image.
+# The backend every conformance suite in this repository runs against: the unmodified
+# flagd testbed image, serving flagd and its launchpad control API.
 #
-# flagd serves the OFREP HTTP API on 8016 alongside its own protocols, and the "launchpad"
-# control API on 8080. So an OFREP provider needs no backend of its own: it runs against the
-# same image, seeded with the same canonical flag set, driven through the same control API as
-# the flagd conformance suites. A second stack would be a second definition of "the canonical
-# flags", which is the one thing a conformance suite exists to prevent.
+# Not flagd-testbed's own compose file, which adds an envoy sidecar for its
+# forbidden-endpoint scenarios, names its service `flagd`, and bind-mounts a flags
+# directory the launchpad writes into. None of that is needed to drive the launchpad.
 #
-# Deliberately not flagd-testbed's own compose file, which this suite used to reach across into
-# the flagd package's submodule for. That file stands up envoy for the forbidden-endpoint e2e
-# scenarios, names its service `flagd`, and bind-mounts a flags directory the launchpad writes
-# into -- none of which the TCK needs. Reaching for it also coupled this package's conformance
-# results to another package's test-harness submodule.
-#
-# The tag is pinned here and in the flagd adoption's copy of this file. Two files naming one
-# version is the cost of each package owning its own stack; they serve different ports of the
-# same image and are bumped together.
-#
-# Note there are no host port bindings. The TCK requires dynamically mapped ports and discovers
-# them after startup.
+# This file exists twice, once per provider package, and the two are byte-identical:
+#   providers/openfeature-provider-flagd/tests/tck/docker-compose.yaml
+#   providers/openfeature-provider-ofrep/tests/tck/docker-compose.yaml
+# Each package publishes its own distribution and must not read the other's files, so
+# `diff` the two paths after changing either -- that diff is what catches drift.
 services:
   backend:
     image: ghcr.io/open-feature/flagd-testbed:v3.8.0
     ports:
+      - 8013   # flagd RPC evaluation (gRPC)
+      - 8015   # flagd in-process sync (gRPC)
       - 8016   # flagd's OFREP HTTP API
       - 8080   # launchpad control API
