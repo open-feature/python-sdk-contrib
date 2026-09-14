@@ -1,153 +1,64 @@
 """One testbed stack, declared rather than wired, and shared by both suites.
 
-The whole of the container lifecycle belongs to the TCK now: it starts the
-Compose file once per session, discovers the dynamically mapped host ports,
-builds the ``HttpControl`` against the launchpad and waits until it accepts
-commands, and tears the stack down after the last scenario. What is left here is
-the declaration -- which Compose file, which ports the provider connects to --
-and one free port for the scenarios that need a backend that is not there.
+The container lifecycle belongs to the TCK -- see its README for what
+``tck_backend`` does with the declaration below, and Appendix F, "The control
+API", for why the stack is started once and never restarted. What is left here
+is the declaration and one free port for the scenarios that need a backend that
+is not there.
 
-The stack is started once per session and **never restarted** -- container
-orchestrators assign host ports dynamically and cannot reliably preserve them
-across a restart, so a restarted backend comes back on a different host port,
-silently invalidating every provider already pointed at the old one, and the
-failure looks like a flaky provider rather than a broken test. Scenario isolation
-and every simulated outage go through the control API instead.
+One stack and one ``HttpControl`` serve both suites, because one flagd process
+serves both resolver ports: 8013 for RPC and 8015 for sync. The launchpad
+registers no ``/reset`` and no ``/healthz``, so every ``prepare_scenario`` takes
+the harness's documented ``/start`` fallback and one 404 is logged per session.
 
-One stack for both suites because one flagd process serves both ports the
-resolvers use -- 8013 for RPC and 8015 for sync -- so there is nothing a second
-stack would isolate. One ``HttpControl`` with it, which matters and is not merely
-tidy: the control tracks whether a disconnect has left the backend down so the
-next scenario starts it rather than merely resetting flag state, and two
-instances would each hold half of that knowledge. A session-scoped
-``tck_backend`` is what makes both true by construction.
+**What a full run reports, and what each failure is.** ``8 failed, 119 passed,
+3 skipped`` over the two resolvers. Read it here rather than counting: three
+distinct causes account for all eight, and only two of them are the provider's.
 
-The launchpad registers only ``/start``, ``/restart``, ``/stop`` and ``/change``
-(flagd-testbed ``launchpad/main.go``), so ``/reset`` answers 404 and every
-``prepare_scenario`` takes the documented ``/start`` fallback. The probe costs
-one 404 for the whole session. It serves no ``/healthz`` either, which the
-control API document defines as ready -- so the readiness wait rests on the
-control port accepting a connection, which the harness establishes before it
-probes.
+*Six failures are the backend's flag set.* flagd-testbed v3.8.0 seeds neither
+``large-integer-flag`` nor ``integral-float-flag``, so the untagged precision
+scenario, the ``max-int32`` row of the ``@variants`` outline and the lossless
+``@numeric-coercion`` scenario fail ``FLAG_NOT_FOUND`` on each resolver alike.
+open-feature/flagd-testbed#392 seeds all three of the flags the canonical set is
+missing and says what each catches; bump the tag in ``docker-compose.yaml``
+beside this file when it lands. Left as failures rather than xfailed, because
+they are true about the stack under test, and carrying no ``KnownDeviation`` in
+either suite: the provider was never given the flag to get wrong.
 
-**The testbed does not yet serve the whole canonical flag set.** The conformance
-assets at spec@89b1519a ask for three flags that flagd-testbed v3.8.0
-(``openfeature/test-harness/version.txt``, and the tag pinned in
-``docker-compose.yaml`` beside this file) does not seed: ``large-integer-flag``,
-``huge-integer-flag`` and ``integral-float-flag``. Until
-open-feature/flagd-testbed#392 lands, three scenarios fail with
-``FLAG_NOT_FOUND`` on each resolver alike:
+*One failure is ``openfeature-flagd-core``'s*, on in-process alone:
+``boolean-flag`` requested as a Float resolves to ``1.0`` with reason ``STATIC``
+and no error code, where the mandatory wrong-type scenario asks for the caller's
+default. ``bool`` is a subclass of ``int`` in Python and the int-to-float
+widening does not exclude it. Filed as open-feature/python-sdk-contrib#417. RPC
+passes the row, because the server type-checks it. No ``KnownDeviation``: the
+scenario is mandatory and ungated, so it fails visibly on every run and an entry
+would add nothing a reader cannot see.
 
-* ``A large integer resolves without loss of precision`` -- untagged, so it runs
-  unconditionally and fails on ``large-integer-flag``;
-* ``The resolved details name the variant``, the ``large-integer-flag`` row of
-  it -- under ``@variants``, which both suites declare. New at spec@26362f85,
-  and the same gap rather than a new one: the row asks for the variant
-  ``max-int32`` of a flag that is not there. The other seven rows pass on both
-  resolvers, which is the evidence the capability is declared on -- withholding
-  it would say flagd does not name variants, which is false, and would
-  attribute a missing flag to a capability the provider has;
-* ``An integral float requested as an integer is coerced without loss`` -- under
-  ``@numeric-coercion``, which both suites declare as of this pass. It asks for
-  ``integral-float-flag``. This one is new to the failure list and is the price
-  of declaring that tag; the two suites explain why paying it is the honest
-  report, and the RPC suite's ``KnownDeviation`` summary disclaims it explicitly
-  so that a reader does not attribute it to flagd.
-
-``huge-integer-flag`` is asked for only by the single scenario under
-``@large-integers``, which neither suite declares any more, so it is skipped
-rather than failed -- the backend can put none of that tag's scenarios to the
-provider, so a declaration would rest on nothing. ``@numeric-coercion`` is the
-opposite case and is declared: two of its three scenarios do reach the provider,
-and the two resolvers answer them differently. Both suites state the rule that
-decides this.
-
-The failures are deliberately left as failures: they say something true about
-the stack under test, and an ``xfail`` would say the provider is at fault when
-it is the backend that is behind. **None of them is a ``KnownDeviation``**: a
-deviation is for a behaviour the *provider* is required to have and does not,
-and the provider was never given the flag to get wrong. Go and JavaScript both
-record their equivalent gaps the same way and say so in the same words.
-
-**Two failures are the provider's, not the testbed's.** A full run is
-``8 failed, 119 passed, 3 skipped``. Six of the eight are the three above on
-each resolver. The seventh is on in-process alone: ``boolean-flag`` requested as
-a Float resolves to ``1.0`` with reason ``STATIC`` and no error code, where the
-mandatory wrong-type scenario asks for the caller's default. ``bool`` is a
-subclass of ``int`` in Python, so the widening at ``flagd_core.py:113-114`` --
-``if isinstance(result.value, int): result.value = float(result.value)`` -- sees
-a boolean as an integer, after ``_resolve`` has already let it through for a
-Float request. It is the same shape as the boolean-satisfies-an-Integer finding
-the suite's own README records against the in-memory provider, and it is a gap
-in ``openfeature-flagd-core`` rather than in either resolver's transport: RPC
-passes the row, because the server type-checks it. Recorded here rather than
-declared as a ``KnownDeviation`` because the scenario is mandatory and
-ungated -- it fails visibly on every run, which is the report, and a deviation
-would add nothing a reader cannot already see. It is not a testbed gap and does
-not go away when the image is bumped.
-
-The eighth is on RPC alone, and it is the one failure here that *does* carry a
+*One failure is flagd's*, on RPC alone, and it is the one failure here carrying a
 ``KnownDeviation``: ``float-flag`` (0.5) requested as an Integer comes back as
-``0`` with no error code, where ``@numeric-coercion`` requires ``TYPE_MISMATCH``
-and the caller's default. The tag is declared and the scenario left to fail
-rather than the tag withheld, because this resolver does attempt the coercion
-and gets one direction wrong -- see ``test_rpc.py``. **The
-in-process resolver passes this scenario**, refusing 0.5 locally, so the
-deviation is recorded against RPC only. That asymmetry is the most interesting
-result in this pair of suites and is the thing a shared declaration would have
-hidden: the Java and Go flagd adoptions each record the same defect against both
-of their resolvers, correctly, because theirs both narrow; Python is the
-language where that would have been false.
+``0`` with no error code. **The in-process resolver passes that scenario**, which
+is why the deviation is recorded against RPC only; ``test_rpc.py`` and
+``test_in_process.py`` carry the measurement on each side.
 
-**Declaring ``@lifecycle`` surfaced one thing beyond a pass or a fail, and it is
-worth reading before anyone treats the warning as noise.** The in-process
-scenario ``Shutting down a provider that cannot reach its backend completes
-promptly`` passes -- shutdown does return well inside the bound -- but it leaves
-a ``PytestUnhandledThreadExceptionWarning`` behind it: gRPC's connectivity
-polling thread raises ``ValueError: Cannot invoke RPC: Channel closed!`` from
-``_poll_connectivity`` after ``shutdown`` has closed the channel underneath it.
-So the provider closes the channel without first stopping the watcher that is
-still using it. Reproducible on every run.
+*The three skips are two scenarios.* ``@large-integers`` gates one and is
+withheld on both resolvers, so it skips twice; ``@reinitialization`` gates one,
+which in-process declares and passes and RPC withholds, so it skips once. Each
+suite gives its own reason beside its declaration.
 
-It is **not** a ``KnownDeviation`` and not a scenario failure: nothing the
-specification requires is unmet, the scenario asserts that shutdown completes
-promptly and it does, and 2.5.3's double-shutdown scenario passes as well. It is
-a shutdown-ordering race in ``openfeature-flagd-core``'s watcher that surfaces
-as a stray traceback in a host application's logs during its own shutdown.
-Recorded here because it is the one finding the six lifecycle scenarios produced
-that neither a pass nor a failure would have carried, and because the six had
-never been run against this provider before -- the capability was withheld from
-the first pass to the sixth with nothing saying why.
+**One finding came out of a scenario that passes**, so neither the results nor
+the report has anywhere to put it: the in-process *Shutting down a provider that
+cannot reach its backend completes promptly* returns well inside its bound and
+leaves a ``PytestUnhandledThreadExceptionWarning`` behind it -- gRPC's
+connectivity polling thread raising ``ValueError: Cannot invoke RPC: Channel
+closed!`` after ``shutdown`` closed the channel underneath it. Reproducible on
+every run, and filed as open-feature/python-sdk-contrib#419. Not a deviation:
+nothing required is unmet. It is noted here because a reader who sees the warning
+should know it is a recorded finding rather than noise.
 
-**The three skips are two scenarios, not three.** ``@large-integers`` gates a
-single scenario and is withheld on both resolvers for the backend gap above, so
-it skips twice; ``@reinitialization`` gates a single scenario and is declared on
-in-process, which passes it, and withheld on RPC, which cannot reuse a closed
-channel and is permitted not to by 2.5.2, so it skips once. Neither withholding
-is a defect and neither carries a deviation.
-
-``targeting-key-flag``, new in the canonical set at the same revision, needs no
-testbed change. It is the flag flagd-testbed's own ``targeting.feature`` already
-uses -- same key, same ``hit``/``miss`` variants, same uuid -- seeded from
-``flags/testing-flags.json`` by the launchpad's ``default`` configuration, so
-the three ``@targeting`` scenarios pass on both resolvers as they stand.
-
-The four ``disabled-*`` flags, new in the canonical set at spec@009afe06, need
-no testbed change either, and for a sturdier reason than a coincidence of names:
-they *are* flagd-testbed's own, from ``flags/disabled-flags.json``, which the
-launchpad merges into ``flags/allFlags.json`` along with every other non-
-``selector-`` file in ``rawflags`` (``launchpad/pkg/json.go``) and serves under
-the ``default`` configuration. So the four ``@disabled-flags`` rows pass on both
-resolvers as they stand. The harness also seeds ``disabled-object-flag`` and
-``cross-flagset-flag``, which the canonical set deliberately does not ask for --
-an Object resolution would need ``@object`` as well, and a scenario needing two
-capability tags cannot be one row of a single outline.
-
-The falsy flags used to fail the same way and no longer do. ``ba002ce8`` renamed
-them to ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``,
-which is what ``flags/zero-flags.json`` in the testbed has always called them,
-with the same ``zero``/``non-zero`` variants the scenarios assert. Those three
-rows were never a gap in the backend, only a disagreement about names.
+The canonical set's ``targeting-key-flag``, four ``disabled-*`` flags and three
+falsy flags need no testbed change: they are flagd-testbed's own flags, which is
+why the canonical set adopted their names and variants, and the launchpad's
+``default`` configuration serves them as they stand.
 """
 
 from __future__ import annotations
@@ -166,13 +77,13 @@ def compose_backend() -> ComposeBackend:
     """The stack under test, as the TCK's ``tck_backend`` fixture wants it.
 
     Both resolver ports are declared even though each suite uses one of them,
-    because both suites share this stack and the harness checks at startup that
-    the Compose file publishes everything it was told about. The launchpad's own
-    8080 is exposed automatically and must not be listed.
+    because both suites share this stack. The Compose file publishes flagd's
+    OFREP port as well, which nothing here asks for: it is the same file the
+    OFREP adoption uses, and a port nobody declares is neither waited on nor
+    looked up.
 
-    The path is absolute rather than relative to the package directory -- which
-    is what the harness resolves a relative one against, and where ``poe test``
-    runs from -- so that running pytest from the repository root works too.
+    The path is absolute so that pytest run from the repository root works too;
+    a relative one resolves against the working directory.
     """
     return ComposeBackend(
         compose_file=Path(__file__).parent / "docker-compose.yaml",
@@ -185,12 +96,10 @@ def closed_port(tck_backend: RunningBackend) -> int:
     """A port on localhost with nothing listening, for the ``@unavailable`` scenarios.
 
     Discovered by binding and releasing rather than hard-coded, because the
-    testbed's own host ports are mapped dynamically and a hard-coded number could
-    collide with one. Depending on ``tck_backend`` orders this after the stack has
-    taken its ports, which is what makes the remaining race negligible.
-
-    Deliberately not a port on the Compose stack: that has to stay up for the
-    whole session, and simulated outages belong to the control API.
+    stack's own host ports are mapped dynamically and a fixed number could
+    collide with one; depending on ``tck_backend`` orders this after the stack
+    has taken its ports. Deliberately not a port on the stack, which has to stay
+    up -- simulated outages belong to the control API.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", 0))
