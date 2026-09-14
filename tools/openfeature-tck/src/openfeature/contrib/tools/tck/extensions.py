@@ -35,9 +35,7 @@ directory joined to its own name, so ``extensions/gherkin/errors.feature``
 arrives as ``gherkin/errors.feature`` -- the same uri as a canonical file. A
 record of what ran holds one copy of a feature file per uri, so the second file
 is never read and its scenarios are attributed to the first one's or to nothing
-at all. Java hit the same thing by a different route: a same-named feature file
-in a second classpath root replaced the canonical one outright and the suite went
-green having run the adopter's version.
+at all.
 
 The derivation is public, and the two problems it cannot rule out are reported
 rather than raised, because the consumer of all of this is a conformance report
