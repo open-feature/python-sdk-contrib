@@ -8,10 +8,8 @@ which is exactly the class of thing the conformance suite exists to surface.
 
 Everything they share lives here; everything that differs lives in ``test_rpc.py``
 and ``test_in_process.py`` next to it, where a reader can see the whole of a
-resolver's declaration in one place.
-
-There is no container wiring here any more. The TCK owns the stack -- see
-``conftest.py`` -- so what is left is the timings, which are flagd's own and
+resolver's declaration in one place. The TCK owns the container stack (see
+``conftest.py``), so what is left here is the timings, which are flagd's own and
 interact, and the one function that turns a resolver plus a running endpoint into
 a ``TckConfig``.
 """
@@ -127,11 +125,8 @@ class ResolverSuite:
     capabilities: frozenset[Capability]
     """What this resolver was run against the suite and seen to satisfy.
 
-    Evidence from a run rather than from reading the resolver, which is Appendix
-    F's rule and not merely a preference: source inspection has been wrong in
-    both directions here, and the two resolvers differ on reuse in a way that
-    reading them does not show. See each suite module for the evidence behind
-    every entry, and behind every omission.
+    See each suite module for the evidence behind every entry, and behind every
+    omission.
     """
 
     ready_timeout: float
@@ -142,10 +137,9 @@ class ResolverSuite:
     **Per resolver, and that is the whole reason this field is here rather than
     shared.** The two resolvers do not deviate alike: RPC narrows ``float-flag``
     to ``0`` where in-process refuses it, so an entry naming
-    :attr:`~Capability.NUMERIC_COERCION` is true of one and false of the other.
-    Attaching it to both -- which is what Java and Go each do, correctly, because
-    *their* two resolvers do behave identically -- would publish a defect against
-    the resolver that does not have it.
+    :attr:`~Capability.NUMERIC_COERCION` is true of one and false of the other,
+    and attaching it to both would publish a defect against the resolver that
+    does not have it.
     """
 
 
@@ -156,14 +150,10 @@ def build_config(
 ) -> TckConfig:
     """Wire one resolver up to the running testbed.
 
-    The host and port are read off ``backend.endpoint`` here, inside the factory
-    and after the stack is up: Compose maps host ports dynamically, so they do
-    not exist earlier -- and they stay valid for the whole session because
-    nothing ever restarts a container. Outages are simulated inside the running
-    stack through ``backend.control`` instead.
-
-    The host comes from the endpoint rather than being written as
-    ``"localhost"``: with a remote Docker daemon, Docker Desktop on some
+    The host and port are read off ``backend.endpoint`` inside the factory, which
+    is why the factory exists: the mapped host port does not exist until the
+    stack is up. The host comes from the endpoint rather than being written as
+    ``"localhost"``, because with a remote Docker daemon, Docker Desktop on some
     platforms or a rootless setup it is neither localhost nor predictable.
     """
     endpoint = backend.endpoint
