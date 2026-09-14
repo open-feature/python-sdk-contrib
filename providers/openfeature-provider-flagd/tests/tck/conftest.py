@@ -15,7 +15,7 @@ the harness's documented ``/start`` fallback and one 404 is logged per session.
 3 skipped`` over the two resolvers. Read it here rather than counting: three
 distinct causes account for all eight, and only two of them are the provider's.
 
-*Six failures are the backend's flag set.* flagd-testbed v3.8.0 seeds neither
+*Six failures are the backend's flag set.* no released flagd-testbed seeds
 ``large-integer-flag`` nor ``integral-float-flag``, so the untagged precision
 scenario, the ``max-int32`` row of the ``@variants`` outline and the lossless
 ``@numeric-coercion`` scenario fail ``FLAG_NOT_FOUND`` on each resolver alike.
