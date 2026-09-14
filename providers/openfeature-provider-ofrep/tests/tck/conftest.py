@@ -19,8 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from openfeature.contrib.tools.tck import ComposeBackend, RunningBackend
-from tests.tck.settled_control import SettledControl
+from openfeature.contrib.tools.tck import BackendControl, ComposeBackend, RunningBackend
 
 OFREP_PORT = 8016
 """flagd's OFREP HTTP port, and the one port this provider connects to.
@@ -62,19 +61,29 @@ def ofrep_base_url(tck_backend: RunningBackend) -> str:
 
 
 @pytest.fixture(scope="session")
-def ofrep_control(tck_backend: RunningBackend, ofrep_base_url: str) -> SettledControl:
-    """The control API client, wrapped in a wait for the flag set to be served.
+def ofrep_control(tck_backend: RunningBackend) -> BackendControl:
+    """The control API client, used exactly as the harness provides it.
 
     ``tck_backend.control`` is the TCK's own ``HttpControl``, already pointed at
     the launchpad's mapped port and awaited ready. The launchpad registers no
     ``/reset``, so every ``prepare_scenario`` takes the harness's documented
     ``/start`` fallback and one 404 is logged per session.
 
-    Wrapped in :class:`SettledControl` because this backend's ``/start`` returns
-    before it serves the flag set, and a stateless provider has no initialisation
-    to hide that window behind. See that module.
+    This suite used to wrap it in a ``SettledControl`` that polled the OFREP
+    endpoint until the reseeded flags were actually served, because this
+    backend's ``/start`` returns before that is true and a stateless provider
+    has no initialisation to hide the window behind. That wrapper is gone.
+    A backend returning before it serves breaks the control API contract, and
+    compensating for it here made this suite's results incomparable with every
+    other adoption run against the same backend -- this one read a clean floor
+    while the others bounced, and the difference was the wait, not the provider.
+    The defect is open-feature/flagd-testbed#394 and belongs there.
+
+    So this suite now races the window like the others do. Read a red run
+    against the documented floor and repeat it before blaming the provider: the
+    race moves between scenarios, a real defect does not.
     """
-    return SettledControl(tck_backend.control, ofrep_base_url)
+    return tck_backend.control
 
 
 # ---------------------------------------------------------------------------
