@@ -29,6 +29,11 @@ This provider runs the [OpenFeature Provider Conformance Suite][tck] against a f
 serving OFREP, in `tests/tck`. The suite owns the container stack: `tests/tck/conftest.py` declares
 a Compose file and the port the provider connects to, and nothing else.
 
+`tests/tck/docker-compose.yaml` is one definition of the backend for the whole repository, and the
+flagd adoption carries a byte-identical copy — each provider package publishes its own distribution
+and must not read the other's files, so the two are kept in step by `diff` rather than by sharing a
+path. Change one, copy it to the other.
+
 **It is excluded from the default build, and a maintainer runs it by hand before merging a change to
 it.**
 
