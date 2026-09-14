@@ -21,12 +21,12 @@ from pytest_bdd import scenarios
 
 from openfeature.contrib.provider.ofrep import OFREPProvider
 from openfeature.contrib.tools.tck import (
+    BackendControl,
     Capability,
     TckConfig,
     feature_paths,
 )
 from openfeature.provider import FeatureProvider
-from tests.tck.settled_control import SettledControl
 
 TIMEOUT_SECONDS = 10.0
 """Bounds a single OFREP request.
@@ -214,7 +214,7 @@ CAPABILITIES = frozenset(
 @pytest.fixture(scope="session")
 def tck_config(
     ofrep_base_url: str,
-    ofrep_control: SettledControl,
+    ofrep_control: BackendControl,
 ) -> TckConfig:
     """Wire the provider up to the running testbed.
 

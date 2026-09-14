@@ -59,10 +59,17 @@ Two things that are this provider's rather than the policy's:
   suite that has quietly stopped importing against the harness is worse than one that runs and
   fails, and `mypy` here is configured over `src` alone, so nothing else would notice.
 
-`tests/tck/settled_control.py` is worth reading before you touch the suite: it is a named workaround
-for one backend defect — flagd-testbed's `/start` returns about 40 ms before it serves the flag set,
-which the control API forbids — and the specification prescribes that such a wait live in the
-adoption, citing the defect, rather than in the shared harness.
+**This suite races a known backend defect, and deliberately does not compensate for it.**
+flagd-testbed's `POST /start` returns before it serves the reseeded flag set, which the control API
+forbids, and a stateless provider has no initialisation to hide that window behind — so a run can
+report `FLAG_NOT_FOUND` for flags the configuration plainly defines. The defect is
+[flagd-testbed#394](https://github.com/open-feature/flagd-testbed/pull/394).
+
+This suite used to wrap the control in a `SettledControl` that polled until the flags were served.
+That is removed. Compensating here made this suite's results incomparable with every other adoption
+run against the same backend: it read a clean floor while the others bounced, and the difference was
+the wait rather than the provider. **Read a red run against the documented floor and repeat it before
+blaming the provider** — the race moves between scenarios, a real defect does not.
 
 [tck]: ../../tools/openfeature-tck/README.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
