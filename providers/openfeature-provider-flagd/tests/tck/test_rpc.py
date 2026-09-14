@@ -110,7 +110,7 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #
 #   LARGE_INTEGERS
 #     Withheld. Exactly one scenario carries the tag, it asks for
-#     `huge-integer-flag`, and flagd-testbed v3.8.0 seeds no such flag -- so this
+#     `huge-integer-flag`, and no released flagd-testbed seeds such a flag -- so this
 #     backend can put none of the tag's scenarios to this provider, and Appendix
 #     F's sixth declaring rule says withhold. Nothing in this path would narrow
 #     the value: flagd holds every numeric variant as a float64 and 2^53 - 1 is
