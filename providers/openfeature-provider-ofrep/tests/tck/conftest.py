@@ -7,7 +7,7 @@ the declaration, the one wrapper this provider needs around the control, and the
 xfail for the single scenario it cannot satisfy.
 
 A full run is ``2 failed, 45 passed, 17 skipped, 1 xfailed``. Both failures ask
-for ``large-integer-flag``, which flagd-testbed v3.8.0 does not seed --
+for ``large-integer-flag``, which no released flagd-testbed seeds --
 open-feature/flagd-testbed#392 adds it, along with the two other canonical flags
 the image is missing, and says what each catches. Neither carries a
 ``KnownDeviation``: the gap is the backend's flag set, not the provider's.
