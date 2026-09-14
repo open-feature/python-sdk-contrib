@@ -12,7 +12,7 @@
 # `diff` the two paths after changing either -- that diff is what catches drift.
 services:
   backend:
-    image: ghcr.io/open-feature/flagd-testbed:v3.8.0
+    image: ghcr.io/open-feature/flagd-testbed:v3.10.1
     ports:
       - 8013   # flagd RPC evaluation (gRPC)
       - 8015   # flagd in-process sync (gRPC)
