@@ -1,53 +1,30 @@
 """``HttpControl``, plus a wait for a backend that returns before it serves.
 
-**This is a named workaround for one backend's defect, and it belongs here
-rather than in the shared harness.** That is not a preference; it is what the
-specification prescribes. ``control-api.yaml`` requires every state-changing
-endpoint to serve the new state before it returns, and Appendix F adds that a
-suite must not paper over a backend that breaks it -- a fixed delay in the
-harness "buys silence, not correctness", is un-tunable because the window
-belongs to the backend, and would be inherited by every future adopter without
-knowing why. Where an adopter is stuck with such a backend, "the wait belongs in
-**that adoption**, set explicitly and citing the defect, so that it reads as a
-named workaround for a specific backend and disappears when the backend is
-fixed". This file is that.
+**A named workaround for one backend's defect, in the adoption rather than in
+the shared harness**, which is the shape Appendix F prescribes for exactly this
+situation -- see "The control API" there for why a delay in the harness would be
+the wrong instrument.
 
-**The defect.** ``POST /start`` reseeds flag state to the named configuration's
-baseline and **MUST NOT return until that state is actually being served** --
-the control API says so in those words, and names this very case: "the reference
-implementation exhibits this: its ``/start`` returns roughly 40ms before flagd's
-file sources reach the flag store". flagd-testbed's launchpad returns as soon as
-flagd answers ``/readyz`` (``launchpad/pkg/flagd.go``), which flagd does before
-its file sources have been loaded into the flag store.
+**The defect.** ``control-api.yaml`` requires ``POST /start`` not to return until
+the state it reseeded is actually being served. flagd-testbed's launchpad returns
+as soon as flagd answers ``/readyz``, which flagd does before its file sources
+have reached the flag store.
 `flagd-testbed#394 <https://github.com/open-feature/flagd-testbed/pull/394>`_
-would close it and is open and unmerged, so the window is still there. Measured
-against the pinned image it is short -- around 40ms -- but real and reliably
-hit:
+explains the mechanism, measures the window and closes it; it is open and
+unmerged, so the window is still there.
 
-    start:200 {"errorCode":"FLAG_NOT_FOUND","errorDetails":"flag `float-flag` does not exist"}
-    start:200 {"value":0.5,"key":"float-flag","reason":"STATIC","variant":"half"}
-    start:200 {"errorCode":"FLAG_NOT_FOUND","errorDetails":"flag `float-flag` does not exist"}
+**Why this suite is the one that found it.** Both flagd resolvers block inside
+``initialize`` until their stream or ruleset is up, so their initialisation
+absorbs the window before any scenario evaluates. A stateless provider has no
+initialisation to hide behind: its first evaluation lands directly in the gap and
+the suite reports FLAG_NOT_FOUND for every flag, which reads as a
+catastrophically broken provider. This wait goes away the day the testbed does.
 
-The flagd suites never see it, and that is the interesting part. Both flagd
-resolvers block inside ``initialize`` until the evaluation stream is up or the
-ruleset has synced, so their initialisation absorbs the window before any
-scenario evaluates. OFREP is stateless -- no ``initialize``, no connection, no
-warm-up -- so its first evaluation lands directly in the gap and the suite
-reports FLAG_NOT_FOUND for every flag, which reads as a catastrophically broken
-provider.
-
-**A stateless provider is the first adopter with no initialisation to hide a
-backend's warm-up behind**, which is what made it the one that found this. The
-guarantee itself is not in doubt -- "reseeded" and "serving" are already
-required to be the same instant -- so what is left is a backend that does not
-keep it, and this wait goes away the day the testbed does.
-
-**Why this is not cheating.** It manipulates nothing. It is a readiness probe
-over the same public OFREP endpoint the provider uses, on a canonical flag,
-asserting only that the backend has finished doing what ``/start`` already
-promised. No scenario is weakened, no step is bypassed, and no side channel into
-the backend is opened -- the normative control path is still ``HttpControl``,
-which this delegates to unchanged.
+**Why it is not cheating.** It manipulates nothing. It is a readiness probe over
+the same public OFREP endpoint the provider uses, on a canonical flag, asserting
+only that the backend finished what ``/start`` already promised. No scenario is
+weakened and no side channel into the backend is opened -- the normative control
+path is still ``HttpControl``, which this delegates to unchanged.
 
 Deliberately not a :class:`ConnectionControl`: it has no ``disconnect`` or
 ``reconnect``, matching a suite that declares neither ``STALE`` nor
