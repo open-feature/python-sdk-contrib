@@ -49,7 +49,7 @@ timeouts -- has nothing to bound here, for the reasons below.
 #   VARIANTS    ofrep/__init__.py:160 carries the response's `variant` into the
 #               resolution details. Seven of the outline's eight rows pass; the
 #               eighth asks for large-integer-flag's `max-int32`, which
-#               flagd-testbed v3.8.0 does not seed (see conftest.py). Withholding
+#               no released flagd-testbed seeds (see conftest.py). Withholding
 #               over it would say this provider does not name variants, which the
 #               other seven rows show is false.
 #   TARGETING   ofrep/__init__.py:229-230 puts the evaluation context's targeting
@@ -183,7 +183,7 @@ timeouts -- has nothing to bound here, for the reasons below.
 #   LARGE_INTEGERS
 #     The one withholding here that is about the backend rather than the provider.
 #     Exactly one scenario carries the tag, it asks for `huge-integer-flag`, and
-#     flagd-testbed v3.8.0 seeds no such flag -- so none of the tag's scenarios
+#     no released flagd-testbed seeds such a flag -- so none of the tag's scenarios
 #     can be put to this provider, and Appendix F's sixth declaring rule says
 #     withhold. Contrast VARIANTS above, where seven of eight rows do reach the
 #     provider and the tag is declared on their strength.
