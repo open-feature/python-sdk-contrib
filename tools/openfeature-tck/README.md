@@ -363,7 +363,7 @@ capability skip's reason lands and the after-hook where a teardown failure does.
 responsible for a skip follows from the pickle's tags and the envelope's `declaration`, which is why
 it is not transported once per scenario. And a pickle's `astNodeIds` are `[scenario id, table row
 id]`, resolving in the `GherkinDocument` to exactly the cells the feature file wrote — which is what
-tells the eleven rows of the type-mismatch matrix apart, one of which differs in outcome from its ten
+tells the eight rows of the type-mismatch matrix apart, one of which differs in outcome from its seven
 siblings, exactly rather than by a naming convention every implementation would have to reproduce.
 
 So the payload is not a transcription of pytest's summary. The one scenario the Python SDK cannot
