@@ -193,6 +193,50 @@ class Capability(str, Enum):
     :attr:`LARGE_INTEGERS`.
     """
 
+    STRING_TYPING = "string-typing"
+    """Provider reports ``TYPE_MISMATCH`` for a non-string flag requested as a string.
+
+    The second capability here the specification does not define, and it is
+    undefined in a stronger sense than :attr:`NUMERIC_COERCION`: that rule is
+    borrowed from an ADR that answers a question the specification left open,
+    while this one contradicts nothing because **the specification never says
+    what the type of a flag value is**. ``TYPE_MISMATCH`` appears once, as a row
+    in the error-code table, and no provider requirement obliges anyone to raise
+    it; the only normative statement about value type is `Requirement 1.3.4
+    <https://github.com/open-feature/spec/blob/main/specification/sections/01-flag-evaluation.md>`_,
+    a **SHOULD**, and on the *client* rather than the provider. Appendix F's
+    ``@string-typing`` section carries the reasoning.
+
+    Gated because every value has a string representation, so a backend that
+    stores flag values as strings satisfies the string accessor for **every**
+    flag and has no mismatch to report -- its flags *are* strings, and
+    `Requirement 2.2.3
+    <https://github.com/open-feature/spec/blob/main/specification/sections/02-providers.md>`_
+    asked it for the resolved flag value, which it returned. **A provider that
+    withholds this tag is not thereby non-conformant**, which settles the
+    instrument as well as the answer: withholding rather than a
+    :class:`~.config.KnownDeviation`, because a deviation records a required
+    behaviour the provider lacks and this behaviour is not required.
+
+    Declaring it runs one Scenario Outline of three rows -- ``boolean-flag``,
+    ``integer-flag`` and ``float-flag`` each asked for as a string -- and one
+    scenario for ``object-flag``, which carries :attr:`OBJECT` as well because a
+    provider with no structured values cannot be asked that one at all. All four
+    were **mandatory** until spec revision ``d47a66eb``, on the reasoning that
+    *"is a string a boolean?"* has no defensible wrong answer. That holds for
+    parsing a string into another type, which a provider chooses to do; it does
+    not hold for rendering another type as a string, which an untyped backend
+    does whether anyone chose it or not.
+
+    Nothing about Python narrows the question, so the four scenarios measure the
+    provider rather than the SDK: ``get_string_details`` is its own accessor
+    reaching its own provider method, and the client's check is
+    ``isinstance(value, str)`` -- a provider handing back ``True`` or ``10`` is a
+    ``TYPE_MISMATCH`` without the provider having to notice, and one handing back
+    ``"true"`` passes the check and fails the scenario. Hence
+    :data:`INEXPRESSIBLE_CAPABILITIES` stays empty.
+    """
+
     LARGE_INTEGERS = "large-integers"
     """Provider resolves integers up to 2^53 - 1 exactly.
 
