@@ -45,6 +45,12 @@ def tck_config() -> TckConfig:
     integer is a ``TYPE_MISMATCH`` rather than ``10``. ``LARGE_INTEGERS`` is
     declared, since a Python ``int`` is exact at 2^53 - 1.
 
+    ``STRING_TYPING`` is declared, for the reason given there and inherited the
+    same way: the untouched value and the ``isinstance`` check make a non-string
+    flag asked for as a string a ``TYPE_MISMATCH``, so the flag set behaves as a
+    typed one. Measured the same way -- all four scenarios were mandatory at the
+    previous pin and passed here too.
+
     ``TARGETING`` stays undeclared for the reason given there as well: this is
     the same decoded flag set, and it ignores ``targeting-key-flag``'s rule.
     ``VARIANTS`` is declared, since the flag set is keyed by variant name.
@@ -70,6 +76,7 @@ def tck_config() -> TckConfig:
             Capability.CONFIGURATION_CHANGE,
             Capability.OBJECT,
             Capability.VARIANTS,
+            Capability.STRING_TYPING,
             Capability.LARGE_INTEGERS,
             Capability.STANDARD_REASONS,
         },
