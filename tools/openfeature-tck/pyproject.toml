@@ -1,0 +1,116 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openfeature-tck"
+version = "0.1.0"
+description = "OpenFeature provider conformance suite (TCK)"
+readme = "README.md"
+authors = [{ name = "OpenFeature", email = "openfeature-core@groups.io" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Framework :: Pytest",
+]
+keywords = ["openfeature", "conformance", "tck", "feature-flags"]
+dependencies = [
+    "openfeature-sdk>=0.10.0",
+    "pytest>=8.4.0",
+    # Same runner the flagd provider and the flagd testkit already use, so an
+    # adopting module gains no new test framework.
+    "pytest-bdd>=8.1.0,<9.0.0",
+]
+requires-python = ">=3.10"
+
+# Kept out of the required dependencies on purpose: a provider with no backend
+# runs the whole suite without a container, and should not have to install
+# container tooling to do it. Everything in `compose.py` imports it lazily.
+[project.optional-dependencies]
+compose = ["testcontainers>=4.12.0,<5.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/open-feature/python-sdk-contrib"
+
+# Shipping the step definitions as a pytest plugin is what keeps adoption to a
+# single fixture: pytest-bdd resolves steps through the fixture system, and
+# fixtures from an installed plugin are visible to every test, so an adopter
+# never has to `from ... import *` to pull the vocabulary in.
+[project.entry-points.pytest11]
+openfeature_tck = "openfeature.contrib.tools.tck.plugin"
+
+[dependency-groups]
+dev = [
+  "coverage[toml]>=7.10.0,<8.0.0",
+  "mypy>=1.18.0,<2.0.0",
+  "poethepoet>=0.37.0",
+  # The `compose` extra, so the lazy import in compose.py is type-checked
+  # against the real DockerCompose rather than waved through. Nothing in this
+  # package's own tests starts a container -- the flagd adoption is what proves
+  # the harness end to end.
+  "testcontainers>=4.12.0,<5.0.0",
+]
+
+[tool.hatch.build.targets.sdist]
+# The conformance assets are gitignored copies of the spec submodule; the build
+# hook force-includes them so an sdist builds into a wheel without a submodule.
+force-include = {}
+# Which is why the submodule itself has no business in the sdist: it is the whole
+# spec repository, and only the copies of the four assets are needed downstream.
+exclude = ["/spec"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openfeature"]
+# Ship the conformance assets even though they are gitignored: an adopter
+# installing this package must need no submodule of their own.
+artifacts = [
+    "src/openfeature/contrib/tools/tck/gherkin/",
+    "src/openfeature/contrib/tools/tck/flag_data/",
+    "src/openfeature/contrib/tools/tck/control-api.yaml",
+]
+
+[tool.hatch.build.hooks.custom]
+
+# `hatch_build_sync.py` sits beside this file rather than under src/, because it
+# is build machinery rather than package content. It is on the path anyway, so
+# the tests that hold its submodule-pin check to its promise can import it the
+# way the build hook does.
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.mypy]
+mypy_path = ["src", "."]
+files = ["src", "tests", "hatch_build_sync.py"]
+python_version = "3.10"
+namespace_packages = true
+explicit_package_bases = true
+local_partial_types = true
+allow_redefinition_new = true
+fixed_format_cache = true
+pretty = true
+strict = true
+disallow_any_generics = false
+
+# testcontainers 4.14 ships no py.typed for `testcontainers.compose`, so the one
+# lazy import in compose.py cannot be checked against it. Scoped to that module
+# rather than made a global `ignore_missing_imports`, and it costs nothing here:
+# the harness talks to a stack through the `ComposeStack` protocol, which is what
+# the port resolution is actually checked against.
+[[tool.mypy.overrides]]
+module = [
+    "testcontainers.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = ["tests/**"]
+
+[tool.poe.tasks]
+sync-spec-assets = "python hatch_build_sync.py"
+test = ["sync-spec-assets", {cmd = "pytest tests"}]
+test-cov = ["sync-spec-assets", {cmd = "coverage run -m pytest tests"}]
+cov-report = "coverage xml"
+cov = ["test-cov", "cov-report"]
+mypy = "mypy"
