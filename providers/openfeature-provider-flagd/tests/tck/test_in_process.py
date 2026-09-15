@@ -114,6 +114,25 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     scenario this backend cannot ask would discard the finding that the two
 #     resolvers differ.
 #
+#   STRING_TYPING
+#     Declared, on a run: all four scenarios pass on this resolver -- three
+#     Examples rows asking for `boolean-flag`, `integer-flag` and `float-flag`
+#     through the string accessor, and the `@object` one asking for
+#     `object-flag`.
+#
+#     Here the type check is local and readable, which is the contrast with RPC.
+#     `_TYPE_MAP`'s string entry is the narrow `(str,)` (flagd_core.py:23) and
+#     `_check_type` (flagd_core.py:228-231) raises TypeMismatchError for
+#     anything else, so nothing renders a bool, a number or a structure as text
+#     on the way out. Note that this is the one accessor `bool` does not slip
+#     through: the int-to-float widening that makes `boolean-flag` as a Float
+#     resolve to 1.0 (python-sdk-contrib#417, the ungated failure below) has no
+#     counterpart here, because `str` is not in bool's ancestry.
+#
+#     Four scenarios that were mandatory at the previous pin, and passing, so
+#     the declaration keeps them running and changes no number: the full run is
+#     8 failed, 119 passed, 3 skipped before and after.
+#
 #   REINITIALIZATION
 #     Declared here and withheld on RPC, and again the two resolvers genuinely
 #     differ: this one shuts down and starts again serving `boolean-flag`
@@ -170,6 +189,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.STANDARD_REASONS,
         Capability.LIFECYCLE,
         Capability.NUMERIC_COERCION,
+        Capability.STRING_TYPING,
         Capability.REINITIALIZATION,
     }
 )
