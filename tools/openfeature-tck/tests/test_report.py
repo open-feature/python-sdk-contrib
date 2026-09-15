@@ -83,7 +83,7 @@ SUITE_FILE = "report-fixture.json"
 
 UNKNOWN_KEY_SCENARIO = "An unknown flag key returns the code default"
 
-# The type-mismatch matrix: eleven Examples rows under one scenario name, one of
+# The type-mismatch matrix: eight Examples rows under one scenario name, one of
 # which the Python SDK fails. It is the case row identity exists for.
 MISMATCH_SCENARIO = "Requesting the wrong type returns the code default"
 
@@ -669,7 +669,7 @@ def test_every_collected_scenario_appears_exactly_once(run: Run) -> None:
     A test case is identified by its uri, its scenario name **and its Examples
     row**, all three recovered from the stream by following a pickle's AST node
     ids. Name alone is shared by every row of a Scenario Outline, so keying on it
-    would let eleven rows of the type-mismatch matrix collapse into one and this
+    would let the eight rows of the type-mismatch matrix collapse into one and this
     test would not notice.
 
     Counted against pytest's own collection rather than against a number written
@@ -731,9 +731,9 @@ def test_a_scenario_skipped_for_another_reason_is_still_reported(run: Run) -> No
 
 
 def test_an_outline_row_is_identified_by_its_ast_node_id(run: Run) -> None:
-    """The eleven rows of the type-mismatch matrix are told apart, and only here.
+    """The eight rows of the type-mismatch matrix are told apart, and only here.
 
-    All eleven share one scenario name, which is the feature file's name and must
+    All eight share one scenario name, which is the feature file's name and must
     stay that way: it is what a report from Go or JavaScript carries for the same
     row. What tells them apart is the pickle's second ``astNodeIds`` entry, the
     id of the table row it was compiled from, which resolves in the
@@ -743,7 +743,10 @@ def test_an_outline_row_is_identified_by_its_ast_node_id(run: Run) -> None:
     """
     rows = run.stream.named(MISMATCH_SCENARIO)
     expected = _examples_from_the_feature_file("errors", MISMATCH_SCENARIO)
-    assert len(rows) == len(expected) == 11
+    # The literal is what keeps this from passing on two empty lists, and it
+    # moves when the assets do: the matrix lost the three string rows to
+    # @string-typing at spec d47a66eb, eleven down to eight.
+    assert len(rows) == len(expected) == 8
 
     observed = [dict(case.row) for case in rows]
     assert len(observed) == len({case.row for case in rows}), "two rows collapsed"
