@@ -78,6 +78,40 @@ timeouts -- has nothing to bound here, for the reasons below.
 #     one-line defect the @disabled-flags note below records, and nothing to do
 #     with the reason vocabulary.
 #
+#   STRING_TYPING
+#     Declared, on a run: all four scenarios pass -- three Examples rows asking
+#     for `boolean-flag`, `integer-flag` and `float-flag` through the string
+#     accessor, and the `@object` one asking for `object-flag`, which reaches
+#     this suite because OBJECT is declared above.
+#
+#     **"Untyped protocol" is not the same claim as "untyped backend"**, and
+#     this is the tag where the two come apart, so it is worth being explicit
+#     rather than inheriting the sentence used elsewhere in this file. OFREP
+#     carries no *requested* type on the wire -- which is exactly why
+#     boolean-flag satisfies an Integer request here and is xfailed in
+#     conftest.py -- but the response body is JSON, and JSON distinguishes
+#     `true` from `"true"` and `10` from `"10"`. So the values this provider
+#     receives are typed, and ofrep/__init__.py:249-256 checks them: FlagType
+#     .STRING maps to the bare `str`, and a bool, a number or a structure fails
+#     that isinstance and becomes TYPE_MISMATCH.
+#
+#     The capability is about the backend's storage rather than the protocol's
+#     request envelope: the provider a string-storing backend produces answers
+#     `"true"` to the string accessor and has nothing to reject. flagd holds
+#     typed variants and serialises them as typed JSON, so this provider is
+#     never handed one. That is a property of the stack rather than of OFREP,
+#     and it is the reason the tag is declared on a run rather than argued from
+#     the protocol -- the same protocol over a Flipt-like backend would be a
+#     withholding.
+#
+#     Note how little of the bool-as-int defect carries over: `str` is not in
+#     bool's ancestry, so the subclass hazard that makes the Integer accessor
+#     admit `True` has no counterpart on the string accessor.
+#
+#     Four scenarios that were mandatory at the previous pin, and passing, so
+#     the declaration keeps them running and changes no number: the full run is
+#     2 failed, 45 passed, 17 skipped, 1 xfailed before and after.
+#
 # Not declared, and why.
 #
 #   NUMERIC_COERCION
@@ -205,6 +239,7 @@ CAPABILITIES = frozenset(
     {
         Capability.OBJECT,
         Capability.VARIANTS,
+        Capability.STRING_TYPING,
         Capability.TARGETING,
         Capability.STANDARD_REASONS,
     }
