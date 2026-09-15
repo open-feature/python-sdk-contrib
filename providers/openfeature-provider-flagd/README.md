@@ -182,6 +182,46 @@ api.set_provider(FlagdProvider(
 ))
 ```
 
+## Provider conformance suite
+
+This provider runs the [OpenFeature Provider Conformance Suite][tck] against a flagd-testbed stack,
+once per resolver, in `tests/tck`. The suite owns the container stack: `tests/tck/conftest.py`
+declares a Compose file and the two ports the resolvers connect to, and nothing else.
+
+`tests/tck/docker-compose.yaml` is one definition of the backend for the whole repository, and the
+OFREP adoption carries a byte-identical copy — each provider package publishes its own distribution
+and must not read the other's files, so the two are kept in step by `diff` rather than by sharing a
+path. Change one, copy it to the other.
+
+**It is excluded from the default build, and a maintainer runs it by hand before merging a change to
+it.**
+
+```
+poe test-tck        # both resolvers, needs Docker
+poe test            # everything else, which is what CI runs
+```
+
+The exclusion lives in `pyproject.toml`: `--ignore=tests/tck` on the two tasks `build.yml` reaches,
+with the reason in a comment above them. Why a conformance suite is not a required gate is
+[Appendix F, "Running the suite in CI"][appendix-f], and is not restated here.
+
+Two things that are this provider's rather than the policy's:
+
+- **Docker is not what decides it.** `tests/e2e` needs Docker too and does run in the default build.
+  What decides it is the run: **8 failed, 119 passed, 3 skipped**, being three canonical flags that
+  flagd-testbed v3.8.0 does not seed yet, failing on each resolver, plus two genuine provider-side
+  gaps — one per resolver, and only one of them carries a known-deviation entry.
+  `tests/tck/conftest.py` accounts for all eight individually, with the flag or requirement each one
+  turns on, so a reviewer running the suite can tell a new failure from a known one and the number
+  above is what to expect.
+- **The default build still collects the suite** — `poe test` and `poe test-cov` end in
+  `pytest tests/tck --collect-only`, which imports every module and starts no container. An excluded
+  suite that has quietly stopped importing against the harness is worse than one that runs and
+  fails, and `mypy` here is configured over `src` alone, so nothing else would notice.
+
+[tck]: ../../tools/openfeature-tck/README.md
+[appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
+
 ## License
 
 Apache 2.0 - See [LICENSE](./LICENSE) for more information.

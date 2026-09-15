@@ -35,6 +35,12 @@ dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "grpcio-health-checking>=1.82.1,<2.0.0",
   "mypy>=1.18.0,<2.0.0",
+  # The OpenFeature conformance suite. Ships the feature files, the flag set,
+  # the control-API client and the Compose harness that owns the container
+  # stack, and registers its step definitions through a pytest11 entry point --
+  # so tests/tck declares a Compose file and nothing else. The `compose` extra
+  # is what pulls testcontainers in for the harness.
+  "openfeature-tck[compose]",
   "poethepoet>=0.37.0",
   "pytest>=9.0.0,<10.0.0",
   "pytest-bdd>=8.1.0,<9.0.0",
@@ -112,13 +118,42 @@ warn_unused_ignores = false
 
 [tool.uv.sources]
 openfeature-flagd-core = { workspace = true }
+openfeature-tck = { workspace = true }
 
 [tool.pytest]
 strict = true
 
 [tool.poe.tasks]
-test = "pytest tests"
-test-cov = "coverage run -m pytest tests"
+# `tests/tck` is excluded from the default build on purpose, and a maintainer
+# runs `poe test-tck` by hand before merging a change to it. Why a conformance
+# suite is not a required gate is Appendix F, "Running the suite in CI" --
+# linked from tools/openfeature-tck/README.md -- and is deliberately not
+# restated here.
+#
+# What is local to this package: a full run is 8 failed, 119 passed, 3 skipped.
+# Six of those failures are canonical flags flagd-testbed does not seed yet, on
+# each of the two resolvers; the other two are real provider-side gaps, one per
+# resolver. tests/tck/conftest.py accounts for all eight and for the three
+# skips. Docker is not what decides the exclusion -- `tests/e2e` needs Docker
+# too and does run here.
+#
+# The suite is still *collected* on every default build, so it cannot quietly
+# stop importing against the harness while nobody runs it. `--ignore` would
+# otherwise leave nothing checking that, since mypy here is configured over
+# `src` alone.
+#
+# `ignore_fail = "return_non_zero"` is what makes that true rather than
+# aspirational: poe aborts a sequence at its first failing subtask, and this
+# package's default suite is red on this branch -- the TCK requires
+# openfeature-sdk >= 0.10 and this provider is not updated for it yet -- so the
+# collect step sat behind a step that never succeeds and never ran. Every
+# subtask now runs and a non-zero exit still propagates.
+test = { sequence = ["test-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
+test-cov = { sequence = ["test-cov-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
+test-default = "pytest tests --ignore=tests/tck"
+test-cov-default = "coverage run -m pytest tests --ignore=tests/tck"
+test-tck = "pytest tests/tck"
+test-tck-collect = "pytest tests/tck --collect-only -q"
 cov-report = "coverage xml"
 cov = [
     "test-cov",
