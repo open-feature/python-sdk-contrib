@@ -163,6 +163,7 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.DISABLED_FLAGS` | `@disabled-flags` | resolves a disabled flag to the code default |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | errors rather than hangs against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces int/float only when lossless, else `TYPE_MISMATCH` |
+| `Capability.STRING_TYPING` | `@string-typing` | reports `TYPE_MISMATCH` for a non-string flag asked for as a string |
 | `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly |
 | `Capability.REINITIALIZATION` | `@reinitialization` | can be initialised again after `shutdown` |
 | `Capability.TARGETING` | `@targeting` | resolves differently for a matching evaluation context |

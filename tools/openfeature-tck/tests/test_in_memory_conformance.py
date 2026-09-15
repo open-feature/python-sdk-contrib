@@ -151,6 +151,16 @@ def tck_config() -> TckConfig:
     too: the in-memory flag set is keyed by variant name, so the provider has
     one to report for every flag and does.
 
+    ``STRING_TYPING`` is declared, and unlike ``NUMERIC_COERCION`` it is the
+    same untouched-value behaviour pointing the *right* way: the provider hands
+    ``True`` and ``10`` back as they are, and ``isinstance(value, str)`` is
+    false for both, so a non-string flag asked for as a string is a
+    ``TYPE_MISMATCH``. The flag set is typed, in other words, which is exactly
+    the property an untyped backend lacks and the capability exists to let it
+    withhold. Measured rather than assumed: all four scenarios were mandatory
+    at the previous pin and all four passed, so declaring the tag keeps them
+    running and changes no result.
+
     ``STANDARD_REASONS`` is declared, and it was measured before it was: the six
     scenarios this provider can reach all pass. ``InMemoryFlag.resolve`` reports
     ``Reason.STATIC`` for every flag in the decoded set, so the four rule-less
@@ -169,6 +179,7 @@ def tck_config() -> TckConfig:
             Capability.EVENTS,
             Capability.OBJECT,
             Capability.VARIANTS,
+            Capability.STRING_TYPING,
             Capability.LARGE_INTEGERS,
             Capability.STANDARD_REASONS,
         },
