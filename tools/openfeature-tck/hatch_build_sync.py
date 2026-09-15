@@ -16,6 +16,7 @@ gitlink and not the working tree** -- see `checkout_pinned_spec`.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -26,7 +27,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 SPEC_DIRNAME = "spec"
 SPEC_ROOT = (ROOT / SPEC_DIRNAME).resolve()
-SPEC_ASSETS = (SPEC_ROOT / "specification/assets/provider-tck").resolve()
+ASSETS_PATH_IN_SPEC = "specification/assets/provider-tck"
+SPEC_ASSETS = (SPEC_ROOT / ASSETS_PATH_IN_SPEC).resolve()
 PACKAGE_REL = Path("src/openfeature/contrib/tools/tck")
 DEST_BASE = ROOT / PACKAGE_REL
 
@@ -181,6 +183,28 @@ def checkout_pinned_spec(git: GitRunner = _run_git) -> str | None:
     return pinned
 
 
+REVISION_FILE = "spec_revision.json"
+"""Which revision of the specification the copied assets came from.
+
+Recorded at build time because the answer is only available at build time: the
+submodule that holds it is not in the wheel, and a conformance report that cannot
+name the revision it ran against cannot be compared with another. It is generated
+by the same command that copies the assets, which is what keeps the two from
+disagreeing.
+
+Not committed, for the same reason the assets are not: the submodule pin is the
+single record of which revision this package targets.
+"""
+
+UNKNOWN_REVISION = "unknown"
+"""Seven characters, the minimum the report schema accepts.
+
+A build that cannot reach git says it does not know rather than inventing a
+commit, and still produces a document that validates. Which happens for real:
+building from a source tarball has no ``.git`` to ask.
+"""
+
+
 def sync() -> None:
     checkout_pinned_spec()
 
@@ -204,6 +228,48 @@ def sync() -> None:
         if dest.exists():
             dest.unlink()
         shutil.copy2(SPEC_ASSETS / src_name, dest)
+
+    write_revision()
+
+
+def write_revision() -> None:
+    """Record the spec commit these copies came from.
+
+    The asset tree hash that used to accompany it is gone. It was carried so a
+    consumer could tell whether two runs executed the same questions; the
+    conformance report's results are now a Cucumber Messages stream, which
+    carries the executed feature source itself and answers that directly rather
+    than by proxy.
+    """
+    commit = _git("rev-parse", "HEAD") or UNKNOWN_REVISION
+    (DEST_BASE / REVISION_FILE).write_text(
+        json.dumps({"specRevision": commit}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _git(*args: str) -> str:
+    """Run git inside the submodule, returning its output or an empty string.
+
+    A build must not hard-fail because git is absent or the checkout is not a
+    repository -- both are ordinary when building from an unpacked sdist. The
+    failure is reported as a warning and the identity degrades to ``unknown``,
+    which is legible in the resulting report rather than silently wrong.
+    """
+    command = ["git", "-C", str(SPEC_ROOT), *args]
+    try:
+        completed = subprocess.run(  # noqa: S603
+            command, capture_output=True, check=True, text=True
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        warnings.warn(
+            f"could not determine the spec revision ({' '.join(command)}: {error}); "
+            f"conformance reports from this build will not name the revision they "
+            f"ran against",
+            stacklevel=2,
+        )
+        return ""
+    return completed.stdout.strip()
 
 
 if __name__ == "__main__":
