@@ -106,6 +106,27 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     conftest records it and the deviation summary disclaims it; it is not a
 #     reason to withhold the tag.
 #
+#   STRING_TYPING
+#     Declared, on a run: all four scenarios pass on this resolver -- three
+#     Examples rows asking for `boolean-flag`, `integer-flag` and `float-flag`
+#     through the string accessor, and the `@object` one asking for
+#     `object-flag`.
+#
+#     Declared rather than assumed, because the question is about the backend
+#     rather than about the provider and RPC is where the backend answers it.
+#     The decision is flagd's for the same reason the coercion one is: grpc.py
+#     asks the server for a String and hands back what it answers, and flagd
+#     types each variant from the JSON ruleset, so a bool or a number reached
+#     through ResolveString is a TYPE_MISMATCH the server raises rather than one
+#     the provider notices. That is the property a string-storing backend lacks
+#     -- see the capability's docstring and Appendix F's `@string-typing`
+#     section -- and it is not a property of flagd that could be read off this
+#     repository at all.
+#
+#     Four scenarios that were mandatory at the previous pin, and passing, so
+#     the declaration keeps them running and changes no number: the full run is
+#     8 failed, 119 passed, 3 skipped before and after.
+#
 # Not declared, and why:
 #
 #   LARGE_INTEGERS
@@ -166,6 +187,7 @@ RPC_CAPABILITIES = frozenset(
         Capability.STANDARD_REASONS,
         Capability.LIFECYCLE,
         Capability.NUMERIC_COERCION,
+        Capability.STRING_TYPING,
     }
 )
 
