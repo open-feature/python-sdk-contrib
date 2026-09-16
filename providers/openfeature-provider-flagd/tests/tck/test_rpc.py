@@ -138,6 +138,17 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     the two declarations keep them running and change no number: the full run
 #     is 8 failed, 119 passed, 3 skipped before and after.
 #
+#   STANDARD_REASONS
+#     Declared on a run rather than on the source. All nine scenarios pass -- the
+#     four rule-less rows as STATIC, an unknown flag and a type mismatch as ERROR
+#     beside their error codes, TARGETING_MATCH for the matched rule and DEFAULT
+#     for the miss, DISABLED for a disabled flag. The last three need @targeting
+#     and @disabled-flags as well, which this suite declares, so none of the file
+#     is skipped here.
+#
+#     The DISABLED row passes despite the reason arriving as flagd's bare string
+#     rather than the SDK's Reason enum: the step compares the reason as text.
+#
 # Not declared, and why:
 #
 #   LARGE_INTEGERS
@@ -171,17 +182,6 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     is a choice the specification offers and there is no requirement to deviate
 #     from: no KnownDeviation. The in-process suite declares it for the same
 #     reason in reverse -- it runs, and it passes.
-#
-#   STANDARD_REASONS
-#     Declared on a run rather than on the source. All nine scenarios pass -- the
-#     four rule-less rows as STATIC, an unknown flag and a type mismatch as ERROR
-#     beside their error codes, TARGETING_MATCH for the matched rule and DEFAULT
-#     for the miss, DISABLED for a disabled flag. The last three need @targeting
-#     and @disabled-flags as well, which this suite declares, so none of the file
-#     is skipped here.
-#
-#     The DISABLED row passes despite the reason arriving as flagd's bare string
-#     rather than the SDK's Reason enum: the step compares the reason as text.
 #
 #   CACHING
 #     Reserved, and the harness refuses it: no scenario carries the tag.
