@@ -157,8 +157,16 @@ def tck_config() -> TckConfig:
     false for both, so a non-string flag asked for as a string is a
     ``TYPE_MISMATCH``. The flag set is typed, in other words, which is exactly
     the property an untyped backend lacks and the capability exists to let it
-    withhold. Measured rather than assumed: all four scenarios were mandatory
-    at the previous pin and all four passed, so declaring the tag keeps them
+    withhold.
+
+    ``FULLY_TYPED_VALUES`` is declared beside it, and this is the adoption where
+    the split costs nothing: the property the two tags divide -- which types the
+    backend records natively -- is undivided here, because the backend is
+    ``json.loads`` and a decoded ``0.5`` is a ``float`` exactly as a decoded
+    ``true`` is a ``bool``. Declaring only ``STRING_TYPING`` would skip the float
+    and object scenarios and publish a gap this provider does not have.
+    Measured rather than assumed: all four scenarios were mandatory at the pin
+    before ``d47a66eb`` and all four passed, so declaring both keeps them
     running and changes no result.
 
     ``STANDARD_REASONS`` is declared, and it was measured before it was: the six
@@ -180,6 +188,7 @@ def tck_config() -> TckConfig:
             Capability.OBJECT,
             Capability.VARIANTS,
             Capability.STRING_TYPING,
+            Capability.FULLY_TYPED_VALUES,
             Capability.LARGE_INTEGERS,
             Capability.STANDARD_REASONS,
         },
