@@ -81,6 +81,7 @@ from __future__ import annotations
 
 import importlib.resources
 
+from .canonical import PARTIAL_ENV
 from .capability import (
     DECLARABLE_CAPABILITIES,
     INEXPRESSIBLE_CAPABILITIES,
@@ -114,12 +115,14 @@ from .httpcontrol import (
     HttpControl,
 )
 from .inprocess import InProcessControl
+from .messages import MESSAGES_FORMAT
 from .provider import (
     CHANGING_FLAG_KEY,
     ControllableInMemoryProvider,
     canonical_flag_set,
     canonical_flags_json,
 )
+from .report import REPORT_DIR_ENV, SCHEMA_VERSION
 from .state import TckState
 
 __all__ = [
@@ -131,7 +134,11 @@ __all__ = [
     "DEFAULT_STARTUP_TIMEOUT",
     "EXTENSIONS_DIRECTORY",
     "INEXPRESSIBLE_CAPABILITIES",
+    "MESSAGES_FORMAT",
+    "PARTIAL_ENV",
+    "REPORT_DIR_ENV",
     "RESERVED_CAPABILITIES",
+    "SCHEMA_VERSION",
     "BackendControl",
     "BackendEndpoint",
     "Capability",

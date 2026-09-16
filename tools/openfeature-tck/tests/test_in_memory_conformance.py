@@ -23,6 +23,7 @@ from pytest_bdd import scenarios
 from openfeature.contrib.tools.tck import (
     Capability,
     ControlApi,
+    KnownDeviation,
     TckConfig,
     canonical_flag_set,
     feature_paths,
@@ -54,7 +55,11 @@ class PlainMemoryControl:
 
     @property
     def control_api(self) -> ControlApi:
-        """In-process, and honestly so: there is no backend to speak HTTP to."""
+        """Report that this control manipulates a provider in this process.
+
+        There is no backend to drive: the in-memory provider is rebuilt in
+        process for every scenario, which is exactly what "in-process" names.
+        """
         return "in-process"
 
     def prepare_scenario(self) -> None:
@@ -76,7 +81,7 @@ def _new_provider() -> FeatureProvider:
 
 
 @pytest.fixture(scope="session")
-def tck_config() -> TckConfig:
+def tck_config(tck_known_deviations: tuple[KnownDeviation, ...]) -> TckConfig:
     """Declare the provider under test and what it can do.
 
     Each omission is a fact about the provider rather than a convenience:
@@ -178,6 +183,11 @@ def tck_config() -> TckConfig:
     neither of which is declared here, so they skip with that reason -- which is
     the capability working as intended rather than a gap: a reason cannot be
     observed without the behaviour that produces it.
+
+    ``known_deviations`` is the one thing here that is not a claim about what
+    this provider supports: it is the acknowledgement of a scenario the SDK
+    fails, which the results payload still reports as a failure. See
+    ``conftest.py``.
     """
     return TckConfig(
         name="in-memory",
@@ -192,6 +202,7 @@ def tck_config() -> TckConfig:
             Capability.LARGE_INTEGERS,
             Capability.STANDARD_REASONS,
         },
+        known_deviations=tck_known_deviations,
     )
 
 
