@@ -45,11 +45,13 @@ def tck_config() -> TckConfig:
     integer is a ``TYPE_MISMATCH`` rather than ``10``. ``LARGE_INTEGERS`` is
     declared, since a Python ``int`` is exact at 2^53 - 1.
 
-    ``STRING_TYPING`` is declared, for the reason given there and inherited the
-    same way: the untouched value and the ``isinstance`` check make a non-string
-    flag asked for as a string a ``TYPE_MISMATCH``, so the flag set behaves as a
-    typed one. Measured the same way -- all four scenarios were mandatory at the
-    previous pin and passed here too.
+    ``STRING_TYPING`` and ``FULLY_TYPED_VALUES`` are both declared, for the
+    reasons given there and inherited the same way: the untouched value and the
+    ``isinstance`` check make a non-string flag asked for as a string a
+    ``TYPE_MISMATCH``, and the decoded flag set records a native type for every
+    one of the four -- ``json.loads`` is the whole of the typing, so there is no
+    type it keeps as text. Measured the same way: all four scenarios were
+    mandatory at the pin before ``d47a66eb`` and passed here too.
 
     ``TARGETING`` stays undeclared for the reason given there as well: this is
     the same decoded flag set, and it ignores ``targeting-key-flag``'s rule.
@@ -77,6 +79,7 @@ def tck_config() -> TckConfig:
             Capability.OBJECT,
             Capability.VARIANTS,
             Capability.STRING_TYPING,
+            Capability.FULLY_TYPED_VALUES,
             Capability.LARGE_INTEGERS,
             Capability.STANDARD_REASONS,
         },

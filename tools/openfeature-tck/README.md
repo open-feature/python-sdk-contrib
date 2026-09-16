@@ -163,7 +163,8 @@ SKIPPED provider does not declare capability @stale.
 | `Capability.DISABLED_FLAGS` | `@disabled-flags` | resolves a disabled flag to the code default |
 | `Capability.UNAVAILABLE_INIT` | `@unavailable` | errors rather than hangs against a dead backend |
 | `Capability.NUMERIC_COERCION` | `@numeric-coercion` | coerces int/float only when lossless, else `TYPE_MISMATCH` |
-| `Capability.STRING_TYPING` | `@string-typing` | reports `TYPE_MISMATCH` for a non-string flag asked for as a string |
+| `Capability.STRING_TYPING` | `@string-typing` | reports `TYPE_MISMATCH` for a boolean or integer flag asked for as a string |
+| `Capability.FULLY_TYPED_VALUES` | `@fully-typed-values` | records a native type for float and structured values too |
 | `Capability.LARGE_INTEGERS` | `@large-integers` | resolves integers up to 2^53 − 1 exactly |
 | `Capability.REINITIALIZATION` | `@reinitialization` | can be initialised again after `shutdown` |
 | `Capability.TARGETING` | `@targeting` | resolves differently for a matching evaluation context |
@@ -172,7 +173,8 @@ SKIPPED provider does not declare capability @stale.
 
 Untagged scenarios are mandatory and always run. `capabilities` defaults to
 `DECLARABLE_CAPABILITIES`; narrow it rather than widen it. Tags compose, so declaring
-`@reinitialization` without the `@lifecycle` its feature carries leaves that scenario skipped.
+`@reinitialization` without the `@lifecycle` its feature carries leaves that scenario skipped, and
+`@fully-typed-values` without `@string-typing` runs nothing at all.
 **What counts as "cannot do" is [Appendix F][appendix-f]'s rules for declaring**; the adoptions here
 cite them rather than restating them, and so should yours.
 
