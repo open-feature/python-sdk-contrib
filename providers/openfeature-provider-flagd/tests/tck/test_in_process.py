@@ -150,6 +150,18 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     is why RPC's withholding needs no KnownDeviation and why declaring it here
 #     is a claim worth making rather than a box ticked.
 #
+#   STANDARD_REASONS
+#     Declared on a run rather than on the source. All nine scenarios pass -- the
+#     four rule-less rows as STATIC, an unknown flag and a type mismatch as ERROR
+#     beside their error codes, TARGETING_MATCH for the matched rule and DEFAULT
+#     for the miss, DISABLED for a disabled flag. The last three need @targeting
+#     and @disabled-flags as well, which this suite declares, so none of the file
+#     is skipped here.
+#
+#     The DISABLED row resolves through Reason.DISABLED here, the SDK's own enum,
+#     where RPC hands back flagd's bare 'DISABLED' string -- noted under
+#     DISABLED_FLAGS above. The step compares the reason as text, so both pass.
+#
 # Not declared, and why:
 #
 #   LARGE_INTEGERS
@@ -170,18 +182,6 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     the ones above are not -- open-feature/flagd-testbed#392 adds the flag;
 #     declare the tag when the image carries it, or it outlives its reason and
 #     starts reading as a claim about the provider.
-#
-#   STANDARD_REASONS
-#     Declared on a run rather than on the source. All nine scenarios pass -- the
-#     four rule-less rows as STATIC, an unknown flag and a type mismatch as ERROR
-#     beside their error codes, TARGETING_MATCH for the matched rule and DEFAULT
-#     for the miss, DISABLED for a disabled flag. The last three need @targeting
-#     and @disabled-flags as well, which this suite declares, so none of the file
-#     is skipped here.
-#
-#     The DISABLED row resolves through Reason.DISABLED here, the SDK's own enum,
-#     where RPC hands back flagd's bare 'DISABLED' string -- noted under
-#     DISABLED_FLAGS above. The step compares the reason as text, so both pass.
 #
 #   CACHING
 #     Reserved, and the harness refuses it: no scenario carries the tag.
