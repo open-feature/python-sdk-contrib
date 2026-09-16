@@ -530,3 +530,36 @@ def expired_reservations(tags: typing.Iterable[str]) -> tuple[Capability, ...]:
     expired = (c for c in RESERVED_CAPABILITIES if c.tag in carried)
     return tuple(sorted(expired, key=lambda capability: capability.tag))
 
+
+def unknown_capabilities(tags: typing.Iterable[str]) -> tuple[str, ...]:
+    """Tags handed in that this vocabulary cannot resolve to a capability.
+
+    :func:`expired_reservations` run in the other direction, and it is the
+    direction that is easy to leave out. A reservation expiring is a tag this
+    package knows and holds shut; this is a tag it has never heard of -- and
+    **an unknown tag gates nothing, so its scenarios stay mandatory for every
+    adopter**. A suite that has not learned a new capability does not report a
+    new capability: it silently keeps demanding the old behaviour, and a
+    provider that legitimately withholds the capability shows unexplained
+    failures while every other provider stays green. Nothing in the results
+    says why. Appendix F makes failing the run over it a **MUST**, and notes
+    that all four reference implementations ignored an unknown tag instead.
+
+    This is the check that would have fired on ``@fully-typed-values`` at spec
+    revision ``bda599f1``, where the split of :attr:`Capability.STRING_TYPING`
+    put a tag in the canonical assets that nothing here knew: the float and
+    object scenarios would have stayed mandatory, and two adoptions whose
+    backends cannot answer them would have gone red for it.
+
+    Returns the tags rather than anything richer, because by definition there is
+    no capability to return. Deduplicated and sorted: the tags arrive from every
+    scenario of every feature file, and one carried twice is not two problems.
+
+    What is *not* checked here is the caller's business, and it is the whole
+    reason this takes tags rather than reading them itself. A tag that names no
+    capability is a problem only where every tag is meant to be a capability --
+    the canonical assets -- and is ordinary in an adopter's own feature files,
+    which tag freely for their own purposes. See
+    :func:`~.capability.capability_for_marker`.
+    """
+    return tuple(sorted({tag for tag in tags if capability_for_tag(tag) is None}))
