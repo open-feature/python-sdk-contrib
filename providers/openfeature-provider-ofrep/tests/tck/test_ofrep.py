@@ -78,11 +78,11 @@ timeouts -- has nothing to bound here, for the reasons below.
 #     one-line defect the @disabled-flags note below records, and nothing to do
 #     with the reason vocabulary.
 #
-#   STRING_TYPING
-#     Declared, on a run: all four scenarios pass -- three Examples rows asking
-#     for `boolean-flag`, `integer-flag` and `float-flag` through the string
-#     accessor, and the `@object` one asking for `object-flag`, which reaches
-#     this suite because OBJECT is declared above.
+#   STRING_TYPING and FULLY_TYPED_VALUES
+#     Both declared, on a run: all four scenarios pass -- two Examples rows
+#     asking for `boolean-flag` and `integer-flag` through the string accessor,
+#     the `float-flag` scenario, and the `object-flag` one, which reaches this
+#     suite because OBJECT is declared above.
 #
 #     **"Untyped protocol" is not the same claim as "untyped backend"**, and
 #     this is the tag where the two come apart, so it is worth being explicit
@@ -108,9 +108,23 @@ timeouts -- has nothing to bound here, for the reasons below.
 #     bool's ancestry, so the subclass hazard that makes the Integer accessor
 #     admit `True` has no counterpart on the string accessor.
 #
-#     Four scenarios that were mandatory at the previous pin, and passing, so
-#     the declaration keeps them running and changes no number: the full run is
-#     2 failed, 45 passed, 17 skipped, 1 xfailed before and after.
+#     **Which is why both tags are declared and not just the first.** Spec
+#     bda599f1 split them because one tag over all four cases hid a real defect
+#     inside a permitted absence: a store that records booleans and integers and
+#     keeps floats and structures as text lets a provider withhold the whole tag,
+#     and a provider that simply gets the boolean case wrong withholds behind the
+#     same words. The split asks the two questions separately, and this stack
+#     answers both -- JSON distinguishes `0.5` from `"0.5"` as readily as `true`
+#     from `"true"`, flagd serialises the float and the object variant with their
+#     types, and the isinstance check above rejects both through the string
+#     accessor. So there is no type this backend keeps as text, and
+#     @fully-typed-values is the half of the claim that says so. A Flipt-like
+#     backend over the same protocol would withhold one or both, and that is the
+#     distinction the split makes reportable.
+#
+#     Four scenarios that were mandatory before spec d47a66eb, and passing, so
+#     the two declarations keep them running and change no number: the full run
+#     is 2 failed, 45 passed, 17 skipped, 1 xfailed before and after.
 #
 # Not declared, and why.
 #
@@ -240,6 +254,7 @@ CAPABILITIES = frozenset(
         Capability.OBJECT,
         Capability.VARIANTS,
         Capability.STRING_TYPING,
+        Capability.FULLY_TYPED_VALUES,
         Capability.TARGETING,
         Capability.STANDARD_REASONS,
     }
