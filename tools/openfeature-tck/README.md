@@ -320,7 +320,7 @@ sdist at build time. So adopting needs no submodule and contributing does:
 
 ```bash
 git submodule update --init tools/openfeature-tck/spec
-poe test   # syncs the assets first; 221 passed, 42 skipped, 2 xfailed, no Docker
+poe test   # syncs the assets first; 227 passed, 41 skipped, 2 xfailed, no Docker
 ```
 
 The copies under `src/` are gitignored, generated and carry a `DO-NOT-EDIT.txt`: a change goes to
@@ -331,10 +331,16 @@ adoption suite in another language ran a whole pass against the previous pin's f
 reported numbers identical to the run before it. So the sync checks the submodule out at the pinned
 revision before copying and `poe test` depends on it: **the suite cannot run without a fresh sync,
 and a sync cannot succeed against any revision but the pinned one.**
-`OPENFEATURE_TCK_SPEC_UNPINNED=1` opts out while drafting a change to the assets; where the pin
-cannot be read at all the sync warns and continues with the guarantee off, which covers an unpacked
-sdist and a worktree whose `.git` points outside the running process's filesystem namespace, such as
-a Windows worktree driven from WSL.
+`OPENFEATURE_TCK_SPEC_UNPINNED=1` opts out while drafting a change to the assets.
+
+**A check that cannot run fails rather than skipping**, which is [Appendix F][appendix-f]'s
+run-integrity rule and the reverse of what this used to do: the environments where the pin was
+unreadable are the ones where a rebase leaves the assets stale, so the check went quiet exactly where
+it mattered. It also has one environment fewer to abandon — a worktree whose `.git` names a path
+outside the running process's filesystem namespace, such as a Windows worktree driven from WSL, no
+longer defeats it, because the pin is read by naming the superproject that git could not find. What
+remains exempt is an unpacked sdist, which has no submodule, no pin and nothing that could have
+drifted from one.
 
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
