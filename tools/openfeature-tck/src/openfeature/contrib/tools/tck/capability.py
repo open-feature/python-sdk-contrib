@@ -194,7 +194,7 @@ class Capability(str, Enum):
     """
 
     STRING_TYPING = "string-typing"
-    """Provider reports ``TYPE_MISMATCH`` for a non-string flag requested as a string.
+    """Provider reports ``TYPE_MISMATCH`` for a boolean or integer flag asked as a string.
 
     The second capability here the specification does not define, and it is
     undefined in a stronger sense than :attr:`NUMERIC_COERCION`: that rule is
@@ -218,23 +218,59 @@ class Capability(str, Enum):
     :class:`~.config.KnownDeviation`, because a deviation records a required
     behaviour the provider lacks and this behaviour is not required.
 
-    Declaring it runs one Scenario Outline of three rows -- ``boolean-flag``,
-    ``integer-flag`` and ``float-flag`` each asked for as a string -- and one
-    scenario for ``object-flag``, which carries :attr:`OBJECT` as well because a
-    provider with no structured values cannot be asked that one at all. All four
-    were **mandatory** until spec revision ``d47a66eb``, on the reasoning that
-    *"is a string a boolean?"* has no defensible wrong answer. That holds for
-    parsing a string into another type, which a provider chooses to do; it does
-    not hold for rendering another type as a string, which an untyped backend
-    does whether anyone chose it or not.
+    Declaring it runs one Scenario Outline of two rows -- ``boolean-flag`` and
+    ``integer-flag``, each asked for as a string. The float and structured cases
+    are behind :attr:`FULLY_TYPED_VALUES` as well, so declaring this alone leaves
+    them skipped; that split is the whole of what changed at spec revision
+    ``bda599f1``, and why is on that member.
 
-    Nothing about Python narrows the question, so the four scenarios measure the
+    All four were **mandatory** until spec revision ``d47a66eb``, on the
+    reasoning that *"is a string a boolean?"* has no defensible wrong answer.
+    That holds for parsing a string into another type, which a provider chooses
+    to do; it does not hold for rendering another type as a string, which an
+    untyped backend does whether anyone chose it or not.
+
+    Nothing about Python narrows the question, so the scenarios measure the
     provider rather than the SDK: ``get_string_details`` is its own accessor
     reaching its own provider method, and the client's check is
     ``isinstance(value, str)`` -- a provider handing back ``True`` or ``10`` is a
     ``TYPE_MISMATCH`` without the provider having to notice, and one handing back
     ``"true"`` passes the check and fails the scenario. Hence
     :data:`INEXPRESSIBLE_CAPABILITIES` stays empty.
+    """
+
+    FULLY_TYPED_VALUES = "fully-typed-values"
+    """Backend records a native type for float and structured values too.
+
+    Narrows :attr:`STRING_TYPING` rather than standing beside it, the way
+    :attr:`REINITIALIZATION` narrows :attr:`LIFECYCLE`: every scenario carrying
+    this tag carries that one as well, so declaring this alone runs nothing.
+
+    **It exists because one tag over all four cases hid a defect inside a
+    permitted absence**, which is measurement rather than taste. Over one
+    Flagsmith backend, Go and Java report ``TYPE_MISMATCH`` for ``boolean-flag``
+    and ``integer-flag`` asked as strings where JavaScript returns ``"true"``
+    and ``"10"``; all three stringify ``float-flag`` and ``object-flag``, because
+    that store records no native float or structure type and no provider over it
+    has a mismatch to report. Under a single tag the JavaScript provider
+    withholds and its defect is published as an absence the specification
+    permits -- the suite goes quiet on a real bug. Appendix F's *"Why this is two
+    capabilities"* carries the table and the general rule: a capability coarser
+    than the variation providers actually show hides defects inside permitted
+    absences.
+
+    Declaring it -- alongside :attr:`STRING_TYPING` -- runs one scenario for
+    ``float-flag`` and one for ``object-flag``, the second carrying
+    :attr:`OBJECT` too because a provider with no structured values cannot be
+    asked it at all. Withholding it says *"this backend keeps floats, or
+    structures, as text"*, and like :attr:`STRING_TYPING` it needs no
+    :class:`~.config.KnownDeviation` beside it: the behaviour is not required, so
+    its absence is not a gap.
+
+    Nothing about Python narrows this either, for the reason given on
+    :attr:`STRING_TYPING`: ``get_string_details`` type-checks against ``str``,
+    so a stringified float fails the scenario without the provider having to
+    notice. :data:`INEXPRESSIBLE_CAPABILITIES` stays empty.
     """
 
     LARGE_INTEGERS = "large-integers"
@@ -493,3 +529,4 @@ def expired_reservations(tags: typing.Iterable[str]) -> tuple[Capability, ...]:
     carried = set(tags)
     expired = (c for c in RESERVED_CAPABILITIES if c.tag in carried)
     return tuple(sorted(expired, key=lambda capability: capability.tag))
+
