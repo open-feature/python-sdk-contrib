@@ -209,7 +209,7 @@ Two things that are this provider's rather than the policy's:
 
 - **Docker is not what decides it.** `tests/e2e` needs Docker too and does run in the default build.
   What decides it is the run: **8 failed, 119 passed, 3 skipped**, being three canonical flags that
-  flagd-testbed v3.8.0 does not seed yet, failing on each resolver, plus two genuine provider-side
+  no released flagd-testbed seeds yet, failing on each resolver, plus two genuine provider-side
   gaps — one per resolver, and only one of them carries a known-deviation entry.
   `tests/tck/conftest.py` accounts for all eight individually, with the flag or requirement each one
   turns on, so a reviewer running the suite can tell a new failure from a known one and the number
