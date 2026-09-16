@@ -181,7 +181,10 @@ cite them rather than restating them, and so should yours.
 `TckConfig` refuses two declarations at construction rather than letting them reach a report: a
 **reserved** capability, which no scenario carries, and one this language's SDK **cannot express** —
 the two errors and the two skip reasons deliberately differ, and a scenario arriving with a reserved
-tag fails the run. `INEXPRESSIBLE_CAPABILITIES` is **empty in Python**, measured rather than assumed:
+tag fails the run. So does a canonical scenario carrying a tag this table does not have: an unknown
+tag gates nothing, so its scenarios stay mandatory for every adopter, and the suite would go on
+demanding a behaviour the specification has just made optional.
+`INEXPRESSIBLE_CAPABILITIES` is **empty in Python**, measured rather than assumed:
 `int` is arbitrary-precision and the integer and float accessors reach separate provider methods, so
 both tags are ordinary declarable capabilities here.
 

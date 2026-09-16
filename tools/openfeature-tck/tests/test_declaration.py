@@ -46,6 +46,7 @@ from openfeature.contrib.tools.tck.capability import (
     capability_for_marker,
     capability_for_tag,
     expired_reservations,
+    unknown_capabilities,
 )
 from openfeature.contrib.tools.tck.extensions import canonical_tags
 
@@ -183,6 +184,31 @@ def test_a_reservation_expires_when_a_scenario_carries_it() -> None:
     assert expired_reservations([first.tag, first.tag, "@events"]) == (first,)
 
 
+def test_the_canonical_assets_carry_no_tag_this_package_cannot_resolve() -> None:
+    """The forward direction of the same fact, against the real assets.
+
+    Every tag the specification puts on a canonical scenario is a capability,
+    and Appendix F's capability table is the vocabulary the enum tracks. So a
+    canonical tag that resolves to nothing means this package is behind the
+    assets -- and unlike a reservation, which skips, an unknown tag leaves its
+    scenarios mandatory for everybody.
+
+    Enforced on every adoption's run too, by the plugin, for the reason the
+    reserved check is: the assets move in the specification repository and a
+    self-test here is read only by whoever changes this package.
+
+    The detection itself is deduplicated and sorted, because the tags arrive
+    from every scenario of every feature file.
+    """
+    assert unknown_capabilities(canonical_tags()) == ()
+
+    assert unknown_capabilities(["@events", Capability.CACHING.tag]) == ()
+    assert unknown_capabilities(["@nope", "@events", "@nope", "@also-nope"]) == (
+        "@also-nope",
+        "@nope",
+    )
+
+
 def _scenario_item(filename: str, *tags: str) -> typing.Any:
     """A collected node shaped the way pytest-bdd shapes one.
 
@@ -247,6 +273,74 @@ def test_the_plugin_fails_a_run_over_an_expired_reservation(
     # Named, because the fix is to edit that set against the specification and
     # nothing the run can do stands in for it.
     assert "RESERVED_CAPABILITIES" in message
+
+
+def test_the_plugin_fails_a_run_over_a_canonical_tag_it_cannot_resolve(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reserved check's own direction reversed, and the easier one to omit.
+
+    A reserved tag is one this package knows and holds shut, and its scenarios
+    skip. An *unknown* tag is one it has never heard of, and its scenarios do
+    the opposite: an unknown tag gates nothing, so they stay mandatory for
+    every adopter, and a provider that legitimately withholds the new
+    capability goes red with no reason recorded anywhere.
+
+    This is not hypothetical here. Spec revision ``bda599f1`` split
+    ``@string-typing`` and put ``@fully-typed-values`` in the canonical assets;
+    re-pinning without adding the enum member left the float and object
+    scenarios mandatory, and this check is what said so rather than two
+    adoptions failing them.
+
+    Monkeypatched rather than measured against the real assets, for the same
+    reason the expired-reservation test is: the state being checked for is one
+    the package must never actually be in, so it has to be simulated.
+    """
+    items = [_scenario_item(_a_canonical_feature())]
+
+    # The real assets resolve, which is the state every run is in, and the
+    # hook is then silent.
+    plugin.pytest_collection_modifyitems(items)
+
+    monkeypatch.setattr(
+        plugin, "canonical_tags", lambda: frozenset({"@events", "@teleportation"})
+    )
+
+    with pytest.raises(pytest.UsageError) as raised:
+        plugin.pytest_collection_modifyitems(items)
+
+    message = str(raised.value)
+    assert "@teleportation" in message
+    assert "@events" not in message, "a tag that resolves is not reported"
+    # The remedy is upstream of any run: nothing an adoption does substitutes.
+    assert "Capability enum" in message
+    assert "mandatory" in message, "why an unknown tag is worse than a known one"
+
+
+def test_an_adopters_own_tags_are_not_the_capability_vocabulary(
+    tmp_path: Path,
+) -> None:
+    """Which is the whole reason the unknown-tag check reads canonical tags only.
+
+    An extension tags its scenarios for its own purposes -- to group them, to
+    mark the slow ones -- and those tags gate nothing by design: see
+    ``capability_for_marker``. Reading them as a capability vocabulary would
+    turn every adopter with an extension into a failing run.
+
+    The asymmetry with the reserved check, which *does* read an extension's
+    tags, is not an inconsistency. "Is this one of my reserved names" is
+    answerable about any tag; "is this a capability I do not know" is not.
+    """
+    items = [
+        _scenario_item(_a_canonical_feature()),
+        _scenario_item(
+            str(tmp_path / "extensions" / "vendor.feature"),
+            "@fractional",
+            "@vendor-specific",
+        ),
+    ]
+
+    plugin.pytest_collection_modifyitems(items)
 
 
 def test_the_plugin_fails_a_run_over_an_adopters_own_reserved_tag(
