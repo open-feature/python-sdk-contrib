@@ -106,11 +106,11 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     conftest records it and the deviation summary disclaims it; it is not a
 #     reason to withhold the tag.
 #
-#   STRING_TYPING
-#     Declared, on a run: all four scenarios pass on this resolver -- three
-#     Examples rows asking for `boolean-flag`, `integer-flag` and `float-flag`
-#     through the string accessor, and the `@object` one asking for
-#     `object-flag`.
+#   STRING_TYPING and FULLY_TYPED_VALUES
+#     Both declared, on a run: all four scenarios pass on this resolver -- two
+#     Examples rows asking for `boolean-flag` and `integer-flag` through the
+#     string accessor, and the `float-flag` and `object-flag` scenarios that
+#     spec bda599f1 moved behind the second tag.
 #
 #     Declared rather than assumed, because the question is about the backend
 #     rather than about the provider and RPC is where the backend answers it.
@@ -123,9 +123,20 @@ from tests.tck.suite import RPC_PORT, ResolverSuite, build_config
 #     section -- and it is not a property of flagd that could be read off this
 #     repository at all.
 #
-#     Four scenarios that were mandatory at the previous pin, and passing, so
-#     the declaration keeps them running and changes no number: the full run is
-#     8 failed, 119 passed, 3 skipped before and after.
+#     Which is the same answer for the second tag, and why both are declared
+#     rather than one. flagd holds a ruleset, not a string table, and it types
+#     every variant out of the JSON: a float variant is a float and a structured
+#     one is an object, so there is no type it keeps as text and every one of the
+#     four questions has an answer here. The split exists for a backend that
+#     records booleans and integers natively and nothing else -- such a provider
+#     declares @string-typing and withholds @fully-typed-values, and the measured
+#     reason it exists is that one tag over all four cases published a real
+#     defect in another language as a permitted absence. flagd is on the other
+#     side of that line, and declaring both is what says so.
+#
+#     Four scenarios that were mandatory before spec d47a66eb, and passing, so
+#     the two declarations keep them running and change no number: the full run
+#     is 8 failed, 119 passed, 3 skipped before and after.
 #
 # Not declared, and why:
 #
@@ -188,6 +199,7 @@ RPC_CAPABILITIES = frozenset(
         Capability.LIFECYCLE,
         Capability.NUMERIC_COERCION,
         Capability.STRING_TYPING,
+        Capability.FULLY_TYPED_VALUES,
     }
 )
 

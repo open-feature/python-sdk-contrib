@@ -114,11 +114,11 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     scenario this backend cannot ask would discard the finding that the two
 #     resolvers differ.
 #
-#   STRING_TYPING
-#     Declared, on a run: all four scenarios pass on this resolver -- three
-#     Examples rows asking for `boolean-flag`, `integer-flag` and `float-flag`
-#     through the string accessor, and the `@object` one asking for
-#     `object-flag`.
+#   STRING_TYPING and FULLY_TYPED_VALUES
+#     Both declared, on a run: all four scenarios pass on this resolver -- two
+#     Examples rows asking for `boolean-flag` and `integer-flag` through the
+#     string accessor, and the `float-flag` and `object-flag` scenarios that
+#     spec bda599f1 moved behind the second tag.
 #
 #     Here the type check is local and readable, which is the contrast with RPC.
 #     `_TYPE_MAP`'s string entry is the narrow `(str,)` (flagd_core.py:23) and
@@ -129,9 +129,18 @@ from tests.tck.suite import IN_PROCESS_PORT, ResolverSuite, build_config
 #     resolve to 1.0 (python-sdk-contrib#417, the ungated failure below) has no
 #     counterpart here, because `str` is not in bool's ancestry.
 #
-#     Four scenarios that were mandatory at the previous pin, and passing, so
-#     the declaration keeps them running and changes no number: the full run is
-#     8 failed, 119 passed, 3 skipped before and after.
+#     Both tags rather than one, and here the reason is the same table:
+#     `_TYPE_MAP` (flagd_core.py:22-28) gives `float` `(int, float)` and
+#     `object` `(dict, list)`, so this resolver holds a float as a number and a
+#     structure as a dict or list, exactly as it holds a bool as a bool. There
+#     is no type the ruleset keeps as text -- it is `json.loads` output all the
+#     way down (flagd_core.py:73) -- so the question @fully-typed-values asks has
+#     an answer here. The split is for a backend that types booleans and
+#     integers and nothing else, and this is not one.
+#
+#     Four scenarios that were mandatory before spec d47a66eb, and passing, so
+#     the two declarations keep them running and change no number: the full run
+#     is 8 failed, 119 passed, 3 skipped before and after.
 #
 #   REINITIALIZATION
 #     Declared here and withheld on RPC, and again the two resolvers genuinely
@@ -190,6 +199,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
         Capability.LIFECYCLE,
         Capability.NUMERIC_COERCION,
         Capability.STRING_TYPING,
+        Capability.FULLY_TYPED_VALUES,
         Capability.REINITIALIZATION,
     }
 )
