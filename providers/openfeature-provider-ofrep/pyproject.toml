@@ -106,7 +106,23 @@ test = { sequence = ["test-default", "test-tck-collect"], ignore_fail = "return_
 test-cov = { sequence = ["test-cov-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
 test-default = "pytest tests --ignore=tests/tck"
 test-cov-default = "coverage run -m pytest tests --ignore=tests/tck"
-test-tck = "pytest tests/tck"
+# The sync is part of the run rather than something a maintainer remembers,
+# because Appendix F requires the revision check to be in force **where the
+# scenarios execute** and not only in the TCK implementation's own tests. This
+# is a uv workspace, so `openfeature-tck` is installed editable and the
+# canonical assets this suite collects are the gitignored copies under
+# `tools/openfeature-tck/src`: a rebase that moves the submodule pin leaves them
+# from the previous revision, and a suite run from here would neither notice nor
+# say so. That is exactly how an adoption in another language published a full
+# pass against stale scenarios. `hatch_build_sync.py` checks the submodule out
+# at the pin, refuses to copy if it cannot, and needs nothing but the standard
+# library.
+#
+# Not on `test-tck-collect`, deliberately: that runs on every default build, it
+# executes no scenario, and it publishes no result, so the rule does not reach
+# it and the default build stays free of a submodule operation.
+sync-spec-assets = "python ../../tools/openfeature-tck/hatch_build_sync.py"
+test-tck = ["sync-spec-assets", {cmd = "pytest tests/tck"}]
 test-tck-collect = "pytest tests/tck --collect-only -q"
 cov-report = "coverage xml"
 cov = [
