@@ -80,14 +80,66 @@ def _run_git(args: Sequence[str], cwd: Path) -> str | None:
     return completed.stdout.strip()
 
 
+def superproject_git_dir(git: GitRunner = _run_git) -> str | None:
+    """The superproject's git directory, asked of the submodule instead.
+
+    For the one environment where git cannot find the superproject on its own:
+    a linked worktree records its git directory as an **absolute** path in the
+    worktree's ``.git`` file, and a process in a different filesystem namespace
+    -- WSL reading a worktree that Windows git created, which is where the
+    stale-asset run below actually happened -- cannot follow it. A submodule's
+    ``.git`` file is *relative*, so git inside the submodule answers there and
+    git in the superproject does not, and the pin is the half that only the
+    superproject has.
+
+    The derivation is git's own layout rather than a guess about paths: a
+    submodule's git directory is ``<superproject git dir>/modules/<path in the
+    superproject>``, so the ancestor named ``modules`` has the answer as its
+    parent. Read from the bottom, so a submodule inside a submodule resolves to
+    its immediate superproject rather than the outermost one.
+
+    ``None`` when there is no submodule repository to ask -- an unpacked sdist
+    -- or when the layout is not that one, in which case the caller is no worse
+    off than before.
+    """
+    common = git(["rev-parse", "--git-common-dir"], SPEC_ROOT)
+    if not common:
+        return None
+    for parent in Path(common).parents:
+        if parent.name == "modules":
+            return str(parent.parent)
+    return None
+
+
+def _worktree_root() -> Path | None:
+    """The checkout ``ROOT`` sits in, found by the ``.git`` entry at its top.
+
+    A file for a linked worktree and a directory for an ordinary clone; either
+    way its presence is what marks the root. ``None`` for an unpacked sdist,
+    which has neither.
+    """
+    for candidate in (ROOT, *ROOT.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
 def pinned_revision(git: GitRunner = _run_git) -> str | None:
     """The spec revision the superproject's index records for the submodule.
 
     The index rather than ``HEAD``, because the index is what the next commit
     will record and so what a run is about to claim it tested against. ``None``
     when there is no repository to ask, which is ordinary: an sdist has none.
+
+    Asked twice before giving up, and the second way is not a fallback so much
+    as the same question routed around an unreachable path: see
+    :func:`superproject_git_dir`. Only an answer of *nothing* is retried -- an
+    entry that is present and is not a gitlink is a definite answer, and asking
+    again would not change it.
     """
     entry = git(["ls-files", "-s", "--", SPEC_DIRNAME], ROOT)
+    if not entry:
+        entry = _pin_entry_through_the_submodule(git)
     if not entry:
         return None
     fields = entry.split()
@@ -96,6 +148,32 @@ def pinned_revision(git: GitRunner = _run_git) -> str | None:
     if len(fields) < 2 or fields[0] != "160000":
         return None
     return fields[1]
+
+
+def _pin_entry_through_the_submodule(git: GitRunner) -> str | None:
+    """The index entry again, with the superproject named explicitly.
+
+    Both halves have to be supplied: ``--git-dir`` because git could not find
+    it, and ``--work-tree`` so that a pathspec relative to ``ROOT`` still means
+    what it means in the call above.
+    """
+    git_dir = superproject_git_dir(git)
+    worktree = _worktree_root()
+    if git_dir is None or worktree is None:
+        return None
+    return git(
+        [
+            "--git-dir",
+            git_dir,
+            "--work-tree",
+            str(worktree),
+            "ls-files",
+            "-s",
+            "--",
+            SPEC_DIRNAME,
+        ],
+        ROOT,
+    )
 
 
 def checkout_pinned_spec(git: GitRunner = _run_git) -> str | None:

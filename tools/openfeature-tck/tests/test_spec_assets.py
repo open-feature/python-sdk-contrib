@@ -76,18 +76,52 @@ def test_the_assets_on_disk_are_the_revision_the_pin_names() -> None:
     It is also the assertion that would have failed in the pass where the stale
     Gherkin got through.
 
-    Skipped, loudly, where the pin cannot be read at all. That is an unpacked
-    sdist, which has no repository and no pin, and a linked git worktree whose
-    ``.git`` file names a path this process's filesystem namespace cannot follow
-    -- git inside the submodule answers there and git in the superproject does
-    not. The guarantee is genuinely not in force in those environments, and a
-    skip that says so is the honest report; a pass would not be.
+    **This used to skip where the pin could not be read, and the argument for
+    that was wrong.** It ran: the guarantee is genuinely not in force in such an
+    environment, so a skip that says so is the honest report and a pass would
+    not be. Both halves are true and they do not reach the conclusion. A skip is
+    an honest report to a reader who reads it, and the environments where the
+    pin was unreadable -- a linked worktree, read from another filesystem
+    namespace -- are exactly the ones where the assets are most likely to be
+    stale, because a rebase moves the gitlink and not the working tree. So the
+    check went quiet precisely where it was load-bearing, which is how one
+    adoption came to run a full suite against the previous revision's scenarios
+    and publish entirely plausible numbers. Appendix F now states the general
+    rule: a run-integrity check that cannot be performed **fails** rather than
+    skipping.
+
+    The better half of the fix is upstream of the choice, though, and it is why
+    this is no longer much of a dilemma: the pin *is* readable in a linked
+    worktree now. :func:`~hatch_build_sync.superproject_git_dir` routes the
+    question around the absolute path that could not be followed, so the check
+    runs in the environment it used to abandon rather than merely failing there.
+
+    **One environment is still exempt, and it is not the same kind of thing.**
+    An unpacked sdist has no submodule at all: the assets are distribution
+    content, produced by a sync that ran this check at build time, and there is
+    no pin to compare them against and no working tree that could have drifted
+    from one. That is a check with nothing to check rather than a check that
+    cannot be performed, and failing it would accuse a downstream packager of a
+    defect they have no way to hold or fix. Appendix F's wording names "an
+    unpacked distribution or a linked worktree" in one breath; the two are only
+    alike in that git says nothing, and this distinguishes them the same way
+    :func:`~hatch_build_sync.checkout_pinned_spec` already distinguishes them
+    for its warning.
     """
     pinned = pinned_revision()
     if pinned is None:
+        assert not SPEC_ROOT.exists(), (
+            "the spec submodule is present and no pin for it is readable from "
+            "here, so which revision these assets came from cannot be "
+            "established -- and this is the environment a rebase leaves them "
+            "stale in. Run `git submodule update --init "
+            "tools/openfeature-tck/spec` and `poe sync-spec-assets` from a "
+            "shell that can reach the superproject's git directory"
+        )
         pytest.skip(
-            "no submodule pin is readable from here, so which revision these "
-            "assets came from cannot be established -- see checkout_pinned_spec"
+            "there is no spec submodule here, so the assets are distribution "
+            "content and there is no pin to compare them against -- see "
+            "checkout_pinned_spec"
         )
 
     head = hatch_build_sync._run_git(["rev-parse", "HEAD"], SPEC_ROOT)
@@ -96,6 +130,58 @@ def test_the_assets_on_disk_are_the_revision_the_pin_names() -> None:
         f"{pinned}, so the assets this run tested against are not the ones it "
         f"claims. Run `poe sync-spec-assets`"
     )
+
+
+def test_the_pin_is_read_through_the_submodule_when_git_cannot_find_the_repo() -> None:
+    """The route that keeps the revision check in force in a linked worktree.
+
+    A worktree's ``.git`` file names its git directory absolutely, and a
+    process in another filesystem namespace cannot follow that path -- so the
+    ordinary ``ls-files`` answers nothing, while the submodule, whose own
+    ``.git`` file is relative, answers fine. Naming the superproject explicitly
+    is then all it takes, and the name comes out of git's layout: the ancestor
+    called ``modules``.
+
+    This is what turned the unreadable pin from the ordinary case in this
+    development environment into a genuinely broken checkout, which is the
+    premise the failure above rests on.
+    """
+    # A linked worktree's git directory, which is where its index lives -- the
+    # shared ``.git`` two levels up holds the objects and not the pin.
+    git_dir = "/elsewhere/super/.git/worktrees/wt"
+    common = f"{git_dir}/modules/tools/openfeature-tck/spec"
+    asked: list[list[str]] = []
+
+    def git(args: Sequence[str], cwd: Path) -> str | None:
+        asked.append(list(args))
+        if args[0] == "rev-parse" and args[1] == "--git-common-dir":
+            return common
+        if args[0] == "--git-dir":
+            return f"160000 {PIN} 0\tspec" if args[1] == git_dir else None
+        return None  # the superproject cannot be found the ordinary way
+
+    assert hatch_build_sync.superproject_git_dir(git) == git_dir
+
+    asked.clear()
+    assert pinned_revision(git) == PIN
+    assert asked[0][0] == "ls-files", "the ordinary way is tried first"
+
+
+def test_a_definite_answer_that_is_not_a_gitlink_is_not_asked_again() -> None:
+    """Only silence is retried, because only silence might be the path problem.
+
+    An entry that is present and is not a gitlink is git answering correctly
+    about a repository it found. Routing round it would ask a second question
+    nobody has a reason to trust more than the first.
+    """
+    asked: list[list[str]] = []
+
+    def git(args: Sequence[str], cwd: Path) -> str | None:
+        asked.append(list(args))
+        return "100644 abc123 0\tspec"
+
+    assert pinned_revision(git) is None
+    assert [call[0] for call in asked] == ["ls-files"]
 
 
 def test_only_a_gitlink_counts_as_a_pin() -> None:
