@@ -11,10 +11,12 @@ in their own ``conftest.py`` is resolved by the same fixture lookup as one this
 plugin ships, so their scenarios need no glue and no second harness. See
 :mod:`~.extensions`.
 
-It is also where the two things a run must refuse to do quietly are checked:
-skipping a scenario whose capability was not declared happens loudly, with the
-reason, and a scenario carrying a tag this package still calls reserved fails
-the run outright rather than being skipped for a capability nobody may claim.
+It is also where the things a run must refuse to do quietly are checked.
+Skipping a scenario whose capability was not declared happens loudly, with the
+reason. A scenario carrying a tag this package still calls reserved fails the
+run outright rather than being skipped for a capability nobody may claim -- and
+so does one carrying a tag the vocabulary has never heard of, which is the same
+drift in the other direction and leaves the scenario mandatory instead.
 """
 
 from __future__ import annotations
@@ -27,7 +29,12 @@ import pytest
 
 from openfeature import api
 
-from .capability import Capability, capability_for_marker, expired_reservations
+from .capability import (
+    Capability,
+    capability_for_marker,
+    expired_reservations,
+    unknown_capabilities,
+)
 from .compose import ComposeBackend, RunningBackend, run_compose_backend
 from .config import TckConfig
 from .extensions import canonical_tags, is_canonical, uri_for
@@ -61,7 +68,100 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Fail the run if any scenario it collected carries a reserved tag.
+    """Fail the run over a tag this package holds shut, or has never heard of.
+
+    Two run-integrity checks over one pass across the collection, because they
+    read the same two sources and mean opposite things. Appendix F states both
+    as **MUST**s, and calls the second one the easy one to leave out.
+
+    See :func:`reserved_tag_problem` and :func:`unknown_tag_problem` for what
+    each of them is. The unknown-tag check goes first: a vocabulary that does
+    not know what a tag means has a worse problem than one holding a known tag
+    shut, and the second message would be read as the whole story.
+
+    **What decides whether either runs at all** is that this package is a
+    ``pytest11`` plugin, so the hook fires for every pytest run in an
+    environment that merely has it installed, and an unrelated test suite has no
+    business failing over the contents of these feature files. So both checks
+    wait for a canonical scenario, which nothing but
+    :func:`~.extensions.feature_paths` produces. Go, Java and JS have an
+    explicit entry point and no equivalent problem.
+    """
+    running = False
+    carried: set[str] = set()
+    for item in items:
+        feature = _suite_feature(item)
+        if feature is None:
+            continue
+        running = running or is_canonical(feature)
+        carried.update(f"@{marker.name}" for marker in item.iter_markers())
+
+    if not running:
+        return
+
+    canonical = canonical_tags()
+    for problem in (
+        unknown_tag_problem(canonical),
+        reserved_tag_problem(carried | canonical),
+    ):
+        if problem is not None:
+            raise pytest.UsageError(problem)
+
+
+def unknown_tag_problem(canonical: Iterable[str]) -> str | None:
+    """Refuse a canonical tag :class:`~.capability.Capability` cannot resolve.
+
+    **An unknown tag gates nothing, so its scenarios stay mandatory**, and that
+    is the failure: a suite whose vocabulary is behind the assets does not
+    report a capability it has not learned, it goes on demanding the behaviour
+    of every adopter. A provider that legitimately withholds the new capability
+    fails scenarios while every other provider stays green, and nothing in the
+    results says why. Appendix F's run-integrity section states it, and observes
+    that all four reference implementations ignored an unknown tag instead.
+
+    The remedy is always the same and is always upstream of a run: add the
+    member to :class:`~.capability.Capability`, against Appendix F's capability
+    table, and say on it what declaring and withholding mean. Nothing an
+    adoption can do substitutes, which is why this is refused rather than
+    warned about.
+
+    **Canonical tags only, and that is the substance of the check rather than a
+    simplification.** A tag that resolves to nothing is a problem exactly where
+    every tag is meant to be a capability, and the canonical assets are the only
+    such source: the specification writes them, and Appendix F's table is their
+    vocabulary. An adopter's extension tags its scenarios for its own purposes
+    -- ``@fractional``, ``@slow``, whatever organises their file -- and those
+    gate nothing on purpose; reading them here would turn every extension into
+    a failing run. The reserved check *does* read them, and the asymmetry is not
+    an inconsistency: "is this one of my reserved names" is answerable about any
+    tag, and "is this a capability I do not know" is not.
+
+    Read off the packaged files rather than off the collection for the same
+    reason the canonical half of the reserved check is: a ``-k`` or a
+    ``--deselect`` cannot narrow a run past the specification's half.
+    """
+    unknown = unknown_capabilities(canonical)
+    if not unknown:
+        return None
+
+    return (
+        f"the canonical conformance assets carry {' '.join(unknown)}, which "
+        f"name no capability this package knows. An unknown tag gates nothing, "
+        f"so every scenario carrying one is mandatory for every adopter -- a "
+        f"provider that cannot satisfy the capability fails those scenarios and "
+        f"the report gives no reason. The assets are ahead of the vocabulary: "
+        f"add the capability to the Capability enum, against Appendix F's "
+        f"capability table, and nothing else here has to change. If the tag is "
+        f"not a capability at all, it does not belong on a canonical scenario "
+        f"and the specification is where that is fixed."
+    )
+
+
+def reserved_tag_problem(carried: Iterable[str]) -> str | None:
+    """Refuse a reserved tag carried by a scenario this run collected.
+
+    The mirror of :func:`unknown_tag_problem`: there the vocabulary is behind
+    the assets, here it is ahead of them.
 
     A reservation is a name held open for scenarios that do not exist yet, and
     a reserved capability cannot be declared -- :class:`~.config.TckConfig`
@@ -104,34 +204,15 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     handed the whole collection before anything is deselected, so a selection
     does not narrow that half either; that is pytest's hook order rather than a
     promise, and the half that must not be narrowable does not lean on it.
-
-    What is read off the collection either way is whether this session runs the
-    conformance suite at all. This package is a ``pytest11`` plugin, so the
-    hook fires for every pytest run in an environment that merely has it
-    installed, and an unrelated test suite has no business failing over the
-    contents of these feature files. So the check waits for a canonical
-    scenario, which nothing but :func:`~.extensions.feature_paths` produces,
-    and it reads tags only from scenarios this suite is running. Go, Java and
-    JS have an explicit entry point and no equivalent problem.
+    Which of the two a tag arrived from is not recorded, because the remedy is
+    the reader's to pick and the message names both.
     """
-    running = False
-    carried: set[str] = set()
-    for item in items:
-        feature = _suite_feature(item)
-        if feature is None:
-            continue
-        running = running or is_canonical(feature)
-        carried.update(f"@{marker.name}" for marker in item.iter_markers())
-
-    if not running:
-        return
-
-    expired = expired_reservations(carried | canonical_tags())
+    expired = expired_reservations(carried)
     if not expired:
-        return
+        return None
 
     named = " ".join(capability.tag for capability in expired)
-    raise pytest.UsageError(
+    return (
         f"reserved capabilities {named} are carried by scenarios this run "
         f"collected, and a reserved capability cannot be declared -- so every "
         f"scenario carrying one is skipped for a capability nobody is allowed "
