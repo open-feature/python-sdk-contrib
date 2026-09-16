@@ -50,7 +50,7 @@ Two things that are this provider's rather than the policy's:
 
 - **Docker is not what decides it.** The flagd package's `tests/e2e` needs Docker too and does run in
   the default build. What decides it is the run: **2 failed, 45 passed, 17 skipped, 1 xfailed** —
-  both failures are canonical flags that flagd-testbed v3.8.0 does not seed yet, and the `xfail` is
+  both failures are canonical flags that no released flagd-testbed seeds yet, and the `xfail` is
   the one genuine provider gap, recorded as a `KnownDeviation` rather than hidden.
   `tests/tck/conftest.py` and `tests/tck/test_ofrep.py` account for each one, so a
   reviewer running the suite can tell a new failure from a known one.
