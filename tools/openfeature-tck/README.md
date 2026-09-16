@@ -397,7 +397,7 @@ sdist at build time. So adopting needs no submodule and contributing does:
 
 ```bash
 git submodule update --init tools/openfeature-tck/spec
-poe test   # syncs the assets first; 289 passed, 42 skipped, 2 xfailed, no Docker
+poe test   # syncs the assets first; 295 passed, 41 skipped, 2 xfailed, no Docker
 ```
 
 The copies under `src/` are gitignored, generated and carry a `DO-NOT-EDIT.txt`: a change goes to
