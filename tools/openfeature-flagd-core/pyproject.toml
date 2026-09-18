@@ -21,6 +21,7 @@ dependencies = [
     "mmh3>=5.0.0,<6.0.0",
     "panzi-json-logic==1.0.1",
     "semver>=3,<4",
+    "cbor2>=5.6.5,<6.0.0",
 ]
 requires-python = ">=3.10"
 
@@ -66,7 +67,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "-m 'not fractional-v1'"
+addopts = "-m 'not fractional-v1 and not fractional-v2'"
 
 [tool.coverage.run]
 omit = ["tests/**"]
