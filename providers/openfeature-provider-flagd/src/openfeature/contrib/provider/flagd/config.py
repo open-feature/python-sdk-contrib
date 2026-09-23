@@ -57,6 +57,22 @@ ENV_VAR_DEFAULT_AUTHORITY = "FLAGD_DEFAULT_AUTHORITY"
 
 T = typing.TypeVar("T")
 
+ClientInterceptor: typing.TypeAlias = (
+    grpc.UnaryUnaryClientInterceptor
+    | grpc.UnaryStreamClientInterceptor
+    | grpc.StreamUnaryClientInterceptor
+    | grpc.StreamStreamClientInterceptor
+)
+
+
+def apply_client_interceptors(
+    channel: grpc.Channel,
+    client_interceptors: typing.Sequence[ClientInterceptor],
+) -> grpc.Channel:
+    if not client_interceptors:
+        return channel
+    return grpc.intercept_channel(channel, *client_interceptors)
+
 
 def str_to_bool(val: str) -> bool:
     return val.lower() == "true"
@@ -105,6 +121,7 @@ class Config:
         channel_credentials: grpc.ChannelCredentials | None = None,
         sync_metadata_disabled: bool | None = None,
         fatal_status_codes: list[str] | None = None,
+        client_interceptors: typing.Sequence[ClientInterceptor] | None = None,
     ):
         self.host = env_or_default(ENV_VAR_HOST, DEFAULT_HOST) if host is None else host
 
@@ -278,3 +295,10 @@ class Config:
         # Disabling will prevent static context from flagd being used in evaluations.
         # GetMetadata and this option will be removed.
         self.sync_metadata_disabled = sync_metadata_disabled
+
+        # gRPC client interceptors applied to the channel (rpc and in-process).
+        # Use this for infrastructure concerns such as custom headers or
+        # credentials; flagd-specific options (e.g. selector) stay first-class.
+        self.client_interceptors: tuple[ClientInterceptor, ...] = (
+            tuple(client_interceptors) if client_interceptors is not None else ()
+        )

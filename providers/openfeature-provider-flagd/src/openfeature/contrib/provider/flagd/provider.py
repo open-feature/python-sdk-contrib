@@ -33,7 +33,7 @@ from openfeature.hook import Hook
 from openfeature.provider import AbstractProvider
 from openfeature.provider.metadata import Metadata
 
-from .config import CacheType, Config, ResolverType
+from .config import CacheType, ClientInterceptor, Config, ResolverType
 from .resolvers import AbstractResolver, GrpcResolver, InProcessResolver
 from .sync_metadata_hook import SyncMetadataHook
 
@@ -66,6 +66,7 @@ class FlagdProvider(AbstractProvider):
         channel_credentials: grpc.ChannelCredentials | None = None,
         sync_metadata_disabled: bool | None = None,
         fatal_status_codes: list[str] | None = None,
+        client_interceptors: typing.Sequence[ClientInterceptor] | None = None,
     ):
         """
         Create an instance of the FlagdProvider
@@ -83,6 +84,8 @@ class FlagdProvider(AbstractProvider):
         :param stream_deadline_ms: the maximum time to wait before a request times out
         :param keep_alive_time: the number of milliseconds to keep alive
         :param resolver_type: the type of resolver to use
+        :param channel_credentials: custom gRPC channel credentials, including mTLS credentials
+        :param client_interceptors: gRPC client interceptors applied to the channel. Metadata keys added by interceptors must be valid lowercase gRPC metadata keys. An interceptor that adds ``flagd-selector`` can duplicate the provider's selector metadata.
         """
         if deadline_ms is None and timeout is not None:
             deadline_ms = timeout * 1000
@@ -113,6 +116,7 @@ class FlagdProvider(AbstractProvider):
             channel_credentials=channel_credentials,
             sync_metadata_disabled=sync_metadata_disabled,
             fatal_status_codes=fatal_status_codes,
+            client_interceptors=client_interceptors,
         )
         self.enriched_context: dict = {}
 
