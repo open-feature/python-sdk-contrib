@@ -136,18 +136,6 @@ class UnleashProvider(AbstractProvider):
             self._status = ProviderStatus.READY
         self._event_manager.handle_unleash_event(event)
 
-    def track(
-        self,
-        event_name: str,
-        event_details: dict | None = None,
-    ) -> None:
-        """No-op tracking method.
-
-        Tracking is not implemented for this provider. Per the OpenFeature spec,
-        when the provider doesn't support tracking, client.track calls should no-op.
-        """
-        return None
-
     def _build_unleash_context(
         self, evaluation_context: EvaluationContext | None = None
     ) -> dict[str, Any] | None:
