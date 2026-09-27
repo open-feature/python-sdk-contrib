@@ -2,6 +2,7 @@ from openfeature.contrib.tools.flagd.core.targeting import targeting
 from openfeature.contrib.tools.flagd.core.targeting.custom_ops import (
     ends_with,
     fractional,
+    normalize_numbers,
     sem_ver,
     starts_with,
 )
@@ -185,3 +186,88 @@ class TestFractional:
             r = fractional({}, "stable-key", ["x", 50], ["y", 50])
             results.add(r)
         assert len(results) == 1
+
+    def test_fractional_null_bucket_key(self) -> None:
+        """Fractional with explicit null bucket key returns None."""
+        assert fractional({}, None, ["a", 50], ["b", 50]) is None
+
+    def test_fractional_shorthand_non_string_targeting_key(self) -> None:
+        """Shorthand with non-string targetingKey (int, bool) returns None."""
+        int_data = {"targetingKey": 12345, "$flagd": {"flagKey": "my-flag"}}
+        assert fractional(int_data, ["a", 50], ["b", 50]) is None
+
+        bool_data = {"targetingKey": True, "$flagd": {"flagKey": "my-flag"}}
+        assert fractional(bool_data, ["a", 50], ["b", 50]) is None
+
+    def test_fractional_non_string_types(self) -> None:
+        """Fractional should support int, float, bool, and dict (with nested lists)."""
+        for key in [123, 1.23, True, False, {"user": 1}, {"tags": ["tag1", "tag2"]}]:
+            result = fractional({}, key, ["a", 50], ["b", 50])
+            assert result in ("a", "b")
+
+    def test_fractional_top_level_array_not_explicit_key(self) -> None:
+        """Top-level array is reserved for variant buckets (shorthand syntax) per ADR."""
+        # When no targetingKey in context, shorthand fails and returns None
+        result = fractional({}, ["tag1", "tag2"], ["a", 50], ["b", 50])
+        assert result is None
+
+    def test_fractional_float_int_equivalence(self) -> None:
+        """1.0 and 1 must produce the exact same bucket assignment."""
+        res_float = fractional({}, 1.0, ["a", 50], ["b", 50])
+        res_int = fractional({}, 1, ["a", 50], ["b", 50])
+        assert res_float == res_int
+
+    def test_fractional_zero_values_equivalence(self) -> None:
+        """0.0, -0.0, and 0 must produce the exact same bucket assignment."""
+        res_pos_zero = fractional({}, 0.0, ["a", 50], ["b", 50])
+        res_neg_zero = fractional({}, -0.0, ["a", 50], ["b", 50])
+        res_int_zero = fractional({}, 0, ["a", 50], ["b", 50])
+        assert res_pos_zero == res_neg_zero == res_int_zero
+
+    def test_fractional_dict_key_ordering(self) -> None:
+        """Dicts with different key insertion order must evaluate identically."""
+        res_ab = fractional({}, {"a": 1, "b": 2}, ["a", 50], ["b", 50])
+        res_ba = fractional({}, {"b": 2, "a": 1}, ["a", 50], ["b", 50])
+        assert res_ab == res_ba
+
+    def test_fractional_zero_total_weight(self) -> None:
+        """All-zero weights should return None."""
+        assert fractional({}, "user", ["a", 0], ["b", 0]) is None
+
+    def test_fractional_negative_weight_clamping(self) -> None:
+        """Negative weights should be clamped to 0."""
+        assert fractional({}, "user", ["a", -50], ["b", 100]) == "b"
+
+    def test_fractional_cbor_serialization_failure(self) -> None:
+        """If bucket_by cannot be serialized to CBOR, log error and return None."""
+
+        class Unserializable:
+            pass
+
+        assert fractional({}, Unserializable(), ["a", 50], ["b", 50]) is None
+
+
+class TestNormalizeNumbers:
+    def test_float_to_int(self) -> None:
+        assert normalize_numbers(1.0) == 1
+        assert isinstance(normalize_numbers(1.0), int)
+        assert normalize_numbers(-2.0) == -2
+        assert isinstance(normalize_numbers(-2.0), int)
+
+    def test_float_with_fractional_part_unchanged(self) -> None:
+        assert normalize_numbers(1.25) == 1.25
+        assert isinstance(normalize_numbers(1.25), float)
+
+    def test_nested_dict_and_list(self) -> None:
+        data = {"a": 2.0, "b": [3.0, {"c": 4.5}]}
+        norm = normalize_numbers(data)
+        assert norm == {"a": 2, "b": [3, {"c": 4.5}]}
+        assert isinstance(norm["a"], int)
+        assert isinstance(norm["b"][0], int)
+        assert isinstance(norm["b"][1]["c"], float)
+
+    def test_out_of_range_float_stays_float(self) -> None:
+        huge = 1e100
+        norm = normalize_numbers(huge)
+        assert norm == huge
+        assert isinstance(norm, float)
