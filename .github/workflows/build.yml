@@ -89,10 +89,6 @@ jobs:
         working-directory: ${{ matrix.package }}
         run: uv sync --frozen
 
-      - name: Building first to generate files
-        working-directory: ${{ matrix.package }}
-        run: uv build
-
       - name: Type checking
         if: matrix.python-version == env.TARGET_PYTHON_VERSION
         working-directory: ${{ matrix.package }}
