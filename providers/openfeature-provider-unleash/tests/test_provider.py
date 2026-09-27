@@ -119,6 +119,11 @@ def test_unleash_provider_all_methods_implemented():
         assert hasattr(provider, "add_handler")
         assert hasattr(provider, "remove_handler")
         assert hasattr(provider, "track")
+        # Tracking is not implemented, so track is inherited from
+        # AbstractProvider and no-ops. Called the way OpenFeatureClient.track
+        # calls it -- positionally -- since a narrower override raises
+        # TypeError there.
+        assert provider.track("some-event", EvaluationContext(), None) is None
 
         provider.shutdown()
 
