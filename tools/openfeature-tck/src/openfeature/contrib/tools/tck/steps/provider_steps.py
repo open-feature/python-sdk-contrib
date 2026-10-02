@@ -11,6 +11,7 @@ from pytest_bdd import given, parsers, then, when
 
 from openfeature import api
 from openfeature.evaluation_context import EvaluationContext
+from openfeature.provider import FeatureProvider
 
 from ..state import LifecycleRecord, TckState
 
@@ -45,6 +46,7 @@ def a_stable_provider(tck_state: TckState) -> None:
     if provider is None:
         msg = "TckConfig.new_provider returned None"
         raise AssertionError(msg)
+    _observe_metadata_name(tck_state, provider)
 
     try:
         _call_within(
@@ -98,6 +100,7 @@ def an_unavailable_provider(tck_state: TckState) -> None:
     if provider is None:
         msg = "TckConfig.new_unavailable_provider returned None"
         raise AssertionError(msg)
+    _observe_metadata_name(tck_state, provider)
 
     # The waiting variant for the same reason as the stable provider: plain
     # set_provider initialises on a worker thread, so registration would return
@@ -193,6 +196,21 @@ def the_provider_metadata_name_should_not_be_empty(tck_state: TckState) -> None:
             f"conformance report keyed on the name cannot be attributed without one"
         )
         raise AssertionError(msg)
+
+
+def _observe_metadata_name(tck_state: TckState, provider: FeatureProvider) -> None:
+    """Note what the provider calls itself, for the conformance report.
+
+    Before registration rather than after, so that a provider which fails to
+    initialise -- the ``@unavailable`` case, and any genuine failure -- is still
+    identified in the report by its own name. Metadata is a pure accessor by
+    contract, but a provider that raises from it must not take the scenario down
+    with it: the name is for a report, and no scenario asserts on it.
+    """
+    with contextlib.suppress(Exception):
+        name = provider.get_metadata().name
+        if name:
+            tck_state.provider_name = name
 
 
 def _record_lifecycle_call(

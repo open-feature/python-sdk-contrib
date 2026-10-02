@@ -312,6 +312,83 @@ self-tests declare less than they otherwise would: it cannot update its flag set
 hands each variant back untouched, so it does not attempt numeric coercion at all — a permitted
 choice rather than a defect, and the reason `@numeric-coercion` is simply not declared there.
 
+## Conformance reports
+
+Set `TCK_REPORT_DIR` and each suite writes **two** files: an envelope at `<dir>/<name>.json`,
+conforming to the [report schema][report-schema], and the results it points at, at
+`<dir>/<name>.ndjson`, which is a [Cucumber Messages][messages] stream.
+
+```console
+$ TCK_REPORT_DIR=./reports pytest
+tck [in-memory]: report written to reports/in-memory.json with results in in-memory.ndjson (1 failed, 43 passed, 21 skipped)
+
+$ jq -c .results reports/in-memory.json
+{"format":"cucumber-messages","location":"in-memory.ndjson","digest":"sha256:c7e12a…"}
+```
+
+It is an environment variable rather than a `TckConfig` field so that emitting a report is a property
+of the *run* and not of the code: CI sets it, a developer running the suite locally does not, and no
+adopter changes a line to publish one. Unset means no report, which is not an error, and several
+suites in one session each write their own pair, so flagd's two resolvers do not collide.
+
+**A partial run is not a conformance run.** `-k`, `-m`, `--deselect`, or a test module that stopped
+calling `scenarios()` on the canonical path each run fewer scenarios, and none of them is an error to
+pytest — Go measured the consequence: a green run and a well-formed report covering one scenario out
+of the whole canonical set, with nothing in the document saying so. So every run is checked against
+the scenarios this distribution ships, and one that did not execute all of them writes no report and
+names what it missed. A capability-gated skip **has** run — the question was put and declined — so
+declining never trips this, and your own extension scenarios are not counted towards the canonical
+set and cannot close a gap in it. `TCK_PARTIAL=1` lets you work on a single scenario without the
+guard failing the run; it still writes no report, and Java spells the same escape hatch the same way.
+
+**Why the results are not our format.** Per-scenario outcomes, tags, Scenario Outline row identity
+and the executed feature source are already specified by Cucumber Messages, which is maintained,
+cross-language, schema'd and emitted natively by cucumber-jvm; defining them again would create a
+second format to version and two places for the same fact to disagree. So the envelope says what was
+tested and what the provider claims, and the payload says what happened. The payload is referenced
+rather than inlined because it carries the feature sources and is far larger than the envelope, and
+`results.digest` is a SHA-256 over the exact bytes written, so a consumer can tell that what it
+fetched is what the envelope described. Two things Messages cannot carry stay in the envelope:
+`declaration`, which is an *input* to reading the results rather than a summary of them — only it
+says whether a skipped scenario was declined — and the tested subject, for which no standard results
+format has a slot.
+
+**Reading the payload.** Appendix F requires a scenario skipped for an undeclared capability to be
+reported as skipped with the reason and never as passed, and a consumer cannot check that against a
+summary line, so the stream carries every scenario the run collected, gate-skipped ones included, as
+Cucumber's own `SKIPPED`. Each is a `TestCase` referring to a `Pickle`, and a test case is as bad as
+its worst step. Every test case carries two hook steps as well as its Gherkin steps, because pytest
+runs a scenario in three phases and only the middle one executes steps: the before-hook is where a
+capability skip's reason lands and the after-hook where a teardown failure does. The capability
+responsible for a skip follows from the pickle's tags and the envelope's `declaration`, which is why
+it is not transported once per scenario. And a pickle's `astNodeIds` are `[scenario id, table row
+id]`, resolving in the `GherkinDocument` to exactly the cells the feature file wrote — which is what
+tells the eight rows of the type-mismatch matrix apart, one of which differs in outcome from its seven
+siblings, exactly rather than by a naming convention every implementation would have to reproduce.
+
+So the payload is not a transcription of pytest's summary. The one scenario the Python SDK cannot
+satisfy is marked `xfail`, so pytest counts it as expected and exits zero; the provider still did not
+satisfy it, and the stream says `FAILED`. The acknowledgement goes in the envelope's
+`knownDeviations` instead — an expected failure is a recorded deviation, not an excused one.
+
+**What identifies a report.** `tck.specRevision` comes from `spec_revision.json`, which the asset
+sync generates from the submodule at build time, because the submodule is not in the wheel and an
+installed copy has nothing left to ask; a build that cannot reach git records `unknown` rather than
+inventing a commit. There is no asset tree hash: the payload's `Source` messages carry the executed
+feature files verbatim, which answers "did these two runs ask the same questions" directly rather
+than by proxy. `provider.name` is what the provider reports through its own metadata, not
+`TckConfig.name`, which is chosen to read well in a failure message — `flagd-rpc` — and is therefore
+reported as the *configuration*. `backend.controlApi` is read straight off the required `control_api`
+member and the whole `backend` block is always written, both being in the schema's `required` arrays:
+there is nothing to fall back to and nothing inferred, which is the point.
+
+One gap is this implementation's rather than the suite's: **pytest-bdd emits no Cucumber Messages.**
+It ships the legacy Cucumber JSON format and nothing for the ndjson protocol, so `messages.py` builds
+the stream from the official types and re-parses the feature files for the AST node ids a pickle
+refers to. If pytest-bdd ever emits Messages itself, that module should shrink to a shim. Whether a
+report belongs inside a provider's released artifact is open on
+[open-feature/spec#424](https://github.com/open-feature/spec/issues/424).
+
 ## Contributing
 
 The Gherkin, the canonical flag set and the control-API document are **not owned by this
@@ -320,7 +397,7 @@ sdist at build time. So adopting needs no submodule and contributing does:
 
 ```bash
 git submodule update --init tools/openfeature-tck/spec
-poe test   # syncs the assets first; 227 passed, 41 skipped, 2 xfailed, no Docker
+poe test   # syncs the assets first; 295 passed, 41 skipped, 2 xfailed, no Docker
 ```
 
 The copies under `src/` are gitignored, generated and carry a `DO-NOT-EDIT.txt`: a change goes to
@@ -342,6 +419,8 @@ longer defeats it, because the pin is read by naming the superproject that git c
 remains exempt is an unpacked sdist, which has no submodule, no pin and nothing that could have
 drifted from one.
 
+[report-schema]: https://github.com/open-feature/spec/blob/main/specification/assets/provider-tck/report/conformance-report.schema.json
+[messages]: https://github.com/cucumber/messages
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
 [spec]: https://github.com/open-feature/spec
