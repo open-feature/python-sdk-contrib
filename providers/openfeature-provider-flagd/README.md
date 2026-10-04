@@ -116,7 +116,7 @@ The default options can be defined in the FlagdProvider constructor.
 Metadata keys added by an interceptor must be valid lowercase gRPC metadata keys. If an interceptor adds `flagd-selector` while `selector` is set, the request contains duplicate keys. gRPC permits duplicate metadata keys.
 
 `grpc.aio` interceptors are not supported. Passing an object that does not implement one of the synchronous client interceptor interfaces raises `TypeError` when the provider creates its channel.
-Exceptions raised while opening a sync or event stream are logged and retried after `retry_backoff_max_ms`; a persistently failing interceptor prevents stream updates.
+Exceptions raised while opening the in-process `SyncFlags` stream are logged and retried after `retry_backoff_max_ms`. The provider emits `STALE` while it reconnects. If the stream does not recover within `retry_grace_period`, the provider emits `ERROR`. A recovered flag update emits `READY` and cancels the pending error.
 
 ```python
 import grpc

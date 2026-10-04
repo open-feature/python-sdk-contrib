@@ -68,8 +68,8 @@ class TestGrpcWatcher(unittest.TestCase):
 
         flag_store = Mock(spec=FlagStore)
         flag_store.update.return_value = None
-        emit_provider_error = Mock()
-        emit_provider_stale = Mock()
+        self.emit_provider_error = Mock()
+        self.emit_provider_stale = Mock()
         channel = Mock(spec=Channel)
         self.provider_done = False
         self.provider_details: ProviderEventDetails | None = None
@@ -83,8 +83,8 @@ class TestGrpcWatcher(unittest.TestCase):
                 config=config,
                 flag_store=flag_store,
                 emit_provider_ready=self.provider_ready,
-                emit_provider_error=emit_provider_error,
-                emit_provider_stale=emit_provider_stale,
+                emit_provider_error=self.emit_provider_error,
+                emit_provider_stale=self.emit_provider_stale,
             )
         self.mock_stub = MagicMock(spec=FlagSyncServiceStub)
         self.mock_metadata = GetMetadataResponse(metadata={"attribute": "value1"})
@@ -190,16 +190,47 @@ class TestGrpcWatcher(unittest.TestCase):
         wait_before_reconnect.assert_called_once()
 
     def test_listen_backs_off_after_unexpected_error(self):
+        self.grpc_watcher.connected = True
         self.mock_stub.SyncFlags = Mock(side_effect=RuntimeError("interceptor failed"))
 
-        with patch.object(
-            self.grpc_watcher,
-            "_wait_before_reconnect",
-            side_effect=lambda: setattr(self.grpc_watcher, "active", False),
-        ) as wait_before_reconnect:
+        with (
+            patch.object(
+                self.grpc_watcher,
+                "_wait_before_reconnect",
+                side_effect=lambda: setattr(self.grpc_watcher, "active", False),
+            ) as wait_before_reconnect,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.threading.Timer"
+            ) as timer_class,
+        ):
             self.grpc_watcher.listen()
 
         wait_before_reconnect.assert_called_once()
+        self.assertFalse(self.grpc_watcher.connected)
+        self.emit_provider_stale.assert_called_once()
+        timer_class.assert_called_once_with(5, self.grpc_watcher.emit_error)
+        timer_class.return_value.start.assert_called_once()
+
+    def test_recovered_sync_flags_cancel_error_timer(self):
+        timer = Mock(spec=threading.Timer)
+        timer.is_alive.return_value = True
+        self.grpc_watcher.timer = timer
+        events = []
+        timer.cancel.side_effect = lambda: events.append("cancel")
+        self.grpc_watcher.emit_provider_ready = Mock(
+            side_effect=lambda *_args: events.append("ready")
+        )
+
+        should_stop = self.grpc_watcher._handle_flag_response(
+            SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}'),
+            self.mock_metadata,
+        )
+
+        self.assertFalse(should_stop)
+        self.assertTrue(self.grpc_watcher.connected)
+        self.assertIsNone(self.grpc_watcher.timer)
+        timer.cancel.assert_called_once()
+        self.assertEqual(events, ["cancel", "ready"])
 
     def test_selector_passed_via_both_metadata_and_body(self):
         """Test that selector is passed via both gRPC metadata header and request body for backward compatibility"""
