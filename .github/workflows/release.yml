@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -22,10 +26,10 @@ jobs:
       pull-requests: write # for googleapis/release-please-action to create release PR
     # Release-please creates a PR that tracks all changes
     steps:
-      - uses: googleapis/release-please-action@a02a34c4d625f9be7cb89156071d8567266a2445 # v4
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         id: release
         with:
-          token: ${{secrets.GITHUB_TOKEN}}
+          token: ${{secrets.RELEASE_PLEASE_ACTION_TOKEN}}
           target-branch: main
       - name: Dump Release Please Output
         env:
@@ -50,12 +54,12 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           submodules: recursive
 
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@6ee6290f1cbc4156c0bdd66691b2c144ef8df19a # v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           python-version: ${{ env.TARGET_PYTHON_VERSION }}
 
@@ -68,7 +72,7 @@ jobs:
         run: uv build
 
       - name: Publish a Python distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           # `uv` stores the build packages in the root `dist` folder
           packages-dir: dist
