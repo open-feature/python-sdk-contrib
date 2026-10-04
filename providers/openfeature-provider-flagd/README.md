@@ -92,6 +92,7 @@ The default options can be defined in the FlagdProvider constructor.
 | max_cache_size           | FLAGD_MAX_CACHE_SIZE           | int                        | 1000                          | rpc                 |
 | retry_backoff_ms         | FLAGD_RETRY_BACKOFF_MS         | int                        | 1000                          | rpc                 |
 | offline_flag_source_path | FLAGD_OFFLINE_FLAG_SOURCE_PATH | str                        | null                          | in-process          |
+| channel_credentials      | -                              | `grpc.ChannelCredentials`  | null                          | rpc & in-process    |
 
 > [!NOTE]
 > The `selector` configuration is only used in **in-process** mode for filtering flag configurations. See [Selector Handling](#selector-handling-in-process-mode-only) for migration guidance.
@@ -105,6 +106,29 @@ The default options can be defined in the FlagdProvider constructor.
 
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
+
+### Mutual TLS
+
+Pass custom `grpc.ChannelCredentials` to `channel_credentials` when flagd requires mutual TLS (mTLS). The provider uses these credentials in both resolver modes. They take precedence over `tls` and `cert_path`.
+
+```python
+import grpc
+
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+with (
+    open("ca.pem", "rb") as ca_file,
+    open("client-key.pem", "rb") as key_file,
+    open("client-cert.pem", "rb") as cert_file,
+):
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=ca_file.read(),
+        private_key=key_file.read(),
+        certificate_chain=cert_file.read(),
+    )
+
+provider = FlagdProvider(channel_credentials=credentials)
+```
 
 ### Selector Handling (In-Process Mode Only)
 

@@ -170,6 +170,41 @@ class TestGrpcWatcher(unittest.TestCase):
 
         wait_before_reconnect.assert_called_once()
 
+    def test_generate_channel_uses_custom_channel_credentials(self):
+        credentials = Mock(spec=grpc.ChannelCredentials)
+        channel = Mock(spec=Channel)
+        config = Config(
+            tls=True,
+            cert_path="/unused/server-ca.pem",
+            channel_credentials=credentials,
+        )
+
+        with (
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.grpc.secure_channel",
+                return_value=channel,
+            ) as secure_channel,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.grpc.insecure_channel",
+            ) as insecure_channel,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.grpc.ssl_channel_credentials",
+            ) as ssl_channel_credentials,
+        ):
+            watcher = GrpcWatcher(
+                config=config,
+                flag_store=Mock(spec=FlagStore),
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+            )
+
+        self.assertIs(watcher.channel, channel)
+        secure_channel.assert_called_once()
+        self.assertIs(secure_channel.call_args.kwargs["credentials"], credentials)
+        insecure_channel.assert_not_called()
+        ssl_channel_credentials.assert_not_called()
+
     def test_selector_passed_via_both_metadata_and_body(self):
         """Test that selector is passed via both gRPC metadata header and request body for backward compatibility"""
         self.grpc_watcher.selector = "test-selector"
