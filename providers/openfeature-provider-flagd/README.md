@@ -107,9 +107,24 @@ The default options can be defined in the FlagdProvider constructor.
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
 
-### Mutual TLS
+### Custom channel credentials
 
-Pass custom `grpc.ChannelCredentials` to `channel_credentials` when flagd requires mutual TLS (mTLS). The provider uses these credentials in both resolver modes. They take precedence over `tls` and `cert_path`.
+Pass custom `grpc.ChannelCredentials` to `channel_credentials` to control the TLS setup. The provider uses these credentials in both resolver modes. They take precedence over `tls` and `cert_path`, and the provider creates a secure channel even when `tls` is `False`.
+
+To trust a private server certificate authority (CA), supply only the root certificates:
+
+```python
+import grpc
+
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+with open("ca.pem", "rb") as ca_file:
+    credentials = grpc.ssl_channel_credentials(root_certificates=ca_file.read())
+
+provider = FlagdProvider(channel_credentials=credentials)
+```
+
+When flagd requires mutual TLS (mTLS), also supply the client key and certificate:
 
 ```python
 import grpc
