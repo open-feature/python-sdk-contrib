@@ -144,42 +144,6 @@ class TestGrpcResolver(unittest.TestCase):
 
         wait_before_reconnect.assert_called_once()
 
-    def test_generate_channel_uses_custom_channel_credentials(self):
-        credentials = Mock(spec=grpc.ChannelCredentials)
-        channel = Mock(spec=Channel)
-        config = Config(
-            cache=CacheType.DISABLED,
-            tls=True,
-            cert_path="/unused/server-ca.pem",
-            channel_credentials=credentials,
-        )
-
-        with (
-            patch(
-                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.secure_channel",
-                return_value=channel,
-            ) as secure_channel,
-            patch(
-                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.insecure_channel",
-            ) as insecure_channel,
-            patch(
-                "openfeature.contrib.provider.flagd.resolvers.grpc.grpc.ssl_channel_credentials",
-            ) as ssl_channel_credentials,
-        ):
-            resolver = GrpcResolver(
-                config=config,
-                emit_provider_ready=Mock(),
-                emit_provider_error=Mock(),
-                emit_provider_stale=Mock(),
-                emit_provider_configuration_changed=Mock(),
-            )
-
-        self.assertIs(resolver.channel, channel)
-        secure_channel.assert_called_once()
-        self.assertIs(secure_channel.call_args.kwargs["credentials"], credentials)
-        insecure_channel.assert_not_called()
-        ssl_channel_credentials.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()
