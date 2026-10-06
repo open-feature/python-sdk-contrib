@@ -145,9 +145,9 @@ class GrpcResolver:
         self._shutdown_event.set()
         self.channel.unsubscribe(self._state_change_callback)
         self.channel.close()
-        if self.timer and self.timer.is_alive():
+        if self.timer:
             logger.debug("gRPC error timer cancelled due to shutdown")
-            self.timer.cancel()
+            self._cancel_error_timer()
         if self.cache:
             self.cache.clear()
 
@@ -196,22 +196,27 @@ class GrpcResolver:
                 self.thread.start()
 
             if self.timer and self.timer.is_alive():
-                logger.debug("gRPC error timer expired")
-                self.timer.cancel()
+                logger.debug("gRPC error timer cancelled")
+            self._cancel_error_timer()
 
         elif new_state == ChannelConnectivity.TRANSIENT_FAILURE:
-            # this is the failed reconnect attempt so we are going into stale
-            self.emit_provider_stale(
-                ProviderEventDetails(
-                    message="gRPC sync disconnected, reconnecting",
-                )
-            )
-            # adding a timer, so we can emit the error event after time
-            self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+            self._mark_stale()
 
-            logger.debug("gRPC error timer started")
-            self.timer.start()
-            self.connected = False
+    def _mark_stale(self) -> None:
+        self.connected = False
+        if self.timer:
+            return
+        self.emit_provider_stale(
+            ProviderEventDetails(message="gRPC sync disconnected, reconnecting")
+        )
+        self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+        logger.debug("gRPC error timer started")
+        self.timer.start()
+
+    def _cancel_error_timer(self) -> None:
+        if self.timer:
+            self.timer.cancel()
+            self.timer = None
 
     def emit_error(self) -> None:
         logger.debug("gRPC error emitted")
@@ -250,14 +255,16 @@ class GrpcResolver:
                 )
             )
             return True
-        # non-fatal errors just reconnect; real loss surfaces as a STALE, and eventually, ERROR event
+        # Nonfatal stream errors retry until a provider_ready message resumes the stream.
         logger.debug(f"EventStream error, reconnecting, {code=} {e.details()=}")
+        self._mark_stale()
         return False
 
     def _handle_event_stream_message(
         self, message: evaluation_pb2.EventStreamResponse
     ) -> None:
         if message.type == "provider_ready":
+            self._cancel_error_timer()
             self.emit_provider_ready(
                 ProviderEventDetails(message="gRPC sync connection established")
             )
@@ -292,6 +299,7 @@ class GrpcResolver:
             except Exception:
                 if self.active:
                     logger.exception("Unexpected EventStream error, reconnecting")
+                    self._mark_stale()
                 else:
                     logger.debug("EventStream ended during shutdown", exc_info=True)
             if self.active:

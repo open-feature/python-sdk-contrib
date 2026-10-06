@@ -113,11 +113,14 @@ class TestGrpcResolver(unittest.TestCase):
             "openfeature.contrib.provider.flagd.resolvers.grpc.GrpcResolver._generate_channel",
             return_value=channel,
         ):
+            self.emit_provider_ready = Mock()
+            self.emit_provider_error = Mock()
+            self.emit_provider_stale = Mock()
             self.grpc_resolver = GrpcResolver(
                 config=config,
-                emit_provider_ready=Mock(),
-                emit_provider_error=Mock(),
-                emit_provider_stale=Mock(),
+                emit_provider_ready=self.emit_provider_ready,
+                emit_provider_error=self.emit_provider_error,
+                emit_provider_stale=self.emit_provider_stale,
                 emit_provider_configuration_changed=Mock(),
             )
 
@@ -127,17 +130,29 @@ class TestGrpcResolver(unittest.TestCase):
     def test_uses_max_retry_backoff_for_application_level_reconnect_delay(self):
         self.assertEqual(self.grpc_resolver.retry_backoff_max_seconds, 5)
 
-    def test_listen_backs_off_after_rpc_stream_error(self):
+    def test_nonfatal_rpc_stream_errors_mark_stale_and_back_off(self):
         self.grpc_resolver.stub.EventStream = Mock(side_effect=FakeRpcError())
+        self.grpc_resolver.connected = True
 
-        with patch.object(
-            self.grpc_resolver,
-            "_wait_before_reconnect",
-            side_effect=lambda: setattr(self.grpc_resolver, "active", False),
-        ) as wait_before_reconnect:
+        with (
+            patch.object(
+                self.grpc_resolver,
+                "_wait_before_reconnect",
+                side_effect=lambda: setattr(self.grpc_resolver, "active", False),
+            ) as wait_before_reconnect,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.grpc.threading.Timer"
+            ) as timer_class,
+        ):
             self.grpc_resolver.listen()
 
         wait_before_reconnect.assert_called_once()
+        self.assertFalse(self.grpc_resolver.connected)
+        self.emit_provider_stale.assert_called_once()
+        timer_class.assert_called_once_with(
+            self.grpc_resolver.retry_grace_period, self.grpc_resolver.emit_error
+        )
+        timer_class.return_value.start.assert_called_once()
 
     def test_listen_backs_off_after_stream_completion(self):
         self.grpc_resolver.stub.EventStream = Mock(return_value=iter([]))
@@ -151,19 +166,53 @@ class TestGrpcResolver(unittest.TestCase):
 
         wait_before_reconnect.assert_called_once()
 
-    def test_listen_backs_off_after_unexpected_error(self):
+    def test_unexpected_stream_errors_mark_stale_and_keep_one_grace_timer(self):
         self.grpc_resolver.stub.EventStream = Mock(
             side_effect=RuntimeError("interceptor failed")
         )
+        self.grpc_resolver.connected = True
+        wait_count = 0
 
-        with patch.object(
-            self.grpc_resolver,
-            "_wait_before_reconnect",
-            side_effect=lambda: setattr(self.grpc_resolver, "active", False),
-        ) as wait_before_reconnect:
+        def stop_after_two_retries():
+            nonlocal wait_count
+            wait_count += 1
+            if wait_count == 2:
+                self.grpc_resolver.active = False
+
+        with (
+            patch.object(
+                self.grpc_resolver,
+                "_wait_before_reconnect",
+                side_effect=stop_after_two_retries,
+            ) as wait_before_reconnect,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.grpc.threading.Timer"
+            ) as timer_class,
+        ):
             self.grpc_resolver.listen()
 
-        wait_before_reconnect.assert_called_once()
+        self.assertEqual(wait_before_reconnect.call_count, 2)
+        self.assertFalse(self.grpc_resolver.connected)
+        self.emit_provider_stale.assert_called_once()
+        timer_class.assert_called_once_with(
+            self.grpc_resolver.retry_grace_period, self.grpc_resolver.emit_error
+        )
+        timer_class.return_value.start.assert_called_once()
+        timer_class.call_args.args[1]()
+        self.emit_provider_error.assert_called_once()
+
+    def test_provider_ready_cancels_event_stream_error_timer(self):
+        timer = Mock()
+        self.grpc_resolver.timer = timer
+
+        self.grpc_resolver._handle_event_stream_message(
+            evaluation_pb2.EventStreamResponse(type="provider_ready")
+        )
+
+        timer.cancel.assert_called_once()
+        self.assertIsNone(self.grpc_resolver.timer)
+        self.assertTrue(self.grpc_resolver.connected)
+        self.emit_provider_ready.assert_called_once()
 
     def test_generate_channel_applies_client_interceptors(self):
         interceptor = Mock(spec=grpc.UnaryUnaryClientInterceptor)
