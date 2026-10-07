@@ -28,17 +28,10 @@ __all__ = [
 def a_stable_provider(tck_state: TckState) -> None:
     """Register the provider under test against the running, seeded backend.
 
-    ``api.set_provider_and_wait`` initialises the provider before it returns and
-    dispatches ``PROVIDER_READY``, so by the time this step returns the provider
-    is ready and every scenario that follows can assume it. A suite that started
-    evaluating before that would report races in the TCK as defects in the
-    provider.
-
-    It has to be the waiting variant. Plain ``api.set_provider`` registers and
-    initialises on a worker thread, returning long before the provider is up, so
-    the very first evaluation of every scenario answers ``PROVIDER_NOT_READY`` --
-    a TCK defect that reads exactly like a provider that cannot resolve
-    anything.
+    It has to be ``set_provider_and_wait``: plain ``api.set_provider``
+    initialises on a worker thread and returns long before the provider is up, so
+    the first evaluation of every scenario answers ``PROVIDER_NOT_READY`` -- a
+    TCK defect that reads exactly like a provider that cannot resolve anything.
     """
     config = tck_state.config
     provider = config.new_provider()
@@ -77,11 +70,7 @@ def an_unavailable_provider(tck_state: TckState) -> None:
     Neither a failed initialisation nor a raised exception during registration
     is a failure here: what the contract requires is that the provider settles
     into an observable error state promptly, which the scenario asserts through
-    the event and the client status. The SDK's registry already converts a
-    raising ``initialize`` into ``PROVIDER_ERROR``, so registration itself is
-    expected to return normally -- but a provider that raises anyway must not
-    take the scenario down with it, which is why this is caught rather than
-    propagated.
+    the event and the client status.
     """
     config = tck_state.config
 
@@ -99,16 +88,10 @@ def an_unavailable_provider(tck_state: TckState) -> None:
         msg = "TckConfig.new_unavailable_provider returned None"
         raise AssertionError(msg)
 
-    # The waiting variant for the same reason as the stable provider: plain
-    # set_provider initialises on a worker thread, so registration would return
-    # before the provider had even tried to reach its backend, and the scenario
-    # would assert an error state that had not happened yet.
-    #
-    # A raising initialize is already converted to PROVIDER_ERROR by the SDK's
-    # registry, so the suppression is belt and braces: a provider that raises
-    # anyway must not take the scenario down with it, because the contract is
-    # about the observable error state rather than about how registration
-    # returned.
+    # The waiting variant for the same reason as the stable provider. The SDK's
+    # registry already converts a raising initialize into PROVIDER_ERROR, so the
+    # suppression is belt and braces: a provider that raises anyway must not take
+    # the scenario down with it.
     with contextlib.suppress(Exception):
         api.set_provider_and_wait(provider, config.domain)
 
@@ -120,17 +103,15 @@ def an_unavailable_provider(tck_state: TckState) -> None:
 def the_provider_is_shut_down(tck_state: TckState) -> None:
     """Call the provider's own ``shutdown``, directly.
 
-    Not through the SDK. The SDK shuts a provider down when it is replaced or
-    when the API is shut down, but going that way would test the registry's
-    bookkeeping as much as the provider, and Appendix B already does that.
-    Calling ``shutdown`` on the instance is also what lets a scenario call it
-    twice: the registry only ever calls it once per registration.
+    Not through the SDK, which would test the registry's bookkeeping as much as
+    the provider. Calling it on the instance is also what lets a scenario call it
+    twice, the registry calling it only once per registration.
 
-    The registry is not told. The client still points at the same instance, so
+    The registry is not told, so the client still points at the same instance and
     an evaluation after "the provider is initialized again" reaches the very
-    object that was shut down and brought back, which is what that scenario
-    asserts. And when the scenario ends the SDK shuts the provider down once
-    more on its own -- a second call, which requirement 2.5.3 makes harmless.
+    object that was shut down and brought back. When the scenario ends the SDK
+    shuts the provider down once more -- a second call, which requirement 2.5.3
+    makes harmless.
     """
     _record_lifecycle_call(tck_state, "shutdown", tck_state.require_provider().shutdown)
 
@@ -176,8 +157,7 @@ def the_provider_metadata_name_should_not_be_empty(tck_state: TckState) -> None:
     """Assert the provider identifies itself (requirement 2.1.1).
 
     Asked of the provider rather than of ``api.get_provider_metadata``, which
-    would answer for whatever the registry holds under the domain: the same
-    object here, but the question is about the provider.
+    would answer for whatever the registry holds under the domain.
     """
     provider = tck_state.require_provider()
     try:
@@ -200,13 +180,10 @@ def _record_lifecycle_call(
 ) -> None:
     """Make one direct lifecycle call and record how it went, raising nothing.
 
-    An exception is recorded rather than propagated, for the same reason an
-    evaluation's is: "no exception should have been thrown" is a step of its
-    own, and a scenario that wants a raise to fail says so there. Only
-    ``Exception`` is caught, though. The shutdown scenario that matters most is
-    the one against a backend that is gone, which is exactly where somebody
-    might reach for Ctrl-C, and a ``KeyboardInterrupt`` recorded as "shutdown
-    raised" would carry the run on past the thing they interrupted.
+    An exception is recorded rather than propagated because "no exception should
+    have been thrown" is a step of its own. Only ``Exception`` is caught: a
+    ``KeyboardInterrupt`` recorded as "shutdown raised" would carry the run on
+    past the thing the operator interrupted.
 
     A call that outlasts ``TckConfig.ready_timeout`` is given up on and recorded
     as a ``TimeoutError`` with the time waited, so a hanging shutdown fails its
@@ -232,13 +209,13 @@ def _call_within(call: Callable[[], object], timeout: float) -> None:
     """Make a call into the provider, giving up if it has not returned in time.
 
     Neither ``api.set_provider_and_wait`` nor a provider's own ``shutdown`` has a
-    timeout of its own, so one that hangs while talking to its backend would hang
-    the whole session with no useful message. Running it on a worker thread bounds
-    it.
+    timeout of its own, so one that hangs talking to its backend would hang the
+    whole session. Running it on a worker thread bounds it.
 
-    The worker is deliberately not cancelled on timeout -- Python cannot interrupt a
-    thread blocked in a socket call -- so it is left to finish or die with the process.
-    That is acceptable here because a timeout already means the scenario is failing.
+    The worker is deliberately not cancelled on timeout -- Python cannot
+    interrupt a thread blocked in a socket call -- so it is left to finish or die
+    with the process. Acceptable because a timeout already means the scenario is
+    failing.
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(call)

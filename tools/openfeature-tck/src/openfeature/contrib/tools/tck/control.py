@@ -16,21 +16,20 @@ ControlApi = typing.Literal["http", "in-process"]
 """Which of the two control paths a run used, closed to the two the schema allows.
 
 Named so that a custom control can annotate its own property with it and have
-the type checker refuse a third value -- ``"HTTP"``, ``"grpc"``, a typo -- before
-it becomes a conformance report that fails validation with nothing to point at
-locally.
+the type checker refuse a third value before it becomes a conformance report
+that fails validation with nothing to point at locally.
 """
 
 
 class UnsupportedControlError(RuntimeError):
     """Raised when a backend cannot perform a control operation.
 
-    It is always a test-configuration bug rather than a provider defect. The
-    scenarios needing connection control are gated behind
-    :attr:`Capability.STALE` and :attr:`Capability.UNAVAILABLE_INIT`, so
-    reaching an unsupported operation means a capability was declared that the
-    backend cannot back up. The TCK fails loudly on it rather than skipping,
-    because a silent no-op would report the scenario as passed.
+    Always a test-configuration bug rather than a provider defect: the scenarios
+    needing connection control are gated behind :attr:`Capability.STALE` and
+    :attr:`Capability.UNAVAILABLE_INIT`, so reaching an unsupported operation
+    means a capability was declared that the backend cannot back up. Raised
+    rather than skipped, because a silent no-op would report the scenario as
+    passed.
     """
 
 
@@ -41,24 +40,20 @@ class BackendControl(typing.Protocol):
     Step definitions never talk to a backend directly. They talk to this
     protocol, which is why the same Gherkin runs unchanged against a
     containerised backend driven over HTTP and against a provider manipulated
-    in-process. Nothing below this line knows about ports, containers or
-    transports.
+    in-process.
 
     **Which implementation is right for your provider.** If your provider talks
-    to a backend -- a server, a service, anything out of process -- drive it
-    over the HTTP control API described in ``control-api.yaml``. That API is the
-    normative contract for those providers, and it is what makes a conformance
-    claim portable: another language's TCK drives the same endpoints against the
-    same stack and must get the same answers.
+    to a backend -- a server, a service, anything out of process -- drive it over
+    the HTTP control API in ``control-api.yaml``. That API is the normative
+    contract for those providers, and it is what makes a conformance claim
+    portable: another language's TCK drives the same endpoints against the same
+    stack and must get the same answers.
 
-    Do not write an in-process control that reaches into an external backend
-    through a side channel -- a test-only admin client, a shared database
-    handle, a hook inside the provider. It will pass, and it will prove nothing,
-    because the path it exercised is not the path the contract describes.
-
-    In-process control exists for providers with *no* backend to contract with:
-    in-memory, environment-variable and file-based providers, where "the
-    backend" is a data structure in the same process. See
+    Do not instead write an in-process control that reaches into an external
+    backend through a side channel -- a test-only admin client, a shared database
+    handle, a hook inside the provider. It will pass and prove nothing, because
+    the path it exercised is not the path the contract describes. In-process
+    control is for providers with *no* backend to contract with; see
     :class:`InProcessControl`.
     """
 
@@ -89,23 +84,12 @@ class BackendControl(typing.Protocol):
 
         ``"http"`` is the normative HTTP control API in ``control-api.yaml``.
         ``"in-process"`` is the narrow allowance made for a provider with no
-        backend, where "the backend" is a data structure in this process -- see
-        :class:`InProcessControl`.
+        backend -- see :class:`InProcessControl`.
 
-        **Required, and stated rather than inferred.** It is the one fact that
-        decides what everything else in a report is worth: the same scenarios
-        passing over the control API and passing through in-process manipulation
-        of a provider that *does* have a backend are not the same claim, and
-        this is the only field that separates them. Nothing outside a control can
-        tell the two apart -- a suite that guessed from the control's concrete
-        type would be right about the two controls in this package and silently
-        wrong about a custom one, which is exactly the case where the answer
-        matters.
-
-        Nor would an absent value be neutral. Every run is one or the other, so
-        there is no third case an omitted value legitimately covers: it would
-        not be "no claim made" but an unfalsifiable one. A custom control states
-        it here and nothing downstream has to guess.
+        **Required, and stated rather than inferred**: it is the one field
+        separating the same scenarios passing over the control API from them
+        passing through in-process manipulation of a provider that *does* have a
+        backend, and nothing outside a control can tell the two apart.
         """
 
 
@@ -134,11 +118,7 @@ class ConnectionControl(typing.Protocol):
 def unsupported_control(
     control: BackendControl, operation: str
 ) -> UnsupportedControlError:
-    """Build the error raised when a backend has no connection to control.
-
-    The message names the fix, because the mistake it reports is always the same
-    one.
-    """
+    """Build the error raised when a backend has no connection to control."""
     return UnsupportedControlError(
         f"{control.description} does not support {operation!r}. This is a "
         f"test-configuration bug rather than a provider defect: a scenario needing "

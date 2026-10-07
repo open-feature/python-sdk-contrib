@@ -47,10 +47,10 @@ def _event(name: str) -> ProviderEvent:
 def an_event_handler(tck_state: TckState, kind: str) -> None:
     """Attach a recorder for one event type.
 
-    Handlers are attached after the provider is registered, which the SDK
-    handles by replaying a matching event on registration when the provider is
-    already in the corresponding state. That is why "Given a stable provider"
-    followed by "And a ready event handler" is not a race.
+    Handlers are attached after the provider is registered, and the SDK replays a
+    matching event when the provider is already in the corresponding state, so
+    "Given a stable provider" followed by "And a ready event handler" is not a
+    race.
     """
     event = _event(kind)
     if event in tck_state.recorders:
@@ -63,8 +63,8 @@ def an_event_handler(tck_state: TckState, kind: str) -> None:
 def an_event_was_fired(tck_state: TckState, kind: str) -> None:
     """Consume an event, so a later assertion observes the next one rather than this.
 
-    The stale scenario depends on it: it consumes the initial ``PROVIDER_READY``
-    here and then asserts a second, distinct one once the backend is back.
+    The stale scenario depends on it, consuming the initial ``PROVIDER_READY``
+    here and asserting a second, distinct one once the backend is back.
     """
     recorder = tck_state.require_recorder(_event(kind))
     recorder.await_event(tck_state.config.event_timeout)
@@ -91,10 +91,8 @@ def the_event_handler_should_have_been_executed_within(
 ) -> None:
     """Bound the wait explicitly.
 
-    The scenarios using this assert promptness, not merely eventual arrival: a
-    provider that cannot reach its backend has to report that fact quickly,
-    because an application blocked on provider registration is down. The bound
-    therefore overrides ``event_timeout`` rather than being clamped by it.
+    The scenarios using this assert promptness, not merely eventual arrival, so
+    the bound overrides ``event_timeout`` rather than being clamped by it.
     """
     recorder = tck_state.require_recorder(_event(kind))
     recorder.await_event(int(millis) / 1000.0)
@@ -104,9 +102,8 @@ def the_event_handler_should_have_been_executed_within(
 def the_flag_should_be_part_of_the_event_payload(tck_state: TckState) -> None:
     """Assert the configuration-change event named the flag that changed.
 
-    Naming the changed flags is what makes the event actionable: a consumer
-    caching evaluations needs to know what to invalidate, and an event carrying
-    no keys forces it to invalidate everything.
+    A consumer caching evaluations needs to know what to invalidate, and an event
+    carrying no keys forces it to invalidate everything.
     """
     key, _flag_type, _default = tck_state.require_flag()
     recorder = tck_state.require_recorder(ProviderEvent.PROVIDER_CONFIGURATION_CHANGED)
@@ -153,9 +150,8 @@ def the_connection_is_restored(tck_state: TckState) -> None:
 def the_client_should_be_in_state(tck_state: TckState, name: str) -> None:
     """Assert the provider status the client reports.
 
-    Checked after the corresponding event has been consumed, and the SDK writes
-    provider status before running handlers, so no polling is needed: if the
-    event arrived, the status is already current.
+    No polling: the SDK writes provider status before running handlers, so if the
+    event this follows arrived, the status is already current.
     """
     client = tck_state.require_client()
     expected = _STATUS_BY_NAME[name]

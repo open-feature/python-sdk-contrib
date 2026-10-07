@@ -45,13 +45,10 @@ class EvaluationRecord:
 class LifecycleRecord:
     """The outcome of one direct call into the provider's lifecycle.
 
-    The shutdown scenarios call the provider's own ``shutdown`` and
-    ``initialize`` rather than going through the SDK, because the SDK's
-    bookkeeping around them is Appendix B's business rather than this suite's.
-    Each call is recorded the same way an evaluation is -- what it raised, if
-    anything -- so that "no exception should have been thrown" reads one kind
-    of record for both, plus how long it took, which is what the prompt-shutdown
-    scenario bounds.
+    Recorded the same way an evaluation is -- what it raised, if anything -- so
+    that "no exception should have been thrown" reads one kind of record for
+    both, plus how long it took, which is what the prompt-shutdown scenario
+    bounds.
     """
 
     operation: str
@@ -69,13 +66,12 @@ class EventRecorder:
 
     Consuming rather than merely observing is what makes the stale scenario
     work: it awaits a ``PROVIDER_READY`` at the start and a second, different
-    ``PROVIDER_READY`` once the backend is back, and a recorder that only
-    remembered "ready has fired at some point" would report the second assertion
-    as satisfied by the first event.
+    one once the backend is back, and a recorder that only remembered "ready has
+    fired at some point" would report the second assertion as satisfied by the
+    first event.
 
-    A queue rather than a list because a provider with a background thread --
-    anything with a real backend -- delivers events from that thread while the
-    scenario waits on the main one.
+    A queue rather than a list because a provider with a background thread
+    delivers events from that thread while the scenario waits on the main one.
     """
 
     def __init__(self, client: OpenFeatureClient, event: ProviderEvent) -> None:
@@ -85,10 +81,8 @@ class EventRecorder:
         self.last: EventDetails | None = None
 
         # The SDK replays a matching event on registration when the provider is
-        # already in the corresponding state, so a handler added after the
-        # provider became ready still observes its PROVIDER_READY. That is what
-        # lets the feature files register handlers after "Given a stable
-        # provider" without racing it.
+        # already in the corresponding state, which is what lets the feature
+        # files register handlers after "Given a stable provider" without racing.
         client.add_handler(event, self._on_event)
 
     def _on_event(self, details: EventDetails) -> None:
@@ -121,11 +115,10 @@ class TckState:
     provider: FeatureProvider | None = None
     """The provider under test, for the steps that call it directly.
 
-    Everything else reaches the provider through :attr:`client`, which is how
-    an application would. The lifecycle and metadata steps are the exception:
-    they ask the provider itself, because what they verify is the provider's
-    own ``shutdown``, ``initialize`` and ``get_metadata`` rather than the SDK's
-    handling of them.
+    Everything else reaches the provider through :attr:`client`, as an
+    application would. The lifecycle and metadata steps are the exception: what
+    they verify is the provider's own ``shutdown``, ``initialize`` and
+    ``get_metadata`` rather than the SDK's handling of them.
     """
     flag_key: str | None = None
     flag_type: FlagType | None = None
@@ -134,11 +127,9 @@ class TckState:
     """The context the scenario supplies to the evaluation, if it supplies one.
 
     ``None`` rather than an empty context, and the distinction is load-bearing:
-    one of the ``@targeting`` scenarios is specifically about a rule that cannot
-    match because no context was given at all, and a provider that would fall
-    over on an empty context rather than on an absent one is exactly what it is
-    looking for. So an unset context is passed to the SDK as ``None``, which is
-    what an application calling the two-argument form sends.
+    one of the ``@targeting`` scenarios is about a rule that cannot match because
+    no context was given at all. So an unset context is passed to the SDK as
+    ``None``, which is what an application calling the two-argument form sends.
     """
     last: EvaluationRecord | None = None
     lifecycle: list[LifecycleRecord] = field(default_factory=list)

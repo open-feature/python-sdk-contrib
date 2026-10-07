@@ -2,19 +2,13 @@
 
 A provider that talks to a backend needs that backend running, its dynamically
 mapped host ports discovered, and an :class:`~.httpcontrol.HttpControl` built
-against its control API. Every adoption needs the same three things, and until
-now every adoption wrote them: this package shipped the control client and left
-orchestration to the adopter, so the flagd adoption alone carried a 122-line
-``conftest.py`` and a 170-line ``suite.py`` of container wiring, and the next
-adopter would have paid for it again.
-
-So the suite owns the stack. **An adopter names a Compose file, says which
-service and ports to expose, and supplies a factory that builds a provider from
-a discovered endpoint.** Everything else -- start the stack once, discover the
+against its control API. **An adopter names a Compose file, says which service
+and ports to expose, and supplies a factory that builds a provider from a
+discovered endpoint.** Everything else -- start the stack once, discover the
 mapped ports, build the control, wait until it accepts commands, tear down after
 the last scenario -- happens here.
 
-Two lines, in the adopter's ``conftest.py``::
+Two fixtures, in the adopter's ``conftest.py``::
 
     @pytest.fixture(scope="session")
     def compose_backend() -> ComposeBackend:
@@ -41,25 +35,18 @@ installed -- see :mod:`~.inprocess`.
 **The stack starts once per suite and is never restarted.** Container
 orchestrators assign host ports dynamically and cannot reliably preserve them
 across a restart, so a restarted backend comes back on a different host port,
-silently invalidating every provider already pointed at the old one -- and the
-failure looks like a flaky provider rather than a broken test. Backend
+silently invalidating every provider already pointed at the old one. Backend
 unavailability is always simulated *inside* the running stack, through the
 control API. That is also why :attr:`TckConfig.new_provider` is a factory rather
 than an instance: the ports do not exist until the stack is up.
 
-**The Compose path does not replace the manual one.** A provider with no backend
-at all keeps supplying its own :class:`~.control.BackendControl` exactly as
-before. Compose is an additional path, and the one nearly every provider wants.
-
-**Do not substitute a control of your own that pokes an external backend through
-a side channel.** The HTTP control API is the normative contract: another
-language's suite drives the same endpoints against the same stack and must get
-the same answers. See :class:`~.control.BackendControl`.
+A provider with no backend at all keeps supplying its own
+:class:`~.control.BackendControl` instead -- which is also where the rules on
+what a control may and may not reach for are written down.
 
 Requires the ``compose`` extra -- ``pip install 'openfeature-tck[compose]'`` --
-which is what pulls in ``testcontainers``. Keeping it optional is deliberate: an
-in-memory adopter should not have to install container tooling to run a suite
-that never starts a container.
+which pulls in ``testcontainers``. It is optional so an in-memory adopter need
+not install container tooling to run a suite that never starts a container.
 """
 
 from __future__ import annotations
@@ -92,8 +79,8 @@ __all__ = [
 DEFAULT_BACKEND_SERVICE = "backend"
 """The Compose service name a stack is expected to host the backend under.
 
-Fixed across every language's TCK, so the same Compose file is the whole of what
-an adoption shares between two of them.
+Fixed across every language's TCK, so the same Compose file serves an adoption
+in any of them.
 """
 
 DEFAULT_CONTROL_PORT = 8080
@@ -127,14 +114,9 @@ class ComposeStack(typing.Protocol):
 class BackendEndpoint:
     """Where the running stack is reachable, handed to the provider factory.
 
-    This type exists because host ports are only known *after* the stack has
-    started. A Compose file under test must not pin host ports -- Docker assigns
-    them dynamically -- so a provider cannot be configured until the stack is up,
-    which is the whole reason :attr:`TckConfig.new_provider` is a factory.
-
-    The mapping is stable for the lifetime of the suite: the stack is started
-    once and never restarted, so a provider built from this endpoint stays valid
-    for every scenario.
+    Stable for the lifetime of the suite, since the stack is started once and
+    never restarted, so a provider built from this endpoint stays valid for every
+    scenario.
     """
 
     stack: ComposeStack
@@ -147,12 +129,11 @@ class BackendEndpoint:
     """Which container-internal ports each service publishes, from the declaration.
 
     Carried so that a host can be resolved at all. Testcontainers resolves a
-    service's host *through* one of its published ports, and asked for a service
-    without naming one it demands that the service publish exactly one -- so on
-    a stack like flagd's, which publishes three on one service, the no-port form
-    raises ``NoSuchPortExposed`` and the message blames the port rather than the
-    call. Any of the service's ports answers the question, so the first declared
-    one is used.
+    service's host *through* one of its published ports, and asked without naming
+    one it demands that the service publish exactly one -- so for a service
+    publishing several it raises ``NoSuchPortExposed`` and blames the port rather
+    than the call. Any of the service's ports answers the question, so the first
+    declared one is used.
     """
 
     @property
@@ -262,12 +243,10 @@ class ComposeBackend:
     ``default`` is the only name every backend must support, and the one that
     serves the canonical flag set the feature files assume.
 
-    Named for the *backend* because ``configuration`` on its own is already
-    taken, by the conformance report's ``provider.configuration`` -- which is
-    which materially different mode of the provider was tested, flagd's RPC
-    versus in-process, and which :attr:`TckConfig.name` feeds. The two are
-    unrelated and one word for both made a report's ``configuration`` mean
-    opposite things depending on which language's TCK produced it.
+    Named for the *backend* because ``configuration`` on its own is taken by the
+    conformance report's ``provider.configuration`` -- which materially different
+    mode of the provider was tested, and which :attr:`TckConfig.name` feeds. The
+    two are unrelated.
     """
 
     startup_timeout: float = DEFAULT_STARTUP_TIMEOUT
@@ -426,13 +405,11 @@ def _docker_compose(compose_file: Path) -> typing.Any:
     """Build a ``DockerCompose`` for one Compose file.
 
     Imported here rather than at module scope so that importing this module --
-    which the package's ``__init__`` does -- costs nothing and, more to the
-    point, does not require ``testcontainers`` to be installed. An in-memory
-    adopter has no use for container tooling and should not have to install it.
+    which the package's ``__init__`` does -- does not require ``testcontainers``
+    to be installed.
     """
     try:
-        # PLC0415: deliberately not at module scope. That is the whole point of
-        # this function -- see the docstring.
+        # PLC0415: deliberately not at module scope -- see the docstring.
         from testcontainers.compose import DockerCompose  # noqa: PLC0415
     except ImportError as error:  # pragma: no cover - depends on the environment
         msg = (
@@ -455,12 +432,8 @@ def _docker_compose(compose_file: Path) -> typing.Any:
 def _await_ports(backend: ComposeBackend, endpoint: BackendEndpoint) -> None:
     """Wait until every declared port accepts a TCP connection.
 
-    Java's harness gets this from a Testcontainers listening-port wait strategy
-    per exposed service port; ``docker compose up --wait`` only promises the
-    container is up, which for a service with no healthcheck it is well before
-    anything is listening. Same guarantee, established the same way, so the two
-    languages fail at the same point rather than one of them failing later and
-    somewhere less obvious.
+    ``docker compose up --wait`` only promises the container is up, which for a
+    service with no healthcheck it is well before anything is listening.
     """
     deadline = time.monotonic() + backend.startup_timeout
     for service, ports in backend.exposed_ports.items():

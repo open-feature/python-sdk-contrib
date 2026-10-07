@@ -4,19 +4,12 @@ Registered through the ``pytest11`` entry point, so installing this package is
 all it takes for the step definitions to be available. pytest-bdd resolves steps
 through the fixture system and fixtures from an installed plugin are visible to
 every test, which is what keeps an adoption down to one fixture and one call to
-``scenarios(*feature_paths())``.
+``scenarios(*feature_paths())`` -- and what makes the suite extensible, since a
+step an adopter defines in their own ``conftest.py`` is resolved by the same
+lookup. See :mod:`~.extensions`.
 
-The same mechanism is what makes the suite extensible: a step an adopter defines
-in their own ``conftest.py`` is resolved by the same fixture lookup as one this
-plugin ships, so their scenarios need no glue and no second harness. See
-:mod:`~.extensions`.
-
-It is also where the things a run must refuse to do quietly are checked.
-Skipping a scenario whose capability was not declared happens loudly, with the
-reason. A scenario carrying a tag this package still calls reserved fails the
-run outright rather than being skipped for a capability nobody may claim -- and
-so does one carrying a tag the vocabulary has never heard of, which is the same
-drift in the other direction and leaves the scenario mandatory instead.
+It is also where the things a run must refuse to do quietly are checked: see
+:func:`unknown_tag_problem` and :func:`reserved_tag_problem`.
 """
 
 from __future__ import annotations
@@ -70,22 +63,15 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Fail the run over a tag this package holds shut, or has never heard of.
 
-    Two run-integrity checks over one pass across the collection, because they
-    read the same two sources and mean opposite things. Appendix F states both
-    as **MUST**s, and calls the second one the easy one to leave out.
+    See :func:`unknown_tag_problem` and :func:`reserved_tag_problem`. The
+    unknown-tag check goes first: a vocabulary that does not know what a tag
+    means has a worse problem than one holding a known tag shut.
 
-    See :func:`reserved_tag_problem` and :func:`unknown_tag_problem` for what
-    each of them is. The unknown-tag check goes first: a vocabulary that does
-    not know what a tag means has a worse problem than one holding a known tag
-    shut, and the second message would be read as the whole story.
-
-    **What decides whether either runs at all** is that this package is a
-    ``pytest11`` plugin, so the hook fires for every pytest run in an
-    environment that merely has it installed, and an unrelated test suite has no
-    business failing over the contents of these feature files. So both checks
-    wait for a canonical scenario, which nothing but
-    :func:`~.extensions.feature_paths` produces. Go, Java and JS have an
-    explicit entry point and no equivalent problem.
+    Both checks wait for a canonical scenario, which nothing but
+    :func:`~.extensions.feature_paths` produces. This package is a ``pytest11``
+    plugin, so the hook fires for every pytest run in an environment that merely
+    has it installed, and an unrelated test suite has no business failing over
+    the contents of these feature files.
     """
     running = False
     carried: set[str] = set()
@@ -111,34 +97,17 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 def unknown_tag_problem(canonical: Iterable[str]) -> str | None:
     """Refuse a canonical tag :class:`~.capability.Capability` cannot resolve.
 
-    **An unknown tag gates nothing, so its scenarios stay mandatory**, and that
-    is the failure: a suite whose vocabulary is behind the assets does not
-    report a capability it has not learned, it goes on demanding the behaviour
-    of every adopter. A provider that legitimately withholds the new capability
-    fails scenarios while every other provider stays green, and nothing in the
-    results says why. Appendix F's run-integrity section states it, and observes
-    that all four reference implementations ignored an unknown tag instead.
+    An unknown tag gates nothing, so its scenarios stay mandatory -- the message
+    below says what that costs. Refused rather than warned about because the
+    remedy is always upstream of a run.
 
-    The remedy is always the same and is always upstream of a run: add the
-    member to :class:`~.capability.Capability`, against Appendix F's capability
-    table, and say on it what declaring and withholding mean. Nothing an
-    adoption can do substitutes, which is why this is refused rather than
-    warned about.
-
-    **Canonical tags only, and that is the substance of the check rather than a
-    simplification.** A tag that resolves to nothing is a problem exactly where
-    every tag is meant to be a capability, and the canonical assets are the only
-    such source: the specification writes them, and Appendix F's table is their
-    vocabulary. An adopter's extension tags its scenarios for its own purposes
-    -- ``@fractional``, ``@slow``, whatever organises their file -- and those
-    gate nothing on purpose; reading them here would turn every extension into
-    a failing run. The reserved check *does* read them, and the asymmetry is not
-    an inconsistency: "is this one of my reserved names" is answerable about any
-    tag, and "is this a capability I do not know" is not.
-
-    Read off the packaged files rather than off the collection for the same
-    reason the canonical half of the reserved check is: a ``-k`` or a
-    ``--deselect`` cannot narrow a run past the specification's half.
+    **Canonical tags only.** A tag that resolves to nothing is a problem exactly
+    where every tag is meant to be a capability, and the canonical assets are the
+    only such source; an adopter's extension tags its scenarios for its own
+    purposes, so reading those here would turn every extension into a failing
+    run. The reserved check *does* read them, because "is this one of my reserved
+    names" is answerable about any tag and "is this a capability I do not know"
+    is not.
     """
     unknown = unknown_capabilities(canonical)
     if not unknown:
@@ -160,52 +129,19 @@ def unknown_tag_problem(canonical: Iterable[str]) -> str | None:
 def reserved_tag_problem(carried: Iterable[str]) -> str | None:
     """Refuse a reserved tag carried by a scenario this run collected.
 
-    The mirror of :func:`unknown_tag_problem`: there the vocabulary is behind
-    the assets, here it is ahead of them.
-
-    A reservation is a name held open for scenarios that do not exist yet, and
-    a reserved capability cannot be declared -- :class:`~.config.TckConfig`
-    refuses it. So a scenario carrying one reaches the capability gate below
-    and is skipped, for a capability nobody is permitted to claim: a question
-    put and silently withdrawn. Appendix F calls that the unclaimable
-    capability. The run stays green, the report stays well-formed, and nothing
-    else here notices, which is why it is checked rather than watched for.
-
-    Two different mistakes end there. The check does not tell them apart,
-    because the consequence is identical and the message names both remedies:
-
-    * the specification wrote the scenarios the tag was held open for and
-      :data:`~.capability.RESERVED_CAPABILITIES` has not followed --
-      ``@targeting`` was reserved until spec revision ``26362f85`` gave it
-      three scenarios;
-    * an extension of the adopter's own used a reserved name for a tag of its
-      own, which is unclaimable from the day the file is written.
-
-    This once fired for the canonical set alone, on the reasoning that only the
-    specification can expire a reservation. That much is true and it is beside
-    the point: an extension scenario carrying a reserved tag can never run and
-    can never be claimed either, which is exactly the failure being surfaced.
-    It arrives from the adopter rather than from upstream; the consequence does
-    not care. Go and Java check every scenario the run collected, and so does
-    this.
-
-    Refused rather than worked around. Treating the tag as declarable here
-    would let a run claim a capability against a package that does not know the
-    tag exists, and the point of the check is that a human re-reads that set
-    against the specification -- or renames their own tag.
+    The mirror of :func:`unknown_tag_problem`: there the vocabulary is behind the
+    assets, here it is ahead of them. The check does not tell the two possible
+    mistakes apart, because the consequence is identical and the message below
+    names both remedies.
 
     **The two halves have different sources, and only one of them is
-    collected.** The canonical tags are read off the packaged files rather than
-    off the items, so a ``-k`` or a ``--deselect`` cannot narrow a run past the
-    specification's half. An extension's tags have no such source -- the
-    directory is found from the adopter's own test module, at the moment
-    :func:`~.extensions.feature_paths` is called -- so they come from what was
-    collected, as they do in every other language. In practice this hook is
-    handed the whole collection before anything is deselected, so a selection
-    does not narrow that half either; that is pytest's hook order rather than a
-    promise, and the half that must not be narrowable does not lean on it.
-    Which of the two a tag arrived from is not recorded, because the remedy is
-    the reader's to pick and the message names both.
+    collected.** The canonical tags are read off the packaged files, so a ``-k``
+    or a ``--deselect`` cannot narrow a run past the specification's half. An
+    extension's tags have no such source -- the directory is found from the
+    adopter's own test module -- so they come from what was collected. This hook
+    is in practice handed the whole collection before anything is deselected, but
+    that is pytest's hook order rather than a promise, and the half that must not
+    be narrowable does not lean on it.
     """
     expired = expired_reservations(carried)
     if not expired:
@@ -232,8 +168,7 @@ def _suite_feature(item: pytest.Item) -> Path | None:
     ``__scenario__`` is what pytest-bdd hangs on the function it generates, and
     it is readable at collection without running a fixture. ``None`` for a node
     that is not a scenario at all, and for a pytest-bdd scenario belonging to
-    some other suite that happens to share the session -- neither is this
-    suite's to fail.
+    some other suite that happens to share the session.
 
     Which scenarios are this suite's is decided by
     :func:`~.extensions.uri_for`, the same derivation a report identifies a
@@ -267,10 +202,10 @@ def tck_backend(compose_backend: ComposeBackend) -> typing.Iterator[RunningBacke
         def tck_config(tck_backend: RunningBackend) -> TckConfig:
             ...
 
-    Session-scoped rather than module-scoped on purpose: two suites that drive
-    the same backend -- flagd's two resolvers, say -- must share one stack *and*
-    one control, because the control remembers whether a disconnect left the
-    backend down and two instances would each hold half of that knowledge.
+    Session-scoped rather than module-scoped: two suites that drive the same
+    backend must share one stack *and* one control, because the control
+    remembers whether a disconnect left the backend down and two instances would
+    each hold half of that knowledge.
 
     Lazy, like every fixture: a provider with no backend never requests it,
     never defines ``compose_backend``, and never needs Docker or the ``compose``
@@ -306,29 +241,22 @@ def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
 def capability_gate(request: pytest.FixtureRequest) -> None:
     """Skip a scenario whose capability the provider did not declare.
 
-    ``pytest.skip`` here reports the scenario as skipped **with the reason**,
-    which is exactly what the specification asks a TCK implementation to do.
-    Nothing about it can be mistaken for a pass.
+    ``pytest.skip`` reports the scenario as skipped **with the reason**, and
+    nothing about it can be mistaken for a pass.
 
     The gate keys off the node's markers rather than its requested fixtures.
     pytest-bdd resolves a step's fixtures lazily, as each step runs, so
     ``tck_config`` is not in ``request.fixturenames`` when this autouse fixture
-    is set up -- guarding on that silently disabled the gate and let
-    ``@unavailable`` scenarios run against a config that never declared it.
-
-    Checking markers first also means the gate costs nothing, and instantiates
-    nothing, for tests that are not TCK scenarios.
+    is set up -- guarding on that silently disabled the gate. Checking markers
+    first also means the gate costs nothing for tests that are not TCK
+    scenarios.
 
     **A capability this SDK cannot express is skipped first, and says so.** Its
-    scenarios would be skipped anyway -- nothing may declare it, so nothing
-    does -- but with the wrong reason. "The provider does not declare it" reads
-    as a decision the provider made, and no provider in this language had one to
-    make; a reader of the report has to be able to tell those apart, because only
-    the first says anything about the provider. Checked before the declaration
-    loop rather than inside it so that a scenario gated by both kinds reports the
-    permanent, language-wide reason rather than whichever tag came first off the
-    marker iterator. Empty in Python; see
-    :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`.
+    scenarios would be skipped anyway, but with the wrong reason: "the provider
+    does not declare it" reads as a decision the provider made, and no provider
+    in this language had one to make. Checked before the declaration loop so
+    that a scenario gated by both kinds reports the permanent, language-wide
+    reason rather than whichever tag came first off the marker iterator.
     """
     gated = [
         capability
@@ -357,9 +285,7 @@ def inexpressible_skip_reason(gated: Iterable[Capability]) -> str | None:
 
     Says nothing about the provider, and says so, because the alternative
     reading is the one a reader will reach for: a capability missing from a
-    report usually means the provider declined. Here nothing declined -- no
-    provider in this SDK could be asked -- and Appendix F makes telling those
-    two apart the implementation's job rather than the reader's.
+    report usually means the provider declined.
 
     Deterministic when more than one applies: the tags are sorted, so the
     message does not depend on the order markers come off a node.

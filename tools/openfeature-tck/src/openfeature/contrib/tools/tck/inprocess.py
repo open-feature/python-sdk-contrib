@@ -21,26 +21,20 @@ _CHANGED = "bar"
 class InProcessControl:
     """Manipulates an in-process provider directly, with no backend and no HTTP.
 
-    This exists so providers with nothing to connect to -- in-memory,
-    environment-variable and file-based providers -- can run the TCK. For those,
-    "the backend" is a data structure in the same process: seeding flags is
-    building a mapping, and changing one is an update on the live provider, so
-    the event the suite awaits is the provider's own
+    For providers with nothing to connect to -- in-memory, environment-variable
+    and file-based -- where "the backend" is a data structure in the same
+    process: seeding flags is building a mapping, and changing one is an update
+    on the live provider, so the event the suite awaits is the provider's own
     ``PROVIDER_CONFIGURATION_CHANGED`` rather than one the TCK synthesised.
 
-    **This is not a shortcut for providers that do have a backend.** Reaching
-    into an external backend from inside the test process -- a test-only admin
-    client, a shared database handle, a hook in the provider -- produces a suite
-    that passes while proving nothing, because the path it exercised is not the
-    path the contract describes. Those providers drive the HTTP control API
-    instead.
+    **Not a shortcut for providers that do have a backend** -- those drive the
+    HTTP control API. See :class:`~.control.BackendControl`.
 
-    **Connection control.** :class:`InProcessControl` deliberately does not
-    implement :class:`~.control.ConnectionControl`. An in-memory provider has no
-    connection to lose, and pretending otherwise with a no-op would report the
-    ``@stale`` scenarios as passed. A suite using it leaves
-    :attr:`Capability.STALE` and :attr:`Capability.UNAVAILABLE_INIT` undeclared,
-    and those scenarios are skipped with the reason reported.
+    **Connection control.** This deliberately does not implement
+    :class:`~.control.ConnectionControl`. An in-memory provider has no connection
+    to lose, and a no-op would report the ``@stale`` scenarios as passed. A suite
+    using it leaves :attr:`Capability.STALE` and
+    :attr:`Capability.UNAVAILABLE_INIT` undeclared.
 
     **Ownership of the provider.** This type both seeds the flags and creates
     the provider serving them, because in-process they are the same object:
@@ -68,9 +62,9 @@ class InProcessControl:
     def control_api(self) -> ControlApi:
         """Report how this backend was driven, for the conformance report.
 
-        ``in-process`` is the narrow allowance for providers with no backend,
-        which is exactly what this control exists for. A provider that does have
-        a backend and reports this is claiming something it should not.
+        ``in-process`` is the narrow allowance for providers with no backend. A
+        provider that does have one and reports this is claiming something it
+        should not.
         """
         return "in-process"
 
@@ -98,10 +92,6 @@ class InProcessControl:
 
     def change_flag(self) -> None:
         """Flip ``changing-flag`` between its two variants on the live provider.
-
-        The event the suite awaits is therefore the provider's own
-        ``PROVIDER_CONFIGURATION_CHANGED``, carrying ``changing-flag`` in
-        ``flags_changed``, and not a signal the TCK synthesised.
 
         Alternating rather than assigning a fixed variant keeps repeated calls
         within one scenario meaningful; the suite asserts that the resolved
