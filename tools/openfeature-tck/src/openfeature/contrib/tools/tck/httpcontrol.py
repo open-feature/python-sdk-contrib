@@ -34,8 +34,7 @@ than this is a wedged backend rather than a slow one.
 DEFAULT_STARTUP_TIMEOUT = 60.0
 """Seconds to wait for a stack and its control API to become reachable.
 
-The same default every language's TCK uses, so an adopter porting an adoption
-between two of them does not find one of them more patient than the other.
+The same default every language's TCK uses.
 """
 
 _NOT_IMPLEMENTED = frozenset({404, 501})
@@ -63,41 +62,31 @@ class ControlApiError(RuntimeError):
 class HttpControl:
     """Drives a backend under test over the HTTP control API in ``control-api.yaml``.
 
-    This is the normative control path for any provider with a real backend, and
-    it is what makes a conformance claim portable: another language's TCK drives
-    the same endpoints against the same stack and must get the same answers.
+    The normative control path for any provider with a real backend -- see
+    :class:`~.control.BackendControl`.
 
     Built on :mod:`urllib.request` alone, so adopting the TCK pulls in no HTTP
-    client and no container library. Orchestrating the stack stays with the
-    adopting suite, where the vendor-specific knowledge already lives -- which
-    compose file, which services, which internal ports.
+    client and no container library.
 
-    **What it never does.** It never stops, kills or recreates a container.
-    Unavailability is simulated inside the running stack, through ``POST /stop``,
-    because container orchestrators assign host ports dynamically and cannot
-    reliably preserve them across a restart: a restarted backend generally comes
-    back on a different host port, silently invalidating every provider already
-    pointed at the old one, and the resulting failure looks like a flaky provider
-    rather than a broken test. Starting and stopping the stack itself belongs to
-    the adopting suite, once per session.
+    **What it never does.** It never stops, kills or recreates a container:
+    unavailability is simulated inside the running stack, through ``POST /stop``,
+    for the reason :mod:`~.compose` gives. Starting and stopping the stack itself
+    belongs to the adopting suite, once per session.
 
     **Scenario isolation.** :meth:`prepare_scenario` prefers ``POST /reset``,
     which restores the flag baseline with no availability blip and therefore
     cannot inject a spurious lifecycle event into the next scenario. That
     operation is optional, and a backend that does not implement it answers 404
-    or 501; the TCK then falls back to ``POST /start?config=...``, which also
-    resets flag state at the cost of a process restart. The fallback is probed
-    once and remembered for the rest of the suite.
+    or 501; the TCK then falls back to ``POST /start?config=...``. The fallback
+    is probed once and remembered for the rest of the suite.
 
     **No settle after a control call, ever.** Every state-changing endpoint --
     ``/start``, ``/change``, ``/reset`` -- owes the caller that the new state is
-    being served before it returns. A fixed delay here would buy silence rather
-    than correctness: it is un-tunable, because the window it covers is a
-    property of the backend and not of this client, and it hides the defect from
-    the one consumer positioned to notice. Where an adopter is stuck with a
-    backend that breaks the promise, the wait belongs in *that adoption*, set
-    explicitly and citing the defect, so that it disappears when the backend is
-    fixed instead of being inherited by every future adopter from here.
+    being served before it returns. A fixed delay here is un-tunable, because the
+    window it covers is a property of the backend and not of this client, and it
+    hides the defect from the one consumer positioned to notice. Where an adopter
+    is stuck with a backend that breaks the promise, the wait belongs in *that
+    adoption*, set explicitly and citing the defect.
 
     **After a disconnect, ``/start`` rather than ``/reset``.** ``/reset`` is
     specified to restore flag state, not to bring a stopped backend back up, so
@@ -124,9 +113,8 @@ class HttpControl:
             is up -- a stack under test must not pin host ports.
         :param backend_configuration: the named flag configuration the backend
             under test seeds. Defaults to :data:`DEFAULT_CONFIGURATION`, the
-            only name every backend must support and the one serving the
-            canonical flag set. Named for the backend because a report's
-            ``provider.configuration`` is a different thing entirely -- which
+            only name every backend must support. Named for the backend because
+            a report's ``provider.configuration`` is a different thing -- which
             mode of the provider was tested.
         :param timeout: seconds bounding a single control-API request.
         """
@@ -152,12 +140,7 @@ class HttpControl:
 
     @property
     def control_api(self) -> ControlApi:
-        """Report that this control drives its backend over the HTTP control API.
-
-        Every operation below is an HTTP request to ``control-api.yaml``, so
-        this is the one control in the package that can answer without
-        qualification.
-        """
+        """Report that this control drives its backend over the HTTP control API."""
         return "http"
 
     @property
@@ -175,10 +158,8 @@ class HttpControl:
         A real readiness check against the control API itself rather than a
         fixed pause, and the only wait in this class. ``GET /healthz`` is the
         optional readiness path in ``control-api.yaml``; a backend that does not
-        implement it answers 404, which the document states *is* ready --
-        readiness then rests on the control port accepting a connection, which
-        whatever started the stack has already established. A 503 is the control
-        API saying "not yet" and is retried.
+        implement it answers 404, which the document states *is* ready. A 503 is
+        the control API saying "not yet" and is retried.
 
         Called once, before the first command, by whatever brought the stack up.
         There is deliberately no counterpart *after* a command: a pause there
@@ -262,23 +243,20 @@ class HttpControl:
         """Mutate flag configuration so a conforming provider observes a change.
 
         ``/change`` must not return until the new value is actually being
-        served, and that promise is about the **backend**: once this returns, a
-        fresh evaluation against the backend resolves the new value. How long
-        the *provider under test* takes to notice is a property of its transport
-        -- streaming sees it in milliseconds, a poller may need most of an
-        interval -- and that is what the suite's event timeout is for. There is
-        deliberately no wait here: a backend that returns before it serves the
-        new value makes the provider's detection latency unmeasurable, because
-        the clock would start before there is anything to detect.
+        served, and that promise is about the **backend**. How long the
+        *provider under test* takes to notice is what the suite's event timeout
+        is for. There is deliberately no wait here: a backend that returns
+        before it serves the new value makes the provider's detection latency
+        unmeasurable, because the clock would start before there is anything to
+        detect.
         """
         self._require("/change")
 
     def disconnect(self) -> None:
         """Make the backend unreachable, without touching any container.
 
-        The backend *process* inside the still-running container is stopped. See
-        the class documentation for why that distinction is a requirement rather
-        than a preference.
+        The backend *process* inside the still-running container is stopped --
+        see the class documentation for why that distinction is a requirement.
         """
         with self._lock:
             self._backend_maybe_down = True
@@ -293,22 +271,11 @@ class HttpControl:
         """
         self._start()
 
-    # NO BINDING FOR ``POST /restart``
-    #
-    # The endpoint simulates a *bounded* outage, and it is ``[OPTIONAL]`` in
-    # ``control-api.yaml`` because no shipped scenario reaches it. The
-    # disconnect/reconnect scenario is written as an unbounded outage -- "the
-    # connection is lost", then "the connection is restored" -- which is
-    # :meth:`disconnect` followed by :meth:`reconnect`, so a scenario ends the
-    # outage when it is ready rather than guessing in advance how long the
-    # provider needs to notice one.
-    #
-    # A binding nothing can call is dead surface that also misreports the
-    # contract, by implying every backend under test owes the endpoint. Go's
-    # client left it out for the same reason. What would bring it back is
-    # written down: a ``@caching`` scenario asserting what a stale provider
-    # serves *during* an outage needs the flag-state preservation that
-    # ``/restart`` has and ``/stop`` + ``/start`` does not.
+    # No binding for `POST /restart`: no shipped scenario reaches it, and a
+    # binding nothing can call misreports the contract by implying every backend
+    # under test owes the endpoint. A `@caching` scenario asserting what a stale
+    # provider serves *during* an outage would bring it back, needing the
+    # flag-state preservation `/restart` has and `/stop` + `/start` does not.
 
     def _start(self) -> None:
         self._require("/start", {"config": self._backend_configuration})
@@ -334,12 +301,9 @@ class HttpControl:
             target += "?" + urllib.parse.urlencode(query)
 
         # An empty body rather than none, so the request carries Content-Length
-        # even where a proxy in the stack insists on one.
-        #
-        # S310 wants the scheme audited before a URL is opened; __init__ rejects
-        # any base_url that is not http(s), and target is built from that
-        # validated base URL plus a literal path, so no other scheme can reach
-        # here.
+        # even where a proxy in the stack insists on one. S310: __init__ rejects
+        # any base_url that is not http(s), and target is that validated base URL
+        # plus a literal path.
         request = urllib.request.Request(target, data=b"", method="POST")  # noqa: S310
 
         try:
@@ -348,8 +312,8 @@ class HttpControl:
                 return int(response.status)
         except urllib.error.HTTPError as error:
             # A status the server chose to report as an error is still an answer,
-            # and /reset answering 404 is the documented way to say "not
-            # implemented" -- so this is a return, not a raise.
+            # and /reset answering 404 is the documented "not implemented" -- so
+            # this is a return, not a raise.
             with error:
                 error.read()
             return int(error.code)
@@ -367,10 +331,8 @@ class HttpControl:
 
 
 if typing.TYPE_CHECKING:
-    # Static assertion, erased at runtime: HttpControl must satisfy both control
-    # protocols, the way Go's `var _ BackendControl = (*HTTPControl)(nil)` does.
-    # A method renamed out of the protocol fails type-checking rather than at the
-    # first scenario that needs it.
+    # Static assertion, erased at runtime: a method renamed out of either control
+    # protocol fails type-checking rather than at the first scenario that needs it.
     def _implements(
         control: HttpControl,
     ) -> tuple[BackendControl, ConnectionControl]:

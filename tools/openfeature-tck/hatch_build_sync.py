@@ -3,11 +3,10 @@
 Used by `poe sync-spec-assets` for local development and CI testing. The hatch
 build hook (hatch_build.py) handles inclusion in the wheel and sdist.
 
-The assets are owned by open-feature/spec, not by this repository. Copying them
-in at build time -- rather than committing copies -- means the spec revision this
-package was built against is recorded by the submodule pin and nowhere else, so
-the two cannot drift apart unnoticed. An *adopter* installing the wheel still
-needs no submodule: the copies are inside the distribution.
+The assets are owned by open-feature/spec. Copying them in at build time rather
+than committing copies means the submodule pin is the only record of the spec
+revision this package was built against, so the two cannot drift apart
+unnoticed.
 
 Copying is the second half of the job. The first is making sure the submodule
 working tree is at the revision the pin names, because **a rebase moves the
@@ -35,7 +34,7 @@ UNPINNED_ENV = "OPENFEATURE_TCK_SPEC_UNPINNED"
 
 For the one workflow that legitimately wants it: drafting a change to the
 canonical assets in a local spec checkout before there is a revision to pin. It
-warns on every sync, and it names the revision actually in use, because a suite
+warns on every sync and names the revision actually in use, because a suite
 running against assets nobody can identify must not be quiet about it.
 """
 
@@ -47,12 +46,10 @@ DO_NOT_EDIT = (
 
 # (source directory or file, destination) relative to SPEC_ASSETS / DEST_BASE.
 #
-# "gherkin" copies to a directory of the same name on purpose, and the pair is not
-# redundant: a canonical feature is identified by its path relative to the asset
-# directory, so the destination name *is* the reported uri prefix. Renaming it
-# locally -- it used to land in "features" -- silently renamed the uri, which is
-# how this suite reported features/errors.feature for the file Go reports as
-# gherkin/errors.feature. Keep the two equal.
+# "gherkin" copies to a directory of the same name on purpose: a canonical
+# feature is identified by its path relative to the asset directory, so the
+# destination name *is* the reported uri prefix. Renaming it locally silently
+# renames the uri every language's report is keyed by. Keep the two equal.
 TREES = [("gherkin", "gherkin"), ("flags", "flag_data")]
 FILES = [("openapi/control-api.yaml", "control-api.yaml")]
 
@@ -61,8 +58,8 @@ GitRunner = Callable[[Sequence[str], Path], str | None]
 
 A seam, so the decision `checkout_pinned_spec` makes can be tested without a
 fixture repository on disk. Failure is ``None`` rather than an exception because
-every caller here treats "git could not answer" as a state to report rather than
-a crash: building from an unpacked sdist has no repository at all.
+every caller treats "git could not answer" as a state to report: building from
+an unpacked sdist has no repository at all.
 """
 
 
@@ -83,24 +80,21 @@ def _run_git(args: Sequence[str], cwd: Path) -> str | None:
 def superproject_git_dir(git: GitRunner = _run_git) -> str | None:
     """The superproject's git directory, asked of the submodule instead.
 
-    For the one environment where git cannot find the superproject on its own:
-    a linked worktree records its git directory as an **absolute** path in the
-    worktree's ``.git`` file, and a process in a different filesystem namespace
-    -- WSL reading a worktree that Windows git created, which is where the
-    stale-asset run below actually happened -- cannot follow it. A submodule's
-    ``.git`` file is *relative*, so git inside the submodule answers there and
-    git in the superproject does not, and the pin is the half that only the
-    superproject has.
+    **For the environment where git cannot find the superproject on its own:** a
+    linked worktree records its git directory as an **absolute** path in the
+    worktree's ``.git`` file, which a process in a different filesystem namespace
+    -- WSL reading a worktree Windows git created -- cannot follow. A submodule's
+    ``.git`` file is *relative*, so git inside the submodule answers where git in
+    the superproject does not, and the pin is the half only the superproject has.
 
-    The derivation is git's own layout rather than a guess about paths: a
-    submodule's git directory is ``<superproject git dir>/modules/<path in the
-    superproject>``, so the ancestor named ``modules`` has the answer as its
-    parent. Read from the bottom, so a submodule inside a submodule resolves to
-    its immediate superproject rather than the outermost one.
+    The derivation is git's own layout: a submodule's git directory is
+    ``<superproject git dir>/modules/<path in the superproject>``, so the
+    ancestor named ``modules`` has the answer as its parent. Read from the
+    bottom, so a submodule inside a submodule resolves to its immediate
+    superproject.
 
-    ``None`` when there is no submodule repository to ask -- an unpacked sdist
-    -- or when the layout is not that one, in which case the caller is no worse
-    off than before.
+    ``None`` when there is no submodule repository to ask -- an unpacked sdist --
+    or when the layout is not that one.
     """
     common = git(["rev-parse", "--git-common-dir"], SPEC_ROOT)
     if not common:
@@ -131,11 +125,10 @@ def pinned_revision(git: GitRunner = _run_git) -> str | None:
     will record and so what a run is about to claim it tested against. ``None``
     when there is no repository to ask, which is ordinary: an sdist has none.
 
-    Asked twice before giving up, and the second way is not a fallback so much
-    as the same question routed around an unreachable path: see
-    :func:`superproject_git_dir`. Only an answer of *nothing* is retried -- an
-    entry that is present and is not a gitlink is a definite answer, and asking
-    again would not change it.
+    Asked twice before giving up, the second way being the same question routed
+    around an unreachable path -- see :func:`superproject_git_dir`. Only an answer
+    of *nothing* is retried; an entry that is present and is not a gitlink is a
+    definite answer.
     """
     entry = git(["ls-files", "-s", "--", SPEC_DIRNAME], ROOT)
     if not entry:
@@ -179,33 +172,24 @@ def _pin_entry_through_the_submodule(git: GitRunner) -> str | None:
 def checkout_pinned_spec(git: GitRunner = _run_git) -> str | None:
     """Bring the submodule working tree to the revision the pin names.
 
-    **This is the reason this function exists: a rebase moves the gitlink and
-    not the submodule's working tree.** So a checkout can have a pin saying one
-    revision and assets on disk from another, and nothing about the build says
-    so. That is not hypothetical -- it happened here, the copied Gherkin was one
-    pin behind the capability the suite was declaring, and a self-test of the
-    enum against the assets is what caught it. That guard fires for one symptom.
-    A pin that changes only the *content* of a scenario would pass every guard
-    in this package and still run the wrong suite, which is what happened in
-    another language: a whole adoption suite ran against stale assets and
-    reported byte-identical numbers to the previous pass, and nothing failed and
-    nothing warned.
-
-    So the checkout is part of the copy rather than something the operator is
-    expected to remember, and the copy is a dependency of the test task. The
-    suite cannot run against assets it did not just fetch.
+    **This is why this function exists: a rebase moves the gitlink and not the
+    submodule's working tree.** So a checkout can have a pin naming one revision
+    and assets on disk from another, and nothing about the build says so. A pin
+    that changes only the *content* of a scenario passes every other guard in
+    this package and still runs the wrong suite. So the checkout is part of the
+    copy rather than something the operator is expected to remember, and the copy
+    is a dependency of the test task.
 
     Returns the pinned revision, or ``None`` when there is no pin to read.
 
-    **When the pin cannot be read this warns rather than failing.** Building
-    from an unpacked sdist is the ordinary case -- no repository, no pin, and
-    the assets are already in the tree. The other case is a git checkout whose
-    superproject this process cannot reach, which happens for a linked worktree
-    whose ``.git`` file names a path in another filesystem namespace: git inside
-    the submodule answers, git in the superproject does not. Warning rather than
-    failing keeps that environment usable; the warning is what says the
-    guarantee is not in force, and the remedy is to run the sync from a shell
-    that can see the superproject.
+    **When the pin cannot be read this warns rather than failing.** An unpacked
+    sdist has no pin and no working tree that could have drifted, so there is
+    nothing to check rather than a check that cannot run -- failing there would
+    accuse a downstream packager of a defect they cannot fix. The other case is a
+    checkout whose superproject this process cannot reach (see
+    :func:`superproject_git_dir`); the warning is what says the guarantee is not
+    in force, and the remedy is to sync from a shell that can see the
+    superproject.
     """
     if os.environ.get(UNPINNED_ENV):
         head = git(["rev-parse", "HEAD"], SPEC_ROOT)

@@ -36,34 +36,27 @@ _COMMENT_KEY = "$comment"
 """The key the specification's assets carry prose under.
 
 Ignored at the document level, at a flag's level and among a flag's *variant
-names* -- a "variant" called ``$comment`` is prose about the flag rather than a
-variant of it -- and deliberately **not** inside a variant's value. A value is
-opaque data the suite passes through: ``object-flag`` could perfectly well grow
-a member of that name, and a loader that reached into a value to strip it would
-serve an object no scenario expects. JavaScript's suite draws the line in the
-same place, on purpose.
+names*, and deliberately **not** inside a variant's value: a value is opaque data
+the suite passes through, so a loader that reached into one to strip this key
+would serve an object no scenario expects.
 """
 
 
 class ControllableInMemoryProvider(InMemoryProvider):
     """An in-memory provider whose flag set can be replaced at runtime.
 
-    **Why this exists.** `Appendix A`_ of the specification requires an SDK's
-    in-memory provider to "support a means of updating the ``flag set``,
-    resulting in the emission of ``PROVIDER_CONFIGURATION_CHANGED`` events". The
-    Python SDK's :class:`~openfeature.provider.in_memory_provider.InMemoryProvider`
-    has no such method: it copies the flag mapping in its constructor and never
-    exposes a way to change it.
+    `Appendix A`_ requires an SDK's in-memory provider to support updating the
+    flag set and emitting ``PROVIDER_CONFIGURATION_CHANGED``. The Python SDK's
+    :class:`~openfeature.provider.in_memory_provider.InMemoryProvider` has no
+    such method: it copies the flag mapping in its constructor and never exposes
+    a way to change it.
 
-    Only half the machinery is missing, which is what makes this a small class
-    rather than a reimplementation. :class:`~openfeature.provider.AbstractProvider`
-    already supplies ``emit_provider_configuration_changed``, and the registry
-    already attaches the emitter, so all that is needed is a method that swaps
-    the mapping and emits. Everything about *resolution* -- variants, reasons,
-    ``FLAG_NOT_FOUND`` -- is still the SDK's.
-
-    That makes this an honest reference for what the SDK's provider should grow,
-    rather than a competing implementation that could drift from it.
+    Only that half is missing. :class:`~openfeature.provider.AbstractProvider`
+    already supplies ``emit_provider_configuration_changed`` and the registry
+    already attaches the emitter, so all this adds is a method that swaps the
+    mapping and emits. Everything about *resolution* is still the SDK's, which
+    keeps this a reference for what the SDK's provider should grow rather than a
+    competing implementation.
 
     .. _Appendix A: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
     """
@@ -71,10 +64,9 @@ class ControllableInMemoryProvider(InMemoryProvider):
     def update_flags(self, flags: FlagStorage) -> None:
         """Replace the whole flag set and emit a configuration-change event.
 
-        The event names the union of the previous and new keys, which is what
-        Appendix A asks for: a consumer caching evaluations needs to know
-        everything that might have changed, and a key that disappeared has
-        changed as much as one that was added.
+        The event names the union of the previous and new keys: a consumer
+        caching evaluations needs to know everything that might have changed, and
+        a key that disappeared has changed as much as one that was added.
         """
         changed = sorted(set(self._flags) | set(flags))
         self._flags = dict(flags)
@@ -105,8 +97,8 @@ def changing_flag(default_variant: str) -> InMemoryFlag[str]:
 
     The one flag built by hand rather than decoded, because
     :meth:`InProcessControl.change_flag` has to rebuild it at the *other*
-    variant and so has to name both. That the names here are the ones the
-    canonical file defines is asserted by the self-tests rather than assumed.
+    variant and so has to name both. That these names match the canonical file
+    is asserted by the self-tests rather than assumed.
     """
     return InMemoryFlag(
         default_variant=default_variant,
@@ -127,7 +119,7 @@ def canonical_flags_json() -> str:
 
     Exposed so an adopting provider can seed a backend from the canonical
     definition rather than transcribing it, transcription being the usual way
-    the two drift apart. :func:`canonical_flag_set` takes its own advice.
+    the two drift apart.
     """
     ref = (
         importlib.resources.files(_PACKAGE)
@@ -141,59 +133,32 @@ def canonical_flag_set() -> FlagStorage:
     """Return the canonical flag set as SDK in-memory flags.
 
     Decoded from ``flag_data/canonical-flags.json`` -- the JSON
-    :func:`canonical_flags_json` returns -- rather than transcribed, so that the
+    :func:`canonical_flags_json` returns -- rather than transcribed, so the
     in-memory suites cannot drift from the file every other language seeds a
-    backend from. That file is published precisely so an adopter can "seed a
-    backend directly from the canonical definition rather than transcribing it,
-    transcription being the usual way the two drift apart"; this suite is an
-    adopter of it like any other.
+    backend from. The drift it prevents is silent: a fixture that has moved away
+    from the file makes the self-tests pass against a baseline that is no longer
+    the canonical one, while the report claims the canonical set.
 
-    The drift it prevents is silent rather than loud. A fixture that has moved
-    away from the file makes the in-memory self-tests pass against a baseline
-    that is no longer the canonical one, so the suite verifies itself against
-    the wrong flags while reporting green -- and the report it publishes claims
-    the canonical set.
+    Two properties of the decoding are load-bearing:
 
-    Four properties of the file are load-bearing, and all four survive the
-    decoding:
-
-    * ``missing-flag`` is absent, which is what the ``FLAG_NOT_FOUND`` scenario
-      tests. Adding it turns that scenario green for the wrong reason.
-    * no flag carries a ``context_evaluator``, so every evaluation reports reason
-      ``STATIC``. ``targeting-key-flag`` is the one flag in the file with a
-      ``targeting`` member, and this decoder reads only ``state``, ``variants``
-      and ``defaultVariant`` -- so that flag is served at its ``miss`` default
-      whatever the context, like every other. That is deliberate rather than
-      pending: decoding a rule language would make this package a second
-      implementation of somebody else's evaluator, and the untargeted scenarios
-      are the ones it exists to serve. The consequence is that an in-memory
-      adoption must leave :attr:`~.capability.Capability.TARGETING` undeclared,
-      and its three scenarios are skipped with that reason.
-    * ``boolean-zero-flag``, ``integer-zero-flag`` and ``string-zero-flag``
-      resolve to ``False``, ``0`` and ``""``. They are values, not absences, and
-      the falsy scenarios exist to catch a provider that cannot tell the
-      difference. Their ``zero``/``non-zero`` variant names are load-bearing
-      too, for an adoption declaring
-      :attr:`~.capability.Capability.VARIANTS`: the gated variant scenario
-      asserts the variant, where the falsy scenarios assert only the value.
-    * a number keeps the type it was written with. ``json.loads`` gives ``int``
-      for ``10``, ``float`` for ``10.0`` and an arbitrary-precision ``int`` for
-      2^53 - 1, and nothing here normalises either way, so
-      ``integral-float-flag`` stays the ``float`` ``10.0`` and
-      ``huge-integer-flag`` stays exact. Normalising integral floats to ``int``
-      is the decoder bug that bit Java, and it makes the lossless-coercion
-      scenario pass without coercing anything.
+    * Only ``state``, ``variants`` and ``defaultVariant`` are read, so a flag's
+      ``targeting`` member is ignored and every evaluation reports ``STATIC``.
+      Decoding a rule language would make this package a second implementation
+      of somebody else's evaluator. The consequence is that an in-memory
+      adoption must leave :attr:`~.capability.Capability.TARGETING` undeclared.
+    * A number keeps the type ``json.loads`` gave it and nothing normalises
+      either way, so an integral float stays a ``float`` and a large integer
+      stays exact. Normalising integral floats to ``int`` would make the
+      lossless-coercion scenario pass without coercing anything.
 
     A variant's value is passed through untouched, which is both why the types
     survive and why a ``$comment`` member *inside* an object value survives with
     them -- see :data:`_COMMENT_KEY`.
 
     Raises:
-        ValueError: if the packaged file is not the shape this expects.
-            Unreachable for a pinned spec revision, because the file is copied
-            in from the submodule at build time: a failure here means the pinned
-            assets and this decoder disagree about the file's shape, which
-            moving the pin should have surfaced.
+        ValueError: if the packaged file is not the shape this expects. A failure
+            here means the pinned assets and this decoder disagree about the
+            file's shape, which moving the pin should have surfaced.
     """
     return _decode_canonical_flags(canonical_flags_json())
 
@@ -206,8 +171,7 @@ def _decode_canonical_flags(raw: str) -> FlagStorage:
         raise ValueError(msg)
 
     # Reading the one member this needs is what ignores $comment at the document
-    # level, along with every other part of the flagd format the suite has no
-    # use for.
+    # level, along with the rest of the flagd format.
     definitions = document.get("flags")
     if not isinstance(definitions, dict) or not definitions:
         msg = f"{_CANONICAL_FLAGS_FILE} defines no flags"

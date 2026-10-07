@@ -29,47 +29,20 @@ DEFAULT_READY_TIMEOUT = 30.0
 class KnownDeviation:
     """A gap the provider is known to have, acknowledged rather than hidden.
 
-    **A ``knownDeviations`` entry says: this provider fails to do something it is
-    required to do.** The requirement must be a numbered ``MUST``, or a rule the
-    implementation bound itself to elsewhere. Distinct from an undeclared
-    capability, which is a *choice* the provider is entitled to make: where the
-    specification permits the choice, withholding the capability **is** the
-    honest report, and a deviation entry would assert a defect that does not
-    exist.
+    **An entry says: this provider fails to do something it is required to do.**
+    Distinct from an undeclared capability, which is a *choice* the provider is
+    entitled to make. Appendix F's declaring rules say which of the two fits a
+    given gap, and when neither does -- a scenario failing because the backend
+    serves no fixture for it is not a provider defect and does not belong here.
 
-    It is legitimate in two shapes, and a report's results already distinguish
-    them:
-
-    1. **The capability is declared, the scenario runs, and it fails.** Prefer
-       this. The failure stays visible and the deviation says it is known and
-       why.
-    2. **The capability is withheld, and its scenarios skip.** Legitimate only
-       when the provider cannot attempt the behaviour at all, so running the
-       scenario would establish nothing. The deviation then explains the
-       absence, so a reader can tell a defect from a design decision.
-
-    Withdrawing a capability *in order to* turn a failing scenario into a skip is
-    the failure mode this field exists to prevent. If the provider attempts the
-    behaviour and gets it wrong, shape 1 is the honest report.
-
-    **A scenario that fails because the backend serves no fixture for it is not a
-    provider defect and does not belong here.** That is the first consequence
-    Appendix F draws from its declaring rules, and an entry recording it would
-    accuse the provider of the backend's gap. Where such a failure sits under the
-    same tag as a real one -- which is the ordinary case, since the tag is
-    declared on the scenarios that *can* be asked -- say so in the summary of the
-    entry that covers the real one.
-
-    It changes nothing about how the suite runs. The scenario still fails, and
-    the results payload still reports it as failed -- a report that softened a
-    failure into a footnote would hide exactly what the acknowledgement exists to
-    keep visible. What this adds is the acknowledgement itself, in the envelope,
-    so that a consumer can tell a known gap from a surprise.
+    It changes nothing about how the suite runs: the scenario still fails and the
+    results payload still reports it as failed. What this adds is the
+    acknowledgement, in the envelope, so a consumer can tell a known gap from a
+    surprise.
 
     Build one with :meth:`tracked` or :meth:`untracked` rather than by calling
     the constructor, so that which of the two a deviation is stays a decision
-    someone made rather than a field someone forgot. The same two forms exist in
-    the Go, Java and JavaScript suites.
+    someone made rather than a field someone forgot.
     """
 
     summary: str
@@ -83,25 +56,15 @@ class KnownDeviation:
     issue: str | None = None
     """Where the gap is tracked, or ``None`` when it is tracked nowhere yet.
 
-    Optional. There is a tracked and an untracked form, and naming an untracked
-    defect is still what separates it from a capability the provider chose to
-    withhold -- a declaration that merely omits the tag cannot say which of the
-    two happened. Prefer :meth:`tracked` as soon as there is an issue to point
-    at.
+    Prefer :meth:`tracked` as soon as there is an issue to point at.
     """
 
     capability: Capability | None = None
     """The capability the deviation concerns, when it maps to one.
 
     Left out when the gap is against a mandatory, ungated scenario, which belongs
-    to no capability.
-
-    A reserved capability is refused: no scenario carries the tag, so there is
-    nothing to deviate from. See :data:`~.capability.RESERVED_CAPABILITIES`. So
-    is one this SDK cannot express, for the opposite reason -- the scenarios
-    exist and no provider here can attempt them, so the gap is the language's
-    and not this provider's. See
-    :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`.
+    to no capability. A reserved capability is refused, and so is one this SDK
+    cannot express -- see :func:`deviation_problems`.
     """
 
     @classmethod
@@ -193,10 +156,6 @@ class TckConfig:
     new_unavailable_provider: ProviderFactory | None = None
     """Creates a provider pointed at a backend that does not exist.
 
-    Used by the initialisation-failure scenarios, which assert that a provider
-    unable to reach its backend settles into ``ERROR`` rather than hanging or
-    raising out of registration.
-
     Point it at a closed port on localhost. Do not point it at the backend under
     test -- that must stay up, and simulated outages belong to :attr:`control`.
     Configure a short connection deadline: the scenario allows a bounded time
@@ -212,28 +171,18 @@ class TckConfig:
     capabilities: Collection[Capability] = field(default=DECLARABLE_CAPABILITIES)
     """Which optional parts of the provider contract this provider supports.
 
-    Typed as a ``Collection`` rather than a ``frozenset`` so that the obvious
-    thing to write -- a set literal, which is what the README shows -- is also
-    the correctly typed thing to write. It is normalised to a frozenset on
-    construction, so a list, a set or a generator all behave identically.
-
     Scenarios tagged with an undeclared capability are reported as skipped with
-    the reason, never as passed. Defaults to every *declarable* capability --
-    :data:`~.capability.DECLARABLE_CAPABILITIES`, which excludes the reserved
-    tags no scenario carries -- and narrowing it surfaces gaps where widening
-    towards it hides them.
+    the reason, never as passed. Defaults to
+    :data:`~.capability.DECLARABLE_CAPABILITIES`; narrowing it surfaces gaps
+    where widening towards it hides them.
 
-    Naming a reserved capability here is rejected at construction rather than
-    passed into a report. See :data:`~.capability.RESERVED_CAPABILITIES`.
+    Typed as a ``Collection`` so that a set literal, a list or a generator all
+    behave identically -- it is normalised to a frozenset on construction.
 
-    So is one this language's SDK cannot put the question for at all --
-    ``@numeric-coercion`` where the language has a single numeric type,
-    ``@large-integers`` on a 32-bit accessor. That is a property of the SDK
-    rather than of the provider, so it is refused here rather than left for
-    every adopter to know and remember, and the error names the property. The
-    two refusals are deliberately not the same message, and the scenarios they
-    skip do not carry the same reason: see
-    :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`, which is empty in Python.
+    A reserved capability named here is rejected at construction, and so is one
+    this language's SDK cannot put the question for at all. The two refusals are
+    deliberately not the same message: see :func:`reserved_problems` and
+    :func:`inexpressible_problems`.
     """
 
     known_deviations: Sequence[KnownDeviation] = ()
@@ -321,11 +270,10 @@ class TckConfig:
     def domain(self) -> str:
         """The OpenFeature domain this suite registers its providers under.
 
-        Suite-scoped rather than scenario-scoped on purpose. Registering a new
-        provider in the same domain replaces the previous one; a fresh domain
-        per scenario would leave every provider of the suite registered, which
-        for a provider holding a network connection means leaking one connection
-        per scenario.
+        Suite-scoped rather than scenario-scoped: registering a new provider in
+        the same domain replaces the previous one, where a fresh domain per
+        scenario would leave every provider of the suite registered and, for a
+        provider holding a network connection, leak one connection per scenario.
         """
         return f"tck/{self.name}"
 
@@ -341,16 +289,12 @@ def reserved_problems(declared: Iterable[Capability]) -> list[str]:
     """Refuse a reserved capability named in a configuration.
 
     A reserved capability gates no scenario, so declaring it cannot be verified
-    either way: the claim is about something nothing examined, and it would
-    reach the report's declaration, which the schema forbids.
+    either way, and it would reach the report's declaration, which the schema
+    forbids.
 
-    Refused rather than dropped quietly. The adopter wrote it down and meant
-    something by it, so a configuration silently different from the one they
-    wrote is worse than one that will not build -- and construction is where
-    their own code is still on the stack to say which line to fix. The
-    alternative, a warning, is a line of CI output nobody reads while an
-    untested capability goes on being asserted in a published report, which is
-    how this got into one in the first place.
+    Refused rather than dropped quietly or warned about: the adopter wrote it
+    down and meant something by it, and construction is where their own code is
+    still on the stack to say which line to fix.
     """
     reserved = sorted(
         capability.tag
@@ -372,27 +316,19 @@ def reserved_problems(declared: Iterable[Capability]) -> list[str]:
 def inexpressible_problems(declared: Iterable[Capability]) -> list[str]:
     """Refuse a capability this language's SDK cannot put the question for.
 
-    Refused here rather than left to adopters, because leaving it to adopters
-    means every adopter in the language has to know a fact about their language
-    and remember to act on it. Three suites in one implementation each left the
-    same capability undeclared with its own comment restating the same property
-    of the language: three places to get right, every one of them re-paid by the
-    next adoption, and a single wrong one puts a claim in a report that no
-    scenario could have verified. Appendix F makes this the implementation's job
-    for exactly that reason.
+    Refused here rather than left to adopters, because otherwise every adopter in
+    the language has to know a fact about their language and remember to act on
+    it, and a single wrong one puts a claim in a report that no scenario could
+    have verified.
 
     **The message names the property of the SDK, not the rule.** An adopter who
-    reaches this has done nothing wrong -- they declared a capability their
-    provider may well have -- so the error has to tell them something they could
-    not have known, and "the specification says you may not" is not it.
+    reaches this has done nothing wrong, so the error has to tell them something
+    they could not have known.
 
-    Separate from :func:`reserved_problems` on purpose, and it stays separate
-    even though both end in the same refusal. A reserved capability is global and
-    temporary: nothing anywhere carries the tag, and the reservation expires when
-    the specification writes a scenario. An inexpressible one is this language's
-    and permanent: the scenarios exist and other languages pass them. Collapsing
-    them into one predicate would make the two indistinguishable at the only
-    moment anybody is looking.
+    Separate from :func:`reserved_problems` even though both end in a refusal. A
+    reserved capability is global and temporary; an inexpressible one is this
+    language's and permanent. Collapsing them would make the two
+    indistinguishable at the only moment anybody is looking.
     """
     refused = [
         capability
@@ -417,14 +353,10 @@ def inexpressible_problems(declared: Iterable[Capability]) -> list[str]:
 def deviation_problems(deviations: Sequence[KnownDeviation]) -> list[str]:
     """Refuse a deviation that says nothing a consumer can use.
 
-    The rules are deliberately narrow. A deviation is prose written by the
-    provider author for a human comparing providers, and no suite can check
-    prose; what it can check is that the prose is there and that the capability
-    it names is one a scenario could have been gated on.
-
-    A reserved capability is refused for the same reason declaring one is: no
-    scenario carries the tag, so there is no failure and no skip for the
-    deviation to explain, and nothing it could be about.
+    The rules are deliberately narrow. A deviation is prose written for a human
+    comparing providers, and no suite can check prose; what it can check is that
+    the prose is there and that the capability it names is one a scenario could
+    have been gated on.
     """
     problems: list[str] = []
 
