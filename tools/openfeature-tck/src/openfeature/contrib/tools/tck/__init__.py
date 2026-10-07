@@ -3,9 +3,7 @@
 The suite answers one question: does this provider map its backend onto the
 OpenFeature provider contract correctly? It is the Python implementation of
 `Appendix F`_ of the specification, and it runs the same Gherkin scenarios,
-against the same canonical flag set, that every other language's TCK runs. That
-shared basis is the whole point -- "conformant" only means something if the
-question is identical everywhere.
+against the same canonical flag set, that every other language's TCK runs.
 
 **What a provider author writes.** Two fixtures and one call::
 
@@ -42,9 +40,8 @@ question is identical everywhere.
     scenarios(*feature_paths())
 
 The suite owns the container stack: it starts the Compose file once, discovers
-the dynamically mapped host ports, builds the HTTP control against the control
-API, waits until it accepts commands, and tears down after the last scenario.
-See :mod:`~.compose`.
+the mapped host ports, builds the HTTP control, waits until it accepts commands,
+and tears down after the last scenario. See :mod:`~.compose`.
 
 **A provider with no backend supplies its own control instead** -- in-memory,
 environment-variable, file-based -- and needs no Compose file and no container
@@ -63,16 +60,14 @@ tooling::
 ``scenarios()`` is pytest-bdd's own, called directly rather than wrapped: it
 injects the generated tests into the *calling module* by walking the stack, so a
 convenience wrapper around it would deposit them inside this package instead.
-:func:`~.extensions.feature_paths` is the canonical assets plus a
+:func:`~.extensions.feature_paths` is the canonical assets plus an
 ``extensions`` directory beside the calling module, if there is one -- see
 :mod:`~.extensions`.
 
 The step definitions arrive through this package's pytest plugin, so there is
 nothing to import for them and no ``conftest.py`` to write. Everything else --
 registering the provider, awaiting events, resetting the backend between
-scenarios, tearing down -- belongs to the TCK. If you find yourself writing test
-infrastructure, that is a defect here rather than something for you to work
-around.
+scenarios, tearing down -- belongs to the TCK.
 
 .. _Appendix F: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
 """
@@ -155,23 +150,12 @@ __all__ = [
     "run_compose_backend",
 ]
 
-# NOTE ON THE SOURCE OF TRUTH
-#
-# The files under gherkin/ and flag_data/, and control-api.yaml, are NOT owned
-# by this repository and are NOT committed to it. They are copies of the
-# language-agnostic conformance artifacts defined in open-feature/spec under
-# specification/assets/provider-tck/, which reaches this package as a git
-# submodule at tools/openfeature-tck/spec and is copied in at build
-# time by hatch_build.py. The copies are gitignored, so the only record of which
-# spec revision this package targets is the submodule pin, and the two cannot
-# drift apart unnoticed.
-#
-# They are copied into the distribution, so an adopter installing this package
-# needs no submodule of their own; only a contributor to this package does.
-#
-# Changes belong in open-feature/spec first, followed by a bump of the submodule
-# pin -- editing the copies locally forks the definition of conformance, which is
-# the one thing this suite exists to prevent.
+# The files under gherkin/ and flag_data/, and control-api.yaml, are copies of
+# the conformance assets owned by open-feature/spec, which reaches this package
+# as a git submodule and is copied in at build time. The copies are gitignored,
+# so the submodule pin is the only record of which spec revision this package
+# targets. Changes belong in open-feature/spec first, followed by a bump of the
+# pin: editing the copies locally forks the definition of conformance.
 # See https://github.com/open-feature/spec/issues/417.
 
 _PACKAGE = "openfeature.contrib.tools.tck"

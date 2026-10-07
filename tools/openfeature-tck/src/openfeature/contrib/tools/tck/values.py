@@ -41,11 +41,9 @@ def _parse_bool(raw: str) -> bool:
 def parse_value(flag_type: FlagType, raw: str) -> typing.Any:
     """Convert a value written in a scenario into the type the API uses.
 
-    Everything in Gherkin is a string, so this is where ``"0.5"`` becomes a
-    float and ``"{}"`` becomes an empty object. Parsing per declared type rather
-    than guessing is what keeps the integer and float scenarios
-    distinguishable: ``"1"`` is an ``int`` in an Integer scenario and a ``float``
-    in a Float one.
+    Parsing per declared type rather than guessing is what keeps the integer and
+    float scenarios distinguishable: ``"1"`` is an ``int`` in an Integer scenario
+    and a ``float`` in a Float one.
     """
     if flag_type is FlagType.BOOLEAN:
         return _parse_bool(raw)
@@ -66,10 +64,9 @@ def parse_value(flag_type: FlagType, raw: str) -> typing.Any:
 def _as_number(value: typing.Any) -> float | None:
     """Return a numeric value as a float, or None if it is not numeric.
 
-    Booleans are deliberately excluded. Python makes ``bool`` a subclass of
-    ``int``, so an unguarded numeric comparison would quietly report ``True`` and
-    ``1`` as equal -- which is the exact confusion several of these scenarios
-    exist to detect.
+    Booleans are deliberately excluded: Python makes ``bool`` a subclass of
+    ``int``, so an unguarded numeric comparison would report ``True`` and ``1``
+    as equal, which is the confusion several of these scenarios exist to detect.
     """
     if isinstance(value, bool):
         return None
@@ -81,12 +78,12 @@ def _as_number(value: typing.Any) -> float | None:
 def values_equal(expected: typing.Any, actual: typing.Any) -> bool:
     """Compare an expected value from a scenario with what a provider resolved.
 
-    Numbers are compared numerically rather than by Python type. A provider that
-    deserialises its backend's JSON hands back ``float`` for every number, so the
-    ``100`` inside ``object-flag`` arrives as ``100.0`` from one provider and
-    ``100`` from another while both are correct. Type distinctness is asserted
-    where it belongs -- by requesting a flag as a specific type and checking the
-    error code -- not by accident of how a number was decoded.
+    Numbers are compared numerically rather than by Python type: a provider that
+    deserialises its backend's JSON hands back ``float`` for every number, so a
+    structured member can arrive as ``100.0`` from one provider and ``100`` from
+    another while both are correct. Type distinctness is asserted where it
+    belongs -- by requesting a flag as a specific type and checking the error
+    code -- not by accident of how a number was decoded.
     """
     # A boolean only ever equals a boolean. Without this, Python's bool-is-an-int
     # rule would make True == 1 and quietly satisfy the scenario that exists to

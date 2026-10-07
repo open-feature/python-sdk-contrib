@@ -58,15 +58,11 @@ def a_context_containing_a_targeting_key(tck_state: TckState, value: str) -> Non
     """Supply the evaluation context the resolve call is made with.
 
     The wording is `Appendix B
-    <https://github.com/open-feature/spec/blob/main/specification/assets/gherkin/evaluation.feature>`_'s,
-    which the flagd testkit in this repository already carries a step definition
-    for, because a second way to say "a context containing a targeting key" is
-    the divergence Appendix F exists to prevent.
+    <https://github.com/open-feature/spec/blob/main/specification/assets/gherkin/evaluation.feature>`_'s.
 
-    Only the targeting key, for now. ``targeting-key-flag``'s rule keys on it,
-    so it is what the canonical set can observe arriving; a custom attribute
-    would need a second flag whose rule keys on one, which Appendix F lists as
-    a known gap.
+    Only the targeting key: ``targeting-key-flag``'s rule keys on it, so it is
+    what the canonical set can observe arriving. A custom attribute would need a
+    second flag whose rule keys on one, which Appendix F lists as a known gap.
     """
     context = tck_state.evaluation_context
     if context is None:
@@ -95,13 +91,9 @@ def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
 
     record = EvaluationRecord()
     try:
-        # Passed positionally and unconditionally, ``None`` included: the SDK's
-        # own default for the parameter is ``None``, so a scenario that declared
-        # no context sends what a two-argument call would. Requirement 2.2.1
-        # makes the context a parameter of every resolve method, and until the
-        # evaluation-context scenarios landed no scenario supplied one -- so a
-        # provider that threw on any context, or serialised it into a malformed
-        # request, passed the whole suite.
+        # Passed positionally and unconditionally, `None` included: the SDK's own
+        # default for the parameter is `None`, so a scenario that declared no
+        # context sends what a two-argument call would.
         details = calls[flag_type](key, default, tck_state.evaluation_context)
     except BaseException as exc:  # recorded here, asserted on by its own step
         record.raised = exc
@@ -141,10 +133,9 @@ def the_resolved_value_should_be(tck_state: TckState, expected: str) -> None:
 def the_variant_should_be(tck_state: TckState, expected: str) -> None:
     """Assert the resolved variant, for an adoption that declared ``@variants``.
 
-    Reached only through the gated scenario, so the failure message says which
-    of the two readings applies: a variant lost in transit is a defect, while a
-    backend with no variant concept at all should withhold the capability rather
-    than fail here. Requirement 2.2.4 is a ``SHOULD``.
+    The failure message says which of the two readings applies: a variant lost in
+    transit is a defect, while a backend with no variant concept at all should
+    withhold the capability rather than fail here.
     """
     record = tck_state.require_evaluation()
     if record.variant != expected:
@@ -170,9 +161,8 @@ def the_reason_should_be(tck_state: TckState, expected: str) -> None:
 def the_error_code_should_be(tck_state: TckState, expected: str) -> None:
     """Assert the reported error code, where the empty string means none at all.
 
-    The empty case matters as much as the populated ones. A provider that
-    reports a plausible value with no error code is the failure mode the suite
-    is most concerned with, because the application has no way to notice.
+    The empty case matters as much as the populated ones: a provider that reports
+    a plausible value with no error code leaves the application no way to notice.
     """
     record = tck_state.require_evaluation()
     actual = record.error_code or ""
@@ -198,10 +188,7 @@ def the_error_message_should_be_empty(tck_state: TckState) -> None:
     """Assert no error message was reported (requirement 2.3.2).
 
     Asserted on the success paths, where a message contradicts the value beside
-    it: an application reading the message will believe the wrong one of the
-    two signals. ``None`` and ``""`` are both "none": the SDK's resolution
-    details default the field to ``None`` and a provider that writes the empty
-    string has said the same thing.
+    it. ``None`` and ``""`` are both "none".
     """
     record = tck_state.require_evaluation()
     if record.error_message:
@@ -218,14 +205,11 @@ def no_exception_should_have_been_thrown(tck_state: TckState) -> None:
     """Assert that nothing the scenario asked of the provider raised.
 
     That is the evaluation, if there was one, and every direct lifecycle call:
-    each records what it raised rather than propagating it, and this is the
-    one step that reads those records back.
+    each records what it raised rather than propagating it, and this is the one
+    step that reads those records back.
 
     In Python an errored evaluation returns the code default in the details and
-    does not raise, so this holds on the error paths too. A provider that raises
-    instead takes the calling application down with it -- and one that raises
-    from ``shutdown`` does so from the application's own shutdown, where an
-    exception is least welcome. Both are what the feature files forbid.
+    does not raise, so this holds on the error paths too.
     """
     if not tck_state.has_called_provider():
         msg = (
@@ -287,10 +271,9 @@ def the_resolved_value_is_remembered(tck_state: TckState) -> None:
 def the_resolved_value_should_have_changed(tck_state: TckState) -> None:
     """Assert that re-evaluation produced a different value.
 
-    This is the half of the configuration-change contract providers actually get
-    wrong. Emitting ``PROVIDER_CONFIGURATION_CHANGED`` and then continuing to
-    resolve the old value is worse than emitting nothing, because the
-    application acted on a signal that was not true.
+    Emitting ``PROVIDER_CONFIGURATION_CHANGED`` and then continuing to resolve
+    the old value is worse than emitting nothing, because the application acted
+    on a signal that was not true.
     """
     record = tck_state.require_evaluation()
     if not tck_state.has_memory:
