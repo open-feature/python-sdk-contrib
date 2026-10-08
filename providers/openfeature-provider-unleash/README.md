@@ -55,14 +55,18 @@ The Unleash provider supports OpenFeature events for monitoring provider state c
 ```python
 from openfeature.event import ProviderEvent
 
+
 def on_provider_ready(event_details):
     print(f"Provider {event_details['provider_name']} is ready")
+
 
 def on_provider_error(event_details):
     print(f"Provider error: {event_details['error_message']}")
 
+
 def on_configuration_changed(event_details):
     print(f"Configuration changed, flags: {event_details.get('flag_keys', [])}")
+
 
 # Add event handlers
 provider.add_handler(ProviderEvent.PROVIDER_READY, on_provider_ready)
@@ -103,7 +107,7 @@ from openfeature.evaluation_context import EvaluationContext
 provider = UnleashProvider(
     url="https://your-unleash-instance.com",
     app_name="my-python-app",
-    api_token="my-token"
+    api_token="my-token",
 )
 provider.initialize()
 api.set_provider(provider)
@@ -116,7 +120,9 @@ is_enabled = client.get_boolean_value("my-feature", False)
 print(f"Feature is enabled: {is_enabled}")
 
 # String flag evaluation with context
-context = EvaluationContext(targeting_key="user123", attributes={"sessionId": "session456"})
+context = EvaluationContext(
+    targeting_key="user123", attributes={"sessionId": "session456"}
+)
 variant = client.get_string_value("my-variant-flag", "default", context)
 print(f"Variant: {variant}")
 

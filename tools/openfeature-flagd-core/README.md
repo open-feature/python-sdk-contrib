@@ -16,7 +16,9 @@ pip install openfeature-flagd-core
 from openfeature.contrib.tools.flagd.core import FlagdCore
 
 core = FlagdCore()
-core.set_flags('{"flags": {"my-flag": {"state": "ENABLED", "variants": {"on": true}, "defaultVariant": "on"}}}')
+core.set_flags(
+    '{"flags": {"my-flag": {"state": "ENABLED", "variants": {"on": true}, "defaultVariant": "on"}}}'
+)
 result = core.resolve_boolean_value("my-flag", False)
 ```
 
