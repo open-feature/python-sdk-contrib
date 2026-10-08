@@ -22,7 +22,11 @@ pip install openfeature-provider-flipt
 from openfeature import api
 from openfeature.contrib.provider.flipt import FliptProvider
 
-api.set_provider(FliptProvider(base_url="<flipt instance>", namespace="<your flipt feature flag namespace>"))
+api.set_provider(
+    FliptProvider(
+        base_url="<flipt instance>", namespace="<your flipt feature flag namespace>"
+    )
+)
 client = api.get_client()
 client.get_boolean_value("<your feature flag key>", True)
 ```

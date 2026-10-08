@@ -38,9 +38,11 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
-api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.IN_PROCESS,
-))
+api.set_provider(
+    FlagdProvider(
+        resolver_type=ResolverType.IN_PROCESS,
+    )
+)
 ```
 
 In the above example, in-process handlers attempt to connect to a sync service on address `localhost:8013` to obtain [flag definitions](https://github.com/open-feature/schemas/blob/main/json/flags.json).
@@ -63,10 +65,12 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
-api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.FILE,
-    offline_flag_source_path="my-flag.json",
-))
+api.set_provider(
+    FlagdProvider(
+        resolver_type=ResolverType.FILE,
+        offline_flag_source_path="my-flag.json",
+    )
+)
 ```
 
 Provider will attempt to detect file changes using polling.
@@ -121,10 +125,12 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
-api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.IN_PROCESS,
-    selector="my-flag-source",  # Passed via both header and request body
-))
+api.set_provider(
+    FlagdProvider(
+        resolver_type=ResolverType.IN_PROCESS,
+        selector="my-flag-source",  # Passed via both header and request body
+    )
+)
 ```
 
 The selector is automatically passed via:
@@ -176,10 +182,12 @@ You may optionally supply an X.509 certificate in PEM format. Otherwise, the def
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 
-api.set_provider(FlagdProvider(
-    tls=True,                        # use TLS
-    cert_path="etc/cert/ca.crt"      # PEM cert
-))
+api.set_provider(
+    FlagdProvider(
+        tls=True,  # use TLS
+        cert_path="etc/cert/ca.crt",  # PEM cert
+    )
+)
 ```
 
 ## License
