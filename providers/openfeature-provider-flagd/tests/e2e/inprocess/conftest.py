@@ -9,6 +9,7 @@ feature_list = [
     "~unixsocket",
     "~deprecated",
     "~fractional-v1",
+    "~fractional-v2",
 ]
 
 
