@@ -117,7 +117,14 @@ class GrpcResolver:
                 ),
             ),
         ]
-        if config.tls:
+        if config.channel_credentials is not None:
+            channel = grpc.secure_channel(
+                target,
+                credentials=config.channel_credentials,
+                options=options,
+            )
+
+        elif config.tls:
             credentials = grpc.ssl_channel_credentials()
             if config.cert_path:
                 with open(config.cert_path, "rb") as f:
