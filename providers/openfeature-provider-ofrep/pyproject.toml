@@ -29,11 +29,21 @@ Homepage = "https://github.com/open-feature/python-sdk-contrib"
 dev = [
   "coverage[toml]>=7.10.0,<8.0.0",
   "mypy>=1.18.0,<2.0.0",
+  # The OpenFeature conformance suite. Ships the feature files, the flag set,
+  # the control-API client and the Compose harness that owns the container
+  # stack, and registers its step definitions through a pytest11 entry point --
+  # so tests/tck declares a Compose file and nothing else. The `compose` extra
+  # is what pulls testcontainers in for the harness.
+  "openfeature-tck[compose]",
   "poethepoet>=0.37.0",
   "pytest>=9.0.0,<10.0.0",
+  "pytest-bdd>=8.1.0,<9.0.0",
   "requests-mock>=1.12.0,<2.0.0",
   "types-requests>=2.32.0,<3.0.0",
 ]
+
+[tool.uv.sources]
+openfeature-tck = { workspace = true }
 
 [tool.uv.build-backend]
 module-name = "openfeature"
@@ -69,8 +79,51 @@ disallow_any_generics = false
 strict = true
 
 [tool.poe.tasks]
-test = "pytest tests"
-test-cov = "coverage run -m pytest tests"
+# `tests/tck` is excluded from the default build on purpose, and a maintainer
+# runs `poe test-tck` by hand before merging a change to it. Why a conformance
+# suite is not a required gate is Appendix F, "Running the suite in CI" --
+# linked from tools/openfeature-tck/README.md -- and is deliberately not
+# restated here.
+#
+# What is local to this package: a full run is 2 failed, 45 passed, 17 skipped,
+# 1 xfailed. Both failures are canonical flags flagd-testbed does not seed yet,
+# and the xfail is the one genuine provider gap; tests/tck/conftest.py accounts
+# for them. Docker is not what decides the exclusion -- the flagd package's
+# `tests/e2e` needs Docker too and does run.
+#
+# The suite is still *collected* on every default build, so it cannot quietly
+# stop importing against the harness while nobody runs it. `--ignore` would
+# otherwise leave nothing checking that, since mypy here is configured over
+# `src` alone.
+#
+# `ignore_fail = "return_non_zero"` because poe aborts a sequence at its first
+# failing subtask, which would put the collect step behind the default suite's
+# result. It is green in this package today, and a check that only runs while
+# everything else passes is not a check. Every subtask runs and a non-zero exit
+# still propagates. The flagd package carries the same pair, where the default
+# suite is red and the collect step was in fact never reached.
+test = { sequence = ["test-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
+test-cov = { sequence = ["test-cov-default", "test-tck-collect"], ignore_fail = "return_non_zero" }
+test-default = "pytest tests --ignore=tests/tck"
+test-cov-default = "coverage run -m pytest tests --ignore=tests/tck"
+# The sync is part of the run rather than something a maintainer remembers,
+# because Appendix F requires the revision check to be in force **where the
+# scenarios execute** and not only in the TCK implementation's own tests. This
+# is a uv workspace, so `openfeature-tck` is installed editable and the
+# canonical assets this suite collects are the gitignored copies under
+# `tools/openfeature-tck/src`: a rebase that moves the submodule pin leaves them
+# from the previous revision, and a suite run from here would neither notice nor
+# say so. That is exactly how an adoption in another language published a full
+# pass against stale scenarios. `hatch_build_sync.py` checks the submodule out
+# at the pin, refuses to copy if it cannot, and needs nothing but the standard
+# library.
+#
+# Not on `test-tck-collect`, deliberately: that runs on every default build, it
+# executes no scenario, and it publishes no result, so the rule does not reach
+# it and the default build stays free of a submodule operation.
+sync-spec-assets = "python ../../tools/openfeature-tck/hatch_build_sync.py"
+test-tck = ["sync-spec-assets", {cmd = "pytest tests/tck"}]
+test-tck-collect = "pytest tests/tck --collect-only -q"
 cov-report = "coverage xml"
 cov = [
     "test-cov",
