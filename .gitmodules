@@ -9,4 +9,5 @@
 	url = https://github.com/open-feature/flagd-testbed.git
 [submodule "tools/openfeature-tck/spec"]
 	path = tools/openfeature-tck/spec
-	url = https://github.com/open-feature/spec
+	url = https://github.com/open-feature/spec.git
+	branch = specification/assets/provider-tck/v0.1.0
