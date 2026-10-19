@@ -21,7 +21,11 @@ DEFAULT_CACHE = CacheType.LRU
 DEFAULT_CACHE_SIZE = 1000
 DEFAULT_DEADLINE = 500
 DEFAULT_HOST = "localhost"
-DEFAULT_KEEP_ALIVE = 0
+# 10 minutes in ms. Must stay above flagd's grpc-go server MinPingInterval (5 minutes),
+# otherwise the server rejects the connection with GOAWAY (ENHANCE_YOUR_CALM, "too_many_pings").
+# A value of 0 (or any non-positive value) is never passed to grpc.keepalive_time_ms;
+# the channel then uses the gRPC library's default keepalive behavior instead.
+DEFAULT_KEEP_ALIVE = 600000
 DEFAULT_OFFLINE_SOURCE_PATH: str | None = None
 DEFAULT_OFFLINE_POLL_MS = 5000
 DEFAULT_PORT_IN_PROCESS = 8015

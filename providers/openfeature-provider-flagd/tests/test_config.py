@@ -61,6 +61,12 @@ def test_return_default_values_in_process():
     assert config.tls is DEFAULT_TLS
 
 
+def test_default_keep_alive_time_respects_flagd_min_ping_interval():
+    # flagd's grpc-go server enforces a MinPingInterval of 5 minutes; any client
+    # keepalive interval below that triggers GOAWAY (ENHANCE_YOUR_CALM, "too_many_pings").
+    assert DEFAULT_KEEP_ALIVE == 600000
+
+
 @pytest.fixture(params=ResolverType, scope="module")
 def resolver_type(request):
     return request.param

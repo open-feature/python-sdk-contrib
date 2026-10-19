@@ -90,7 +90,7 @@ The default options can be defined in the FlagdProvider constructor.
 | cert_path                | FLAGD_SERVER_CERT_PATH         | String                     | null                          | rpc & in-process    |
 | deadline                 | FLAGD_DEADLINE_MS              | int                        | 500                           | rpc & in-process    |
 | stream_deadline_ms       | FLAGD_STREAM_DEADLINE_MS       | int                        | 600000                        | rpc & in-process    |
-| keep_alive_time          | FLAGD_KEEP_ALIVE_TIME_MS       | int                        | 0                             | rpc & in-process    |
+| keep_alive_time          | FLAGD_KEEP_ALIVE_TIME_MS       | int                        | 600000                        | rpc & in-process    |
 | selector                 | FLAGD_SOURCE_SELECTOR          | str                        | null                          | in-process          |
 | cache_type               | FLAGD_CACHE                    | enum - `lru`, `disabled`   | lru                           | rpc                 |
 | max_cache_size           | FLAGD_MAX_CACHE_SIZE           | int                        | 1000                          | rpc                 |
