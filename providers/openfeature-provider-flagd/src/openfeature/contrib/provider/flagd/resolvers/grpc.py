@@ -86,7 +86,6 @@ class GrpcResolver:
         target = f"{config.host}:{config.port}"
         # Create the channel with the service config
         options = [
-            ("grpc.keepalive_time_ms", config.keep_alive_time),
             ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
             ("grpc.min_reconnect_backoff_ms", config.deadline_ms),
@@ -117,6 +116,13 @@ class GrpcResolver:
                 ),
             ),
         ]
+        if config.keep_alive_time > 0:
+            # Only send keepalive pings when a positive interval is configured.
+            # A value of 0 makes the gRPC C-core ping continuously, which flagd's
+            # grpc-go server rejects with GOAWAY (ENHANCE_YOUR_CALM, "too_many_pings");
+            # omitting the option defers to the gRPC library's default instead.
+            options.append(("grpc.keepalive_time_ms", config.keep_alive_time))
+
         if config.tls:
             credentials = grpc.ssl_channel_credentials()
             if config.cert_path:

@@ -63,7 +63,6 @@ class GrpcWatcher(FlagStateConnector):
         target = f"{config.host}:{config.port}"
         # Create the channel with the service config
         options: list[tuple[str, typing.Any]] = [
-            ("grpc.keepalive_time_ms", config.keep_alive_time),
             ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
             ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
             ("grpc.min_reconnect_backoff_ms", config.stream_deadline_ms),
@@ -94,6 +93,13 @@ class GrpcWatcher(FlagStateConnector):
                 ),
             ),
         ]
+        if config.keep_alive_time > 0:
+            # Only send keepalive pings when a positive interval is configured.
+            # A value of 0 makes the gRPC C-core ping continuously, which flagd's
+            # grpc-go server rejects with GOAWAY (ENHANCE_YOUR_CALM, "too_many_pings");
+            # omitting the option defers to the gRPC library's default instead.
+            options.append(("grpc.keepalive_time_ms", config.keep_alive_time))
+
         if config.default_authority is not None:
             options.append(("grpc.default_authority", config.default_authority))
 
