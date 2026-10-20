@@ -22,6 +22,7 @@ import pytest
 from openfeature.contrib.tools.tck import (
     ControlApiError,
     HttpControl,
+    backend_type_of,
 )
 
 
@@ -236,15 +237,19 @@ def test_a_trailing_slash_does_not_produce_a_double_slash_path() -> None:
 
 
 def test_the_control_reports_which_api_it_drives_the_backend_through() -> None:
-    """The required ``BackendControl`` member, answered here without qualification.
+    """Optional on ``BackendControl``, answered here without qualification.
 
     Every operation on this class is an HTTP request to the normative control
-    API, so this is the one control that can answer the question flatly. A
-    report whose ``backend.controlApi`` says otherwise for a provider with a
-    real backend is claiming something it should not.
+    API, so this is the one control that can answer the question flatly, and
+    leaving it to default to ``"custom"`` would understate the run. A report
+    whose ``backend.controlApi`` says otherwise for a provider with a real
+    backend is claiming something it should not.
     """
     with _StubControlApi() as stub:
-        assert HttpControl(stub.base_url).control_api == "http"
+        control = HttpControl(stub.base_url)
+
+        assert control.backend_type == "http"
+        assert backend_type_of(control) == "http"
 
 
 def test_there_is_no_binding_for_restart() -> None:

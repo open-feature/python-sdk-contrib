@@ -92,10 +92,12 @@ from .compose import (
 )
 from .config import KnownDeviation, TckConfig
 from .control import (
+    DEFAULT_BACKEND_TYPE,
     BackendControl,
+    BackendType,
     ConnectionControl,
-    ControlApi,
     UnsupportedControlError,
+    backend_type_of,
 )
 from .extensions import (
     EXTENSIONS_DIRECTORY,
@@ -121,6 +123,7 @@ __all__ = [
     "CHANGING_FLAG_KEY",
     "DECLARABLE_CAPABILITIES",
     "DEFAULT_BACKEND_SERVICE",
+    "DEFAULT_BACKEND_TYPE",
     "DEFAULT_CONFIGURATION",
     "DEFAULT_CONTROL_PORT",
     "DEFAULT_STARTUP_TIMEOUT",
@@ -129,10 +132,10 @@ __all__ = [
     "RESERVED_CAPABILITIES",
     "BackendControl",
     "BackendEndpoint",
+    "BackendType",
     "Capability",
     "ComposeBackend",
     "ConnectionControl",
-    "ControlApi",
     "ControlApiError",
     "ControllableInMemoryProvider",
     "HttpControl",
@@ -142,6 +145,7 @@ __all__ = [
     "TckConfig",
     "TckState",
     "UnsupportedControlError",
+    "backend_type_of",
     "canonical_flag_set",
     "canonical_flags_json",
     "canonical_root",
