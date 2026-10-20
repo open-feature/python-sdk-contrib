@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from openfeature.provider import FeatureProvider
 
-from .control import ControlApi
+from .control import BackendType
 from .provider import (
     CHANGING_FLAG_KEY,
     ControllableInMemoryProvider,
@@ -59,12 +59,15 @@ class InProcessControl:
         return "in-process control of an in-memory provider"
 
     @property
-    def control_api(self) -> ControlApi:
+    def backend_type(self) -> BackendType:
         """Report how this backend was driven, for the conformance report.
 
         ``in-process`` is the narrow allowance for providers with no backend. A
         provider that does have one and reports this is claiming something it
-        should not.
+        should not. Stated although
+        :class:`~.control.BackendControl` does not require it: an unstated one
+        resolves to ``"custom"``, which would hide that this run took the
+        allowance rather than some path of its own.
         """
         return "in-process"
 

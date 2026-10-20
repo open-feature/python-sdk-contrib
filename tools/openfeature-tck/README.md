@@ -88,11 +88,14 @@ def tck_config():
 
 It is a narrow allowance — **a provider with an external backend must drive it over the HTTP control
 API**, for which `HttpControl` is the client, built on `urllib.request` alone so the TCK gains no
-HTTP dependency; `control_api_spec()` returns the document a backend under test implements. Every
-control states which path it took: `control_api` is a **required** member of `BackendControl`, typed
-`Literal["http", "in-process"]`, with no default and no inference from the concrete type. A
-backend-less one does not implement `ConnectionControl`, so `STALE` and `UNAVAILABLE_INIT` go
-undeclared and their scenarios skip.
+HTTP dependency; `control_api_spec()` returns the document a backend under test implements. Both
+controls shipped here state which path they took through a `backend_type` property typed
+`BackendType` — `Literal["http", "in-process", "custom"]`. It is optional rather than a member of
+`BackendControl`, because Python has no optional protocol member; read it with `backend_type_of()`,
+which resolves an absent one to `"custom"` and never infers one from the concrete type. So a custom
+control that says nothing reports the weakest honest claim instead of a normative path it may not
+have taken. A backend-less one does not implement `ConnectionControl`, so `STALE` and
+`UNAVAILABLE_INIT` go undeclared and their scenarios skip.
 
 ## The options
 

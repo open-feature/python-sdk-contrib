@@ -29,14 +29,17 @@ import pytest
 
 from openfeature.contrib.tools.tck import (
     DECLARABLE_CAPABILITIES,
+    DEFAULT_BACKEND_TYPE,
     INEXPRESSIBLE_CAPABILITIES,
     RESERVED_CAPABILITIES,
     BackendControl,
+    BackendType,
     Capability,
-    ControlApi,
+    HttpControl,
     InProcessControl,
     KnownDeviation,
     TckConfig,
+    backend_type_of,
     canonical_root,
     plugin,
 )
@@ -54,8 +57,9 @@ from openfeature.contrib.tools.tck.extensions import canonical_tags
 class _StubControl:
     """A control that says nothing it is not obliged to say.
 
-    Which no longer includes ``control_api``: it is a required member of
-    ``BackendControl``, so even a stub has to answer it.
+    Which does not include ``backend_type``: it is optional, left off
+    ``BackendControl`` because Python has no optional protocol member, and an
+    absent one resolves to ``"custom"``.
     """
 
     def prepare_scenario(self) -> None: ...
@@ -65,10 +69,6 @@ class _StubControl:
     @property
     def description(self) -> str:
         return "a stub"
-
-    @property
-    def control_api(self) -> ControlApi:
-        return "in-process"
 
 
 def _config(**overrides: typing.Any) -> TckConfig:
@@ -841,49 +841,86 @@ def test_known_deviations_are_normalised_and_change_nothing_about_the_run() -> N
 # -- saying how the backend is driven ----------------------------------------
 
 
-def test_a_control_that_does_not_say_is_not_a_backend_control() -> None:
-    """``control_api`` is required, and the protocol is where that is enforced.
+class _Quiet:
+    """A control that says nothing about how it drove the backend."""
 
-    Nothing outside a control can tell whether it spoke the normative HTTP API
-    or reached into this process, which is the argument for making the control
-    say rather than for letting the field be absent: every run is one or the
-    other, so an omitted value is not "no claim made" but an unfalsifiable one.
+    def prepare_scenario(self) -> None: ...
+
+    def change_flag(self) -> None: ...
+
+    @property
+    def description(self) -> str:
+        return "a control that will not say"
+
+
+def test_a_control_that_says_nothing_is_still_a_backend_control() -> None:
+    """``backend_type`` is optional, which the protocol is what establishes.
+
+    It is not a member of ``BackendControl``, because Python has no optional
+    protocol member: declaring it -- even with a default implementation, the way
+    the Java binding does -- would make it required of every implementation both
+    to a type checker and to ``isinstance``. Leaving it off is what lets an
+    adopter write a control with four members and have it be a control.
 
     ``BackendControl`` is runtime-checkable, so this is checked at the seam as
     well as by the type checker -- which matters for an adopter who writes a
     custom control in an untyped test module.
     """
-
-    class _Quiet:
-        def prepare_scenario(self) -> None: ...
-
-        def change_flag(self) -> None: ...
-
-        @property
-        def description(self) -> str:
-            return "a control that will not say"
-
-    assert not isinstance(_Quiet(), BackendControl)
+    assert isinstance(_Quiet(), BackendControl)
     assert isinstance(_StubControl(), BackendControl)
 
 
-def test_in_process_control_says_it_is_in_process() -> None:
-    """The narrow allowance, and the control that exists to take it.
+def test_a_control_that_says_nothing_is_reported_as_custom() -> None:
+    """Silence resolves to the weakest honest claim, and never to a guess.
 
-    A provider that does have a backend and reports this is claiming something
-    it should not, which is only detectable if the honest case says so plainly.
+    Nothing outside a control can tell whether it spoke the normative HTTP API
+    or reached into this process, so an absent value cannot be inferred from the
+    concrete type. ``"custom"`` says the suite cannot vouch for how the backend
+    was driven, which is worth more in a report than a claim to a normative path
+    that may not have been taken.
     """
-    control = InProcessControl()
-    assert isinstance(control, BackendControl)
-    assert control.control_api == "in-process"
+    assert backend_type_of(_Quiet()) == "custom"
+    assert backend_type_of(_Quiet()) == DEFAULT_BACKEND_TYPE
 
 
-def test_the_control_api_type_is_closed_to_the_two_values_the_schema_allows() -> None:
-    """Closed, so a third value is a type error rather than an invalid report.
+def test_a_control_that_states_a_backend_type_is_believed() -> None:
+    """The control is the only thing that knows, so what it says stands."""
 
-    ``ControlApi`` is exported for exactly this: a custom control annotates its
+    class _Stated(_Quiet):
+        @property
+        def backend_type(self) -> BackendType:
+            return "http"
+
+    assert backend_type_of(_Stated()) == "http"
+
+
+def test_both_shipped_controls_state_their_backend_type() -> None:
+    """The guard on the optionality, without which every report says ``"custom"``.
+
+    Nothing requires these two to state theirs any more -- that is the point of
+    the member being optional -- so dropping either property would be silently
+    accepted by the type checker and by ``isinstance``, and would turn the one
+    run that drove the normative control API into an unvouched-for one in the
+    report. ``"custom"`` is honest for an adopter's own control and wrong for
+    both of these.
+    """
+    http = HttpControl("http://localhost:32768")
+    in_process = InProcessControl()
+
+    assert isinstance(http, BackendControl)
+    assert isinstance(in_process, BackendControl)
+    assert http.backend_type == "http"
+    assert in_process.backend_type == "in-process"
+    assert backend_type_of(http) == "http"
+    assert backend_type_of(in_process) == "in-process"
+
+
+def test_the_backend_type_is_closed_to_the_three_values_the_schema_allows() -> None:
+    """Closed, so a fourth value is a type error rather than an invalid report.
+
+    ``BackendType`` is exported for exactly this: a custom control annotates its
     own property with it and the type checker refuses ``"HTTP"`` or ``"grpc"``
     before either becomes a report that fails schema validation with nothing to
     point at locally.
     """
-    assert typing.get_args(ControlApi) == ("http", "in-process")
+    assert typing.get_args(BackendType) == ("http", "in-process", "custom")

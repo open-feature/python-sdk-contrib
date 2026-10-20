@@ -5,19 +5,35 @@ from __future__ import annotations
 import typing
 
 __all__ = [
+    "DEFAULT_BACKEND_TYPE",
     "BackendControl",
+    "BackendType",
     "ConnectionControl",
-    "ControlApi",
     "UnsupportedControlError",
+    "backend_type_of",
     "unsupported_control",
 ]
 
-ControlApi = typing.Literal["http", "in-process"]
-"""Which of the two control paths a run used, closed to the two the schema allows.
+BackendType = typing.Literal["http", "in-process", "custom"]
+"""How the backend under test was driven, closed to the values the schema allows.
+
+``"http"`` is the normative HTTP control API in ``control-api.yaml``.
+``"in-process"`` is the narrow allowance for a provider with no backend.
+``"custom"`` is a control this package does not ship, driving the backend some
+way the suite cannot vouch for -- the honest answer where neither of the other
+two is true, and better in a report than a claim to a normative path that was
+not taken.
 
 Named so that a custom control can annotate its own property with it and have
-the type checker refuse a third value before it becomes a conformance report
+the type checker refuse a fourth value before it becomes a conformance report
 that fails validation with nothing to point at locally.
+"""
+
+DEFAULT_BACKEND_TYPE: BackendType = "custom"
+"""What an unstated backend type resolves to: the weakest honest claim.
+
+Silence cannot mean ``"http"`` or ``"in-process"`` -- those are claims about the
+path a run took, and only the control knows which it drove.
 """
 
 
@@ -55,6 +71,17 @@ class BackendControl(typing.Protocol):
     the path it exercised is not the path the contract describes. In-process
     control is for providers with *no* backend to contract with; see
     :class:`InProcessControl`.
+
+    **Saying how the backend was driven.** A control may expose a
+    ``backend_type`` property typed :data:`BackendType`, naming the path it
+    drove. It is deliberately *not* a member of this protocol: Python has no
+    optional protocol member -- declaring it, even with a default
+    implementation, makes it required of every implementation both to a type
+    checker and to :func:`isinstance` -- so it is left out and read through
+    :func:`backend_type_of`, which resolves an absent one to
+    :data:`DEFAULT_BACKEND_TYPE`. Both controls this package ships state theirs;
+    an adopter writing their own and saying nothing gets ``"custom"``, which is
+    the honest report for a path the suite cannot vouch for.
     """
 
     def prepare_scenario(self) -> None:
@@ -78,20 +105,6 @@ class BackendControl(typing.Protocol):
     def description(self) -> str:
         """A short description of what is being controlled, for messages a human reads."""
 
-    @property
-    def control_api(self) -> ControlApi:
-        """Which path this control drove the backend through.
-
-        ``"http"`` is the normative HTTP control API in ``control-api.yaml``.
-        ``"in-process"`` is the narrow allowance made for a provider with no
-        backend -- see :class:`InProcessControl`.
-
-        **Required, and stated rather than inferred**: it is the one field
-        separating the same scenarios passing over the control API from them
-        passing through in-process manipulation of a provider that *does* have a
-        backend, and nothing outside a control can tell the two apart.
-        """
-
 
 @typing.runtime_checkable
 class ConnectionControl(typing.Protocol):
@@ -113,6 +126,20 @@ class ConnectionControl(typing.Protocol):
         outage must be observable as a change in availability and never as a
         change in flag values, or the stale scenario cannot distinguish the two.
         """
+
+
+def backend_type_of(control: BackendControl) -> BackendType:
+    """Resolve how a control drove the backend, for the conformance report.
+
+    An absent ``backend_type`` resolves to :data:`DEFAULT_BACKEND_TYPE` rather
+    than being inferred from the concrete type: nothing outside a control can
+    tell the normative HTTP path from in-process manipulation of a provider that
+    *does* have a backend, so a guess here would put an unfalsifiable claim in a
+    report. A control that does state one is believed -- it is the only thing
+    that knows.
+    """
+    stated = getattr(control, "backend_type", DEFAULT_BACKEND_TYPE)
+    return typing.cast("BackendType", stated)
 
 
 def unsupported_control(

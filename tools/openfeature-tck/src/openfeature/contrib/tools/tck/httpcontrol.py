@@ -9,7 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .control import BackendControl, ConnectionControl, ControlApi
+from .control import BackendControl, BackendType, ConnectionControl
 
 __all__ = [
     "DEFAULT_CONFIGURATION",
@@ -139,8 +139,14 @@ class HttpControl:
         self._backend_maybe_down = False
 
     @property
-    def control_api(self) -> ControlApi:
-        """Report that this control drives its backend over the HTTP control API."""
+    def backend_type(self) -> BackendType:
+        """Report that this control drives its backend over the HTTP control API.
+
+        Stated although :class:`~.control.BackendControl` does not require it:
+        every operation on this class is a request to the normative control API,
+        so leaving it to default to ``"custom"`` would understate a run that
+        took the one path a conformance claim is portable across.
+        """
         return "http"
 
     @property
