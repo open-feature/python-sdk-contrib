@@ -228,14 +228,81 @@ def tck_state(tck_config: TckConfig) -> typing.Iterator[TckState]:
 
 
 @pytest.fixture(autouse=True)
-def _tck_capability_gate(request: pytest.FixtureRequest) -> None:
-    """Autouse wrapper around :func:`capability_gate`.
+def _tck_scenario_gate(request: pytest.FixtureRequest) -> None:
+    """Autouse wrapper around the two gates a scenario passes before it runs.
 
-    A one-line fixture over a plain function, so the decision it makes can be
+    Plain functions behind a one-line fixture, so the decisions they make can be
     put under test without reaching inside a fixture object for the callable
     pytest wrapped -- which is private, and has moved between pytest versions.
+
+    The order lives in :func:`apply_scenario_gates` for the same reason: it is
+    a decision, and one a test should be able to make without a session.
     """
+    apply_scenario_gates(request)
+
+
+def apply_scenario_gates(request: pytest.FixtureRequest) -> None:
+    """The gates a scenario passes before it runs, in the order they decide.
+
+    Three tiers, narrowing from what holds for every provider in this language
+    to what this one provider said, and the same order the Go and Java suites
+    gate in:
+
+    0. The vocabulary itself, at collection rather than here: a reserved tag
+       fails the run outright, so no selection can bury it.
+    1. :func:`inexpressible_gate` -- this SDK cannot put the question at all.
+    2. :func:`adopter_tag_gate` -- this adoption did not select the scenario.
+    3. :func:`capability_gate` -- this provider did not declare the capability.
+
+    **Selection outranks the declaration.** A scenario an adoption deselected is
+    not a capability the provider withheld, and gating the declaration first
+    reports it as one -- a report then shows a provider declining something it
+    was never asked.
+
+    **It does not outrank the language-wide reason**, which is the tier Java has
+    no equivalent of. That reason is permanent, says in as many words that
+    nothing about the provider under test follows from it, and so misleads
+    nobody about the provider; losing it to a local tag selection would trade a
+    fact about this language for a fact about one adoption's options.
+    """
+    inexpressible_gate(request)
+    adopter_tag_gate(request)
     capability_gate(request)
+
+
+def _gated_capabilities(request: pytest.FixtureRequest) -> list[Capability]:
+    """The capabilities this node's tags gate it on, in marker order.
+
+    pytest-bdd names a marker after the tag with the at-sign stripped, and a tag
+    carried by the feature or the rule reaches the node as a marker too.
+    """
+    return [
+        capability
+        for marker in request.node.iter_markers()
+        if (capability := capability_for_marker(marker.name)) is not None
+    ]
+
+
+def inexpressible_gate(request: pytest.FixtureRequest) -> None:
+    """Skip a scenario this SDK cannot express, whatever anyone declares.
+
+    The one gate no adoption can change the answer to: it reads no
+    ``tck_config``, and holds for every provider in this language. Empty in
+    Python today -- see :data:`~.capability.INEXPRESSIBLE_CAPABILITIES`, where
+    that is a measurement rather than an omission -- which is why the ordering
+    is pinned by a test instead of left to be noticed.
+
+    Also called by :func:`capability_gate`, so that gate stays complete on its
+    own; reaching it twice costs an exhausted marker iterator, because the first
+    call skipped if it had anything to say.
+    """
+    gated = _gated_capabilities(request)
+    if not gated:
+        return
+
+    inexpressible = inexpressible_skip_reason(gated)
+    if inexpressible is not None:
+        pytest.skip(inexpressible)
 
 
 def capability_gate(request: pytest.FixtureRequest) -> None:
@@ -251,24 +318,19 @@ def capability_gate(request: pytest.FixtureRequest) -> None:
     first also means the gate costs nothing for tests that are not TCK
     scenarios.
 
-    **A capability this SDK cannot express is skipped first, and says so.** Its
-    scenarios would be skipped anyway, but with the wrong reason: "the provider
-    does not declare it" reads as a decision the provider made, and no provider
-    in this language had one to make. Checked before the declaration loop so
-    that a scenario gated by both kinds reports the permanent, language-wide
-    reason rather than whichever tag came first off the marker iterator.
+    **A capability this SDK cannot express is skipped first, and says so**, by
+    :func:`inexpressible_gate`. Its scenarios would be skipped anyway, but with
+    the wrong reason: "the provider does not declare it" reads as a decision the
+    provider made, and no provider in this language had one to make. Checked
+    before the declaration loop so that a scenario gated by both kinds reports
+    the permanent, language-wide reason rather than whichever tag came first off
+    the marker iterator.
     """
-    gated = [
-        capability
-        for marker in request.node.iter_markers()
-        if (capability := capability_for_marker(marker.name)) is not None
-    ]
+    inexpressible_gate(request)
+
+    gated = _gated_capabilities(request)
     if not gated:
         return
-
-    inexpressible = inexpressible_skip_reason(gated)
-    if inexpressible is not None:
-        pytest.skip(inexpressible)
 
     try:
         config: TckConfig = request.getfixturevalue("tck_config")
@@ -317,6 +379,86 @@ def undeclared_skip_reason(
                 f"Declared: {' '.join(config.sorted_capabilities) or '(none)'}"
             )
     return None
+
+
+def adopter_tag_gate(request: pytest.FixtureRequest) -> None:
+    """Skip an extension scenario this adoption's tag selection leaves out.
+
+    The other gate on the same seam, and deliberately beside
+    :func:`capability_gate` rather than anywhere else: both decide whether a
+    scenario runs, both answer with ``pytest.skip`` so the scenario is reported
+    as skipped **with the reason**, and a second mechanism for the same decision
+    is how one of them comes to be bypassed.
+
+    Not a runner-level ``--tags`` filter, which would be the obvious reach and
+    cannot express this: a filter narrows the whole run, canonical scenarios
+    included, and ``not @slow`` leaves an untagged scenario running where
+    :attr:`~.config.TckConfig.include_tags` must skip it.
+
+    **Canonical scenarios are exempt**, decided by
+    :func:`~.extensions.is_canonical` -- the same derivation that tells a
+    report's reader which half a scenario came from. The specification's
+    scenarios are not an adopter's to select, and they carry only capability
+    tags anyway, which this gate may not name.
+
+    The tags come off the node's markers, exactly as the capability gate reads
+    them, so a tag carried by the feature or the rule counts for selection too;
+    pytest-bdd names a marker after the tag with the at-sign stripped.
+    """
+    feature = _suite_feature(request.node)
+    if feature is None or is_canonical(feature):
+        return
+
+    try:
+        config: TckConfig = request.getfixturevalue("tck_config")
+    except pytest.FixtureLookupError:  # pragma: no cover - no adoption here
+        return
+    if not config.include_tags and not config.exclude_tags:
+        return
+
+    carried = {f"@{marker.name}" for marker in request.node.iter_markers()}
+    # Exclude first: the narrower statement wins over the broader one.
+    for reason in (
+        excluded_skip_reason(carried, config),
+        not_included_skip_reason(carried, config),
+    ):
+        if reason is not None:
+            pytest.skip(reason)
+
+
+def excluded_skip_reason(carried: Iterable[str], config: TckConfig) -> str | None:
+    """Why this adoption excluded the scenario, or ``None``.
+
+    **Names the tag that caused it**, not merely the option: an adoption
+    excluding several tags otherwise has to guess which one matched, and the
+    whole point of a skip over an absence is that it says what happened.
+    """
+    matched = sorted(set(carried) & set(config.exclude_tags))
+    if not matched:
+        return None
+    return (
+        f"scenario carries {' '.join(matched)}, which this adoption excludes. "
+        f"Excluded: {' '.join(sorted(config.exclude_tags))}"
+    )
+
+
+def not_included_skip_reason(carried: Iterable[str], config: TckConfig) -> str | None:
+    """Why this adoption's include set does not select the scenario, or ``None``.
+
+    **Reached by an untagged scenario too**, which is the case that decides what
+    ``include_tags`` means. Read as a hint, an option naming ``@rpc`` would run
+    everything that is not about some other mode; read as a filter, it runs the
+    scenarios saying they are about this one. It is a filter: a scenario the
+    adopter forgot to tag is then skipped in every mode's run and says so,
+    rather than running in all of them.
+    """
+    included = sorted(config.include_tags)
+    if not included or set(carried) & set(included):
+        return None
+    return (
+        f"scenario carries none of the tags this adoption includes. "
+        f"Included: {' '.join(included)}"
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
