@@ -108,6 +108,8 @@ have taken. A backend-less one does not implement `ConnectionControl`, so `STALE
 | `new_provider` | yes | — | builds the provider under test, configured but uninitialised. Called **once per scenario**, because the mapped ports do not exist until the stack is up |
 | `new_unavailable_provider` | no | `None` | builds a provider pointed at a closed port, for the initialisation-failure scenarios. Needed only if `capabilities` includes `UNAVAILABLE_INIT`; give it a short connection deadline, since the scenario allows a bounded time for the error |
 | `capabilities` | no | `DECLARABLE_CAPABILITIES` | which optional parts of the contract this provider supports |
+| `include_tags` | no | `()` | adopter tags an **extension** scenario must carry to run. A filter: while it is set, an untagged extension scenario is skipped too |
+| `exclude_tags` | no | `()` | adopter tags whose **extension** scenarios are skipped, naming the tag in the reason. Wins over `include_tags` |
 | `known_deviations` | no | `()` | gaps the provider is known to have |
 | `event_timeout` | no | `12.0` | seconds to wait for a provider event |
 | `ready_timeout` | no | `30.0` | seconds to wait for `READY`, and the longest a direct `shutdown`/`initialize` is given before the wait is recorded as a failure |
@@ -283,6 +285,43 @@ and `tck_state` is the per-scenario state those steps use — your scenario runs
 the suite registered, in the same lifecycle and reset. `feature_paths()` already includes an
 `extensions` directory when there is one, so the `scenarios()` call never changes.
 
+### Selecting your own scenarios
+
+Extensions that cover more than the provider does right now — two backend modes, a rule behind a
+version you have not deployed — are selected by tag, from the configuration rather than by deleting
+feature files:
+
+```python
+TckConfig(
+    # ...
+    include_tags=("@rpc",),          # run only extension scenarios tagged for this mode
+    exclude_tags=("@fractional-v2",),  # never run these ones
+)
+```
+
+```
+SKIPPED scenario carries @fractional-v2, which this adoption excludes. Excluded: @fractional-v2
+SKIPPED scenario carries none of the tags this adoption includes. Included: @rpc
+```
+
+Four rules, the same as [Java's][java-tck]:
+
+- `include_tags` is a **filter, not a hint**: while it is non-empty, an extension scenario carrying
+  none of those tags is skipped — **including one carrying no tags at all**. A scenario you forgot to
+  tag is then skipped in every mode's run and says so, rather than running in all of them.
+- **`exclude_tags` wins**, so a scenario carrying both an included and an excluded tag is skipped.
+- **Canonical scenarios are exempt.** The specification's scenarios are not yours to select.
+- **A capability tag is refused** in either option, at construction: `capabilities` is what gates a
+  capability, and its skip carries the declaration that produced it. The same check refuses a tag that
+  is not a Gherkin tag (`"rpc"`, `" @rpc"`), and one named in both options.
+
+Both run through the same gate and the same `pytest.skip` the capability gate uses, so the skip is
+reported with its reason and nothing about it can read as a pass. Selection is decided **before the
+capability declaration**, as in Go and Java: a scenario you deselected is not a capability your
+provider withheld, and a report saying so would describe a question the suite never put. A runner-level `-m` or `--tags`
+filter cannot express this: it narrows the whole run, canonical scenarios included, and `not @slow`
+leaves an untagged scenario running where `include_tags` must skip it.
+
 **Your scenarios cannot stand in for ours.** Canonical features are identified by their path under
 `gherkin/` and yours under `extensions/`, and `extensions.py` refuses a file of yours under the
 reserved prefix, or two that would share one uri. Both are reachable here, because pytest-bdd names a
@@ -347,5 +386,6 @@ drifted from one.
 
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
+[java-tck]: https://github.com/open-feature/java-sdk-contrib/tree/main/tools/tck
 [spec]: https://github.com/open-feature/spec
 [tracking]: https://github.com/open-feature/spec/issues/417

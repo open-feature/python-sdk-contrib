@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from openfeature.provider import FeatureProvider
 
-from .capability import DECLARABLE_CAPABILITIES, Capability
+from .capability import DECLARABLE_CAPABILITIES, Capability, capability_for_tag
 from .control import BackendControl
 
 __all__ = ["KnownDeviation", "ProviderFactory", "TckConfig"]
@@ -185,6 +185,42 @@ class TckConfig:
     :func:`inexpressible_problems`.
     """
 
+    include_tags: Collection[str] = ()
+    """Adopter tags an extension scenario must carry to run, or empty for all.
+
+    **A filter rather than a hint.** While this is non-empty, an extension
+    scenario carrying none of these tags is skipped -- *including one carrying
+    no tags at all*, which is the case the two readings disagree about. An
+    adoption whose extensions cover two provider modes names the mode's tag here
+    and runs the suite twice, and a scenario it forgot to tag is skipped in both
+    runs rather than run in both.
+
+    **Only an adopter's own tags.** :attr:`capabilities` is what gates a
+    capability, and naming a capability tag here is refused: a capability skip
+    carries the declaration that produced it, where this gate would record
+    nothing about why the scenario did not run.
+
+    Canonical scenarios ignore this entirely -- the specification's scenarios are
+    not an adopter's to select. See
+    :func:`~.plugin.not_included_skip_reason`.
+    """
+
+    exclude_tags: Collection[str] = ()
+    """Adopter tags whose extension scenarios are skipped.
+
+    For a scenario an adoption keeps but cannot run yet: a rule behind a backend
+    version it has not deployed, a mode the provider has not grown. The skip
+    names the tag, so the run says which selection held the scenario back rather
+    than leaving it absent.
+
+    **Wins over :attr:`include_tags`**, so a scenario carrying both an included
+    and an excluded tag is skipped. Otherwise the narrower statement -- "not
+    this one" -- would be overridden by the broader one.
+
+    Like :attr:`include_tags`: adopter tags only, and canonical scenarios are
+    exempt. Naming one tag in both options is refused at construction.
+    """
+
     known_deviations: Sequence[KnownDeviation] = ()
     """Gaps this provider is known to have, with each one tracked somewhere.
 
@@ -244,11 +280,27 @@ class TckConfig:
                 f"the Capability enum"
             )
 
+        # Normalised the same way, and for the same reason: a list, a set or a
+        # generator of tags all arrive as one frozenset, so the gate and the skip
+        # reasons cannot depend on how the adoption spelled them. A single string
+        # is caught first, because a frozenset of one is one character at a time.
+        for option in ("include_tags", "exclude_tags"):
+            written = getattr(self, option)
+            if isinstance(written, str):
+                problems.append(
+                    f"{option} is the single string {written!r}: it takes a "
+                    f"collection of tags, and a bare string would be read one "
+                    f"character at a time. Write ({written!r},)"
+                )
+                written = ()
+            object.__setattr__(self, option, frozenset(written))
+
         object.__setattr__(self, "known_deviations", tuple(self.known_deviations))
 
         problems.extend(reserved_problems(self.capabilities))
         problems.extend(inexpressible_problems(self.capabilities))
         problems.extend(deviation_problems(self.known_deviations))
+        problems.extend(tag_selection_problems(self.include_tags, self.exclude_tags))
 
         if (
             Capability.UNAVAILABLE_INIT in self.capabilities
@@ -400,6 +452,94 @@ def deviation_problems(deviations: Sequence[KnownDeviation]) -> list[str]:
                 f"all -- so the entry would attribute to your provider a gap that "
                 f"belongs to the language. The skip already carries that reason"
             )
+
+    return problems
+
+
+def tag_selection_problems(
+    include_tags: Iterable[str], exclude_tags: Iterable[str]
+) -> list[str]:
+    """Refuse a tag selection that cannot mean what it says.
+
+    Three refusals, and the reason each is a refusal rather than a quiet
+    correction is the same: the gate silently matches nothing where the adopter
+    wrote something, which reads in a report exactly like a selection that was
+    satisfied.
+
+    * A **malformed tag** -- no at-sign, nothing after it, surrounding
+      whitespace -- matches no scenario, because a Gherkin tag is what a
+      scenario carries and that is the spelling it carries.
+    * A **capability tag** belongs to :attr:`TckConfig.capabilities`, whose skip
+      carries the declaration that produced it. Selecting on it here would skip
+      the same scenarios while recording nothing about why, and would let this
+      gate contradict a declaration the adoption made.
+    * A tag named in **both options** has no reading at all: exclude wins, so
+      including it says nothing, and an option that says nothing is a sentence
+      somebody wrote believing it did.
+
+    Checked at construction, which for the session-scoped ``tck_config`` fixture
+    is once at suite start: a misconfiguration fails the run cleanly, with the
+    adopter's own code on the stack to say which line to fix, rather than once
+    per scenario or not until the scenario a wrong tag was meant to select
+    silently does not appear.
+    """
+    problems: list[str] = []
+    named: list[frozenset[str]] = []
+
+    for option, tags in (
+        ("include_tags", include_tags),
+        ("exclude_tags", exclude_tags),
+    ):
+        collected = frozenset(tags)
+        named.append(collected)
+
+        # A Capability member is itself a str whose value carries no at-sign, so
+        # it would read as malformed; it is the likeliest form of the mistake
+        # below in Python, and the message for that one is the one that helps.
+        capability_named = {
+            tag
+            for tag in collected
+            if isinstance(tag, Capability)
+            or (isinstance(tag, str) and capability_for_tag(tag) is not None)
+        }
+        malformed = sorted(
+            repr(tag)
+            for tag in collected - capability_named
+            if not isinstance(tag, str)
+            or len(tag) < 2
+            or not tag.startswith("@")
+            or tag.strip() != tag
+        )
+        if malformed:
+            problems.append(
+                f"{option} names {', '.join(malformed)}: a tag is the Gherkin "
+                f"spelling a scenario carries, so it starts with '@', has "
+                f"something after the '@', and carries no surrounding "
+                f"whitespace. Anything else matches no scenario, which reads "
+                f"like a selection that was satisfied"
+            )
+
+        capabilities = sorted(
+            tag.tag if isinstance(tag, Capability) else tag for tag in capability_named
+        )
+        if capabilities:
+            problems.append(
+                f"{option} names the TCK capability tags "
+                f"{' '.join(capabilities)}: gate them through capabilities "
+                f"instead, which skips their scenarios with the declaration "
+                f"that produced the skip. Selecting on them here would skip the "
+                f"same scenarios while recording nothing about why, and could "
+                f"contradict the declaration this configuration makes. This "
+                f"option is for tags of your own"
+            )
+
+    both = sorted(named[0] & named[1], key=repr)
+    if both:
+        problems.append(
+            f"{' '.join(str(tag) for tag in both)} named by both include_tags "
+            f"and exclude_tags: a tag is one or the other. An excluded tag "
+            f"wins, so including it as well says nothing"
+        )
 
     return problems
 
