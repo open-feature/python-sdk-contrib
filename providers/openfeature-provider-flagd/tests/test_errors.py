@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 
@@ -7,13 +8,19 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.event import ProviderEvent
-from openfeature.exception import ErrorCode
+from openfeature.exception import (
+    ErrorCode,
+    OpenFeatureError,
+    ProviderNotReadyError,
+)
 from openfeature.flag_evaluation import Reason
 
 
 def create_client(provider: FlagdProvider):
-    api.set_provider(provider)
+    # These flag files are deliberately broken, so init may fail; what the
+    # evaluation returns afterwards is the assertion.
+    with contextlib.suppress(OpenFeatureError):
+        api.set_provider_and_wait(provider)
     return api.get_client()
 
 
@@ -119,23 +126,15 @@ def test_flag_disabled():
 
 @pytest.mark.parametrize("wait", (500, 250))
 def test_grpc_sync_fail_deadline(wait: int):
-    init_failed = False
-
-    def fail(*args, **kwargs):
-        nonlocal init_failed
-        init_failed = True
-
-    api.get_client().add_handler(ProviderEvent.PROVIDER_ERROR, fail)
-
     t = time.time()
-    api.set_provider(
-        FlagdProvider(
-            resolver_type=ResolverType.IN_PROCESS,
-            port=99999,  # dead port to test failure
-            deadline_ms=wait,
+    with pytest.raises(ProviderNotReadyError):
+        api.set_provider_and_wait(
+            FlagdProvider(
+                resolver_type=ResolverType.IN_PROCESS,
+                port=99999,  # dead port to test failure
+                deadline_ms=wait,
+            )
         )
-    )
 
     elapsed = time.time() - t
     assert abs(elapsed - wait * 0.001) < 0.17
-    assert init_failed
