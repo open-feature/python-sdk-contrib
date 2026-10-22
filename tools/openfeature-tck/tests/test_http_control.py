@@ -191,6 +191,109 @@ def test_a_custom_backend_configuration_is_carried_through() -> None:
         assert ("POST", "/start", "config=ssl") in stub.requests
 
 
+# -- serving a named configuration -------------------------------------------
+
+
+def test_serving_a_configuration_starts_the_backend_on_that_name(
+    stub: _StubControlApi,
+) -> None:
+    """The whole operation: ``/start`` on the name the scenario asked for.
+
+    Which also seeds that configuration's flag state, so a scenario naming one
+    asserts against its flags rather than the baseline's.
+    """
+    HttpControl(stub.base_url).serve_configuration("metadata")
+
+    assert stub.requests == [("POST", "/start", "config=metadata")]
+
+
+def test_a_served_configuration_does_not_leak_into_the_next_scenario(
+    stub: _StubControlApi,
+) -> None:
+    """The load-bearing one, and the reason ``/reset`` cannot be used here.
+
+    ``/reset`` restores flag state and says nothing about which configuration is
+    served, so a scenario that follows one that named ``metadata`` would run
+    against the metadata flags while believing it was on the baseline -- and
+    would report whatever it found as conformance.
+    """
+    control = HttpControl(stub.base_url)
+    control.serve_configuration("metadata")
+    stub.requests.clear()
+
+    control.prepare_scenario()
+
+    assert stub.requests == [("POST", "/start", "config=default")]
+
+
+def test_the_scenario_after_that_one_is_back_on_reset(stub: _StubControlApi) -> None:
+    """Taking the suite off a configuration is a one-off, not a permanent downgrade.
+
+    Once the backend is back on this suite's own configuration, ``/reset`` is the
+    right primitive again -- it causes no availability blip, which is why it is
+    preferred at all.
+    """
+    control = HttpControl(stub.base_url)
+    control.serve_configuration("metadata")
+    control.prepare_scenario()
+    stub.requests.clear()
+
+    control.prepare_scenario()
+
+    assert stub.paths == ["/reset"]
+
+
+def test_a_failed_return_to_the_suite_configuration_is_retried(
+    stub: _StubControlApi,
+) -> None:
+    """A start that failed leaves the scenario's configuration recorded.
+
+    Forgetting it on a failure would downgrade the next scenario to ``/reset``,
+    which does not change what is being served -- so a transient failure would
+    turn into every later scenario quietly running on the wrong flags.
+    """
+    control = HttpControl(stub.base_url)
+    control.serve_configuration("metadata")
+
+    stub.statuses["/start"] = 500
+    with pytest.raises(ControlApiError, match="500"):
+        control.prepare_scenario()
+
+    del stub.statuses["/start"]
+    stub.requests.clear()
+    control.prepare_scenario()
+
+    assert stub.requests == [("POST", "/start", "config=default")]
+
+
+def test_reconnecting_preserves_the_configuration_the_scenario_served(
+    stub: _StubControlApi,
+) -> None:
+    """Losing the connection is not how a scenario changes what the backend serves.
+
+    A scenario that named a configuration and then cut the backend off is asking
+    about availability. Coming back on this suite's configuration instead would
+    change the flags underneath it mid-scenario.
+    """
+    control = HttpControl(stub.base_url)
+    control.serve_configuration("metadata")
+    control.disconnect()
+    stub.requests.clear()
+
+    control.reconnect()
+
+    assert stub.requests == [("POST", "/start", "config=metadata")]
+
+
+def test_a_configuration_name_is_encoded_so_a_space_cannot_break_the_url(
+    stub: _StubControlApi,
+) -> None:
+    """The names belong to the backend, so the TCK cannot assume they are URL-safe."""
+    HttpControl(stub.base_url).serve_configuration("two words")
+
+    assert stub.requests == [("POST", "/start", "config=two+words")]
+
+
 def test_change_flag_posts_to_change(stub: _StubControlApi) -> None:
     HttpControl(stub.base_url).change_flag()
 

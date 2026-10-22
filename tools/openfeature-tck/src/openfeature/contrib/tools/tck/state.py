@@ -8,19 +8,27 @@ where it is not one.
 
 from __future__ import annotations
 
-import queue
+import threading
+import time
 import typing
 from dataclasses import dataclass, field
 
 from openfeature.client import OpenFeatureClient
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import EventDetails, ProviderEvent
-from openfeature.flag_evaluation import FlagType
+from openfeature.flag_evaluation import FlagMetadata, FlagType
 from openfeature.provider import FeatureProvider
 
 from .config import TckConfig
 
-__all__ = ["EvaluationRecord", "EventRecorder", "LifecycleRecord", "TckState"]
+__all__ = [
+    "EvaluationRecord",
+    "EventLog",
+    "EventRecorder",
+    "LifecycleRecord",
+    "ProviderEventRecord",
+    "TckState",
+]
 
 
 @dataclass
@@ -32,6 +40,13 @@ class EvaluationRecord:
     reason: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+    flag_metadata: FlagMetadata | None = None
+    """The metadata the provider attached to the resolution, if the call returned.
+
+    ``None`` means no evaluation got as far as returning details, which is a
+    different answer from an empty map and is why the metadata assertions refuse
+    it rather than reading it as empty.
+    """
     raised: BaseException | None = None
     """The exception the call raised, if any.
 
@@ -61,6 +76,103 @@ class LifecycleRecord:
     """The exception the call raised, if any."""
 
 
+@dataclass(frozen=True)
+class ProviderEventRecord:
+    """One provider event a scenario's handlers observed."""
+
+    event: ProviderEvent
+    """Which kind of event it was, which is what an await matches on."""
+
+    details: EventDetails
+    """What the SDK handed the handler."""
+
+    sequence: int
+    """Arrival order across every kind.
+
+    Not derivable from a per-kind queue, and an ordering question needs it: "a
+    ready event, and no error before it" is a relation between two kinds, and two
+    independent queues record no relation at all.
+    """
+
+
+class EventLog:
+    """Every provider event the scenario's handlers saw, in arrival order.
+
+    One log rather than a queue per kind, because of what a scenario asks of it.
+    Awaiting is still per kind -- a scenario consumes ready events one at a time
+    without touching the errors -- but an ordering assertion spans kinds, and
+    there is nowhere else for the order to be.
+
+    **A claim takes the one record it matched and leaves every other**, records
+    of other kinds included, which is the half that is easy to get wrong.
+    Draining up to the match would discard an error recorded before an awaited
+    ready, and the scenario asking whether one came first would find nothing left
+    to object to.
+
+    A condition rather than a :class:`queue.Queue`: a provider with a background
+    thread records from that thread while the scenario waits on the main one, and
+    a claim has to pick its own kind out of the middle of the log rather than take
+    whatever is at the head.
+    """
+
+    def __init__(self) -> None:
+        self._arrived = threading.Condition()
+        self._records: list[ProviderEventRecord] = []
+        self._recorded = 0
+
+    def record(self, event: ProviderEvent, details: EventDetails) -> None:
+        """Append what a handler was just given, and wake whoever is waiting."""
+        with self._arrived:
+            self._recorded += 1
+            self._records.append(
+                ProviderEventRecord(
+                    event=event, details=details, sequence=self._recorded
+                )
+            )
+            self._arrived.notify_all()
+
+    def wait_for(
+        self, event: ProviderEvent, timeout: float
+    ) -> ProviderEventRecord | None:
+        """The oldest unclaimed record of ``event``, waiting up to ``timeout`` for one.
+
+        The record stays in the log, so a caller that has an ordering question
+        can still ask it; :meth:`claim` is what takes the record out. ``None``
+        if none arrived in time.
+        """
+        deadline = time.monotonic() + timeout
+        with self._arrived:
+            while True:
+                for record in self._records:
+                    if record.event is event:
+                        return record
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                self._arrived.wait(remaining)
+
+    def kinds_before(self, record: ProviderEventRecord) -> list[ProviderEvent]:
+        """The kinds of the unclaimed records that arrived ahead of ``record``.
+
+        Unclaimed, because a record an earlier step consumed was that step's
+        answer and is not this one's evidence -- the same reading Java's suite
+        takes of the list it removes from.
+        """
+        with self._arrived:
+            return [
+                earlier.event
+                for earlier in self._records
+                if earlier.sequence < record.sequence
+            ]
+
+    def claim(self, record: ProviderEventRecord) -> None:
+        """Take this one record out of the log, leaving every other in place."""
+        with self._arrived:
+            self._records = [
+                kept for kept in self._records if kept.sequence != record.sequence
+            ]
+
+
 class EventRecorder:
     """Captures the events of one type, in order, so a scenario consumes them one at a time.
 
@@ -70,14 +182,17 @@ class EventRecorder:
     fired at some point" would report the second assertion as satisfied by the
     first event.
 
-    A queue rather than a list because a provider with a background thread
-    delivers events from that thread while the scenario waits on the main one.
+    What it consumes from is the scenario's one :class:`EventLog`, shared with
+    every other recorder, so the order the kinds arrived in survives a consumed
+    event.
     """
 
-    def __init__(self, client: OpenFeatureClient, event: ProviderEvent) -> None:
+    def __init__(
+        self, client: OpenFeatureClient, event: ProviderEvent, log: EventLog
+    ) -> None:
         self.event = event
         self._client = client
-        self._events: queue.Queue[EventDetails] = queue.Queue()
+        self._log = log
         self.last: EventDetails | None = None
 
         # The SDK replays a matching event on registration when the provider is
@@ -86,21 +201,35 @@ class EventRecorder:
         client.add_handler(event, self._on_event)
 
     def _on_event(self, details: EventDetails) -> None:
-        self._events.put(details)
+        self._log.record(self.event, details)
 
     def await_event(self, timeout: float) -> EventDetails:
         """Consume the next event of this recorder's type."""
-        try:
-            details = self._events.get(timeout=timeout)
-        except queue.Empty:
+        record = self.await_record(timeout)
+        self.claim(record)
+        return record.details
+
+    def await_record(self, timeout: float) -> ProviderEventRecord:
+        """Wait for the next unclaimed event of this type, leaving it in the log.
+
+        Separate from :meth:`await_event` for the ordering assertion, which has
+        to read what was recorded ahead of the event *before* consuming it: a
+        claim is what makes "ahead of it" unanswerable.
+        """
+        record = self._log.wait_for(self.event, timeout)
+        if record is None:
             msg = (
                 f"timed out after {timeout}s waiting for a {self.event.value} event. "
                 f"If the provider is simply slower than this to notice, raise "
                 f"TckConfig.event_timeout rather than treating it as a failure"
             )
-            raise AssertionError(msg) from None
-        self.last = details
-        return details
+            raise AssertionError(msg)
+        return record
+
+    def claim(self, record: ProviderEventRecord) -> None:
+        """Consume a record this recorder awaited, and remember it as the last seen."""
+        self._log.claim(record)
+        self.last = record.details
 
     def detach(self) -> None:
         self._client.remove_handler(self.event, self._on_event)
@@ -137,6 +266,12 @@ class TckState:
     remembered: typing.Any = None
     has_memory: bool = False
     recorders: dict[ProviderEvent, EventRecorder] = field(default_factory=dict)
+    events: EventLog = field(default_factory=EventLog)
+    """Every event the scenario's recorders saw, in one order across the kinds.
+
+    Shared by every recorder rather than owned by one, because that order is the
+    only thing an ordering assertion can read.
+    """
 
     def require_client(self) -> OpenFeatureClient:
         if self.client is None:

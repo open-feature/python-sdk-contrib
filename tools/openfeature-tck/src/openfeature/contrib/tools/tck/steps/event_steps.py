@@ -17,9 +17,13 @@ __all__ = [
     "the_connection_is_lost",
     "the_connection_is_restored",
     "the_event_handler_should_have_been_executed",
+    "the_event_handler_should_have_been_executed_with_none_before",
     "the_event_handler_should_have_been_executed_within",
     "the_flag_should_be_part_of_the_event_payload",
 ]
+
+_EVENT_KINDS = "ready|stale|error|change"
+"""The kinds a step may name, spelled once so two steps cannot drift apart."""
 
 _EVENT_BY_NAME: dict[str, ProviderEvent] = {
     "ready": ProviderEvent.PROVIDER_READY,
@@ -43,7 +47,7 @@ def _event(name: str) -> ProviderEvent:
         raise AssertionError(msg) from None
 
 
-@given(parsers.re(r"^an? (?P<kind>ready|stale|error|change) event handler$"))
+@given(parsers.re(rf"^an? (?P<kind>{_EVENT_KINDS}) event handler$"))
 def an_event_handler(tck_state: TckState, kind: str) -> None:
     """Attach a recorder for one event type.
 
@@ -56,10 +60,10 @@ def an_event_handler(tck_state: TckState, kind: str) -> None:
     if event in tck_state.recorders:
         return
     client = tck_state.require_client()
-    tck_state.recorders[event] = EventRecorder(client, event)
+    tck_state.recorders[event] = EventRecorder(client, event, tck_state.events)
 
 
-@when(parsers.re(r"^a (?P<kind>ready|stale|error|change) event was fired$"))
+@when(parsers.re(rf"^a (?P<kind>{_EVENT_KINDS}) event was fired$"))
 def an_event_was_fired(tck_state: TckState, kind: str) -> None:
     """Consume an event, so a later assertion observes the next one rather than this.
 
@@ -72,7 +76,7 @@ def an_event_was_fired(tck_state: TckState, kind: str) -> None:
 
 @then(
     parsers.re(
-        r"^the (?P<kind>ready|stale|error|change) event handler should have been executed$"
+        rf"^the (?P<kind>{_EVENT_KINDS}) event handler should have been executed$"
     )
 )
 def the_event_handler_should_have_been_executed(tck_state: TckState, kind: str) -> None:
@@ -82,8 +86,8 @@ def the_event_handler_should_have_been_executed(tck_state: TckState, kind: str) 
 
 @then(
     parsers.re(
-        r"^the (?P<kind>ready|stale|error|change) event handler should have been "
-        r"executed within (?P<millis>\d+)ms$"
+        rf"^the (?P<kind>{_EVENT_KINDS}) event handler should have been "
+        rf"executed within (?P<millis>\d+)ms$"
     )
 )
 def the_event_handler_should_have_been_executed_within(
@@ -96,6 +100,49 @@ def the_event_handler_should_have_been_executed_within(
     """
     recorder = tck_state.require_recorder(_event(kind))
     recorder.await_event(int(millis) / 1000.0)
+
+
+@then(
+    parsers.re(
+        rf"^the (?P<kind>{_EVENT_KINDS}) event handler should have been executed "
+        rf"with no (?P<forbidden>{_EVENT_KINDS}) event before it$"
+    )
+)
+def the_event_handler_should_have_been_executed_with_none_before(
+    tck_state: TckState, kind: str, forbidden: str
+) -> None:
+    """Await one kind of event and assert no event of another kind preceded it.
+
+    This is how a scenario says "and no error": as an **order**, not as a window.
+    "No error event fired" can only be answered over some stretch of time, and at
+    any instant an event that never fires and one that fires a moment later are
+    the same observation -- so a step asking it that way either slows every run
+    down or passes because nothing has arrived yet. "No error before the provider
+    came back ready" is a question about what was recorded, and the recording
+    answers it with no clock involved.
+
+    Both handlers have to be registered, the forbidden kind's included. An
+    unregistered kind records nothing, so the assertion would hold for a provider
+    that fired it loudly -- the one way this step could go quietly vacuous.
+    """
+    awaited = _event(kind)
+    forbidden_event = _event(forbidden)
+    recorder = tck_state.require_recorder(awaited)
+    tck_state.require_recorder(forbidden_event)
+
+    record = recorder.await_record(tck_state.config.event_timeout)
+    before = tck_state.events.kinds_before(record)
+    if forbidden_event in before:
+        kinds = ", ".join(earlier.value for earlier in before)
+        msg = (
+            f"a {forbidden} event was recorded before the {kind} event, which this "
+            f"scenario forbids. Recorded first: {kinds}"
+        )
+        raise AssertionError(msg)
+
+    # Consumed only now the ordering holds, so the record a failure is about is
+    # still in the log for whatever reports it.
+    recorder.claim(record)
 
 
 @then("the flag should be part of the event payload")

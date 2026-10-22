@@ -98,6 +98,7 @@ from .control import (
     ConnectionControl,
     UnsupportedControlError,
     backend_type_of,
+    serve_configuration,
 )
 from .extensions import (
     EXTENSIONS_DIRECTORY,
@@ -152,6 +153,7 @@ __all__ = [
     "control_api_spec",
     "feature_paths",
     "run_compose_backend",
+    "serve_configuration",
 ]
 
 # The files under gherkin/ and flag_data/, and control-api.yaml, are copies of

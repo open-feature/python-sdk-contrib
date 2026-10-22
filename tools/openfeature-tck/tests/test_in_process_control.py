@@ -17,8 +17,10 @@ from openfeature.contrib.tools.tck import (
     ConnectionControl,
     ControllableInMemoryProvider,
     InProcessControl,
+    UnsupportedControlError,
     canonical_flag_set,
     canonical_flags_json,
+    serve_configuration,
 )
 from openfeature.contrib.tools.tck.provider import (
     _decode_canonical_flags,
@@ -129,6 +131,21 @@ def test_in_process_control_does_not_pretend_to_have_a_connection() -> None:
         "connection to lose, and a no-op implementation would make the @stale "
         "scenarios pass without testing anything"
     )
+
+
+def test_in_process_control_does_not_pretend_to_serve_named_configurations() -> None:
+    """The same silent-green failure one step further along.
+
+    A ``serve_configuration`` that quietly served the baseline would let an
+    extension scenario assert the baseline's flags while believing it had asked
+    for another configuration's. There is no second flag set in process, so the
+    operation is simply absent and the step reports it.
+    """
+    control = InProcessControl()
+    assert not hasattr(control, "serve_configuration")
+
+    with pytest.raises(UnsupportedControlError, match="serve_configuration"):
+        serve_configuration(control, "metadata")
 
 
 def test_canonical_flag_set_omits_missing_flag() -> None:

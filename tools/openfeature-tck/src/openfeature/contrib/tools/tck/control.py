@@ -11,6 +11,7 @@ __all__ = [
     "ConnectionControl",
     "UnsupportedControlError",
     "backend_type_of",
+    "serve_configuration",
     "unsupported_control",
 ]
 
@@ -140,6 +141,44 @@ def backend_type_of(control: BackendControl) -> BackendType:
     """
     stated = getattr(control, "backend_type", DEFAULT_BACKEND_TYPE)
     return typing.cast("BackendType", stated)
+
+
+def serve_configuration(control: BackendControl, configuration: str) -> None:
+    """Restart the backend on one of its own named flag configurations.
+
+    The names belong to the backend rather than to the TCK: the control API takes
+    ``config`` as a free string defaulting to ``default``, so a feature file
+    naming one is naming something only that backend's control defines. The
+    canonical scenarios never ask -- the baseline every control already serves is
+    what they are written against -- which makes this an extension-only
+    operation.
+
+    Optional, and read off the control rather than declared on
+    :class:`BackendControl`, for the reason :func:`backend_type_of` is: Python has
+    no optional protocol member, and a ``runtime_checkable`` protocol member stays
+    required of every implementation even with a default body. A protocol of its
+    own, as :class:`ConnectionControl` is, would buy an ``isinstance`` narrowing
+    over a single method that nothing branches on -- a scenario either gets the
+    configuration it named or the suite is misconfigured -- so the attribute is
+    asked for directly. A control over one in-process flag set has no second
+    configuration to offer and simply does not define it.
+
+    :raises UnsupportedControlError: if this backend serves one configuration only.
+    """
+    serve = getattr(control, "serve_configuration", None)
+    if serve is None:
+        msg = (
+            f"{control.description} does not support 'serve_configuration', so it "
+            f"cannot serve the {configuration!r} configuration. This is a "
+            f"test-configuration bug rather than a provider defect: an extension "
+            f"scenario named a backend configuration, and only a control over a "
+            f"backend with more than one can answer that. Either the scenario "
+            f"belongs to an adoption driving the HTTP control API, or it should "
+            f"name no configuration and run against the baseline every control "
+            f"serves."
+        )
+        raise UnsupportedControlError(msg)
+    typing.cast("typing.Callable[[str], None]", serve)(configuration)
 
 
 def unsupported_control(
