@@ -8,14 +8,21 @@ from collections.abc import Callable
 from pytest_bdd import given, parsers, then, when
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.flag_evaluation import FlagType
+from openfeature.flag_evaluation import FlagMetadata, FlagType
 
 from ..capability import Capability
 from ..state import EvaluationRecord, TckState
-from ..values import describe, parse_flag_type, parse_value, values_equal
+from ..values import (
+    describe,
+    parse_flag_type,
+    parse_table_value,
+    parse_value,
+    values_equal,
+)
 
 __all__ = [
     "a_context_containing_a_targeting_key",
+    "a_context_with_the_following_keys",
     "a_flag_with_key_and_default",
     "no_exception_should_have_been_thrown",
     "the_error_code_should_be",
@@ -23,12 +30,36 @@ __all__ = [
     "the_flag_was_evaluated_with_details",
     "the_flag_was_modified",
     "the_reason_should_be",
+    "the_resolved_metadata_is_empty",
+    "the_resolved_metadata_should_contain",
     "the_resolved_object_value_should_contain",
     "the_resolved_value_is_remembered",
     "the_resolved_value_should_be",
     "the_resolved_value_should_have_changed",
     "the_variant_should_be",
 ]
+
+_TARGETING_KEY_COLUMN = "targetingKey"
+"""The key a context table row uses to set the targeting key rather than an attribute.
+
+The specification's own spelling for the field, so a table can state every part
+of a context in one place instead of needing a second step for the one entry
+that is not an attribute.
+"""
+
+_METADATA_TYPES: dict[str, type | tuple[type, ...]] = {
+    "String": str,
+    "Boolean": bool,
+    "Integer": int,
+    "Float": float,
+}
+"""What a ``metadata_type`` names, and what the resolved entry must therefore be.
+
+Flag metadata is typed in the specification as a map of primitives, and the
+column exists so a scenario can say which one it expects: a provider that sends
+``"2"`` where the table says ``Integer`` has lost the type on the way, and a
+comparison that coerced would not notice.
+"""
 
 
 @given(
@@ -71,6 +102,44 @@ def a_context_containing_a_targeting_key(tck_state: TckState, value: str) -> Non
         context.targeting_key = value
 
 
+@given("a context with the following keys:")
+def a_context_with_the_following_keys(
+    tck_state: TckState, datatable: list[list[str]]
+) -> None:
+    """Supply several typed context entries at once.
+
+    The table form of the step above, for a scenario whose targeting depends on
+    more than one key. Its type vocabulary is
+    :data:`~..values.TABLE_TYPE_NAMES`, wider than a flag declaration's, because
+    a table is where a scenario reaches for the types a targeting operator takes.
+
+    The context is rebuilt rather than mutated -- ``EvaluationContext.attributes``
+    is typed as a :class:`~collections.abc.Mapping` -- and rebuilding is where a
+    statement can be lost. So entries from an earlier step survive a table that
+    says nothing about them, and a ``targetingKey`` row is the later statement
+    about the targeting key and wins.
+    """
+    header, *rows = datatable
+    if header != ["key", "type", "value"]:
+        msg = f"expected a data table with columns key, type, value; got {header}"
+        raise AssertionError(msg)
+
+    context = tck_state.evaluation_context or EvaluationContext()
+    attributes = dict(context.attributes)
+    targeting_key = context.targeting_key
+
+    for key, raw_type, raw_value in rows:
+        value = parse_table_value(raw_type, raw_value)
+        if key == _TARGETING_KEY_COLUMN:
+            targeting_key = str(value)
+        else:
+            attributes[key] = value
+
+    tck_state.evaluation_context = EvaluationContext(
+        targeting_key=targeting_key, attributes=attributes
+    )
+
+
 @when("the flag was evaluated with details")
 def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
     """Resolve the declared flag through the typed client call matching its type."""
@@ -106,6 +175,7 @@ def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
             details.error_code.value if details.error_code is not None else None
         )
         record.error_message = details.error_message
+        record.flag_metadata = details.flag_metadata
 
     tck_state.last = record
 
@@ -249,7 +319,9 @@ def the_resolved_object_value_should_contain(
         raise AssertionError(msg)
 
     for key, raw_type, raw_value in rows:
-        wanted = parse_value(parse_flag_type(raw_type), raw_value)
+        # The table vocabulary, not a flag declaration's: a structured value can
+        # hold a list, and a scenario naming one must not be refused here.
+        wanted = parse_table_value(raw_type, raw_value)
         if key not in record.value:
             msg = f"resolved object value has no member {key!r}"
             raise AssertionError(msg)
@@ -257,6 +329,110 @@ def the_resolved_object_value_should_contain(
         if not values_equal(wanted, actual):
             msg = f"object member {key!r} was {describe(actual)}, expected {describe(wanted)}"
             raise AssertionError(msg)
+
+
+@then("the resolved metadata should contain")
+def the_resolved_metadata_should_contain(
+    tck_state: TckState, datatable: list[list[str]]
+) -> None:
+    """Assert typed flag-metadata entries on the last evaluation.
+
+    The wording and the columns are the specification's own, from
+    ``assets/gherkin/metadata.feature``: flag metadata is spec behaviour rather
+    than one vendor's, so the question belongs in the shared vocabulary and not
+    in each adoption's glue.
+
+    An entry the table does not list is not checked. A provider is free to carry
+    more than a scenario is interested in, and a table that had to name all of it
+    would break every time the backend added a field.
+    """
+    metadata = _require_metadata(tck_state)
+    header, *rows = datatable
+    if header != ["key", "metadata_type", "value"]:
+        msg = (
+            f"expected a data table with columns key, metadata_type, value; "
+            f"got {header}"
+        )
+        raise AssertionError(msg)
+
+    for key, raw_type, raw_value in rows:
+        wanted = _parse_metadata_value(raw_type, raw_value)
+        if key not in metadata:
+            msg = (
+                f"the resolved metadata has no entry {key!r}; it carries "
+                f"{sorted(metadata)}"
+            )
+            raise AssertionError(msg)
+
+        actual = metadata[key]
+        if not _is_metadata_type(raw_type, actual) or not values_equal(wanted, actual):
+            msg = (
+                f"metadata entry {key!r} ({raw_type}) was {describe(actual)}, "
+                f"expected {describe(wanted)}"
+            )
+            raise AssertionError(msg)
+
+
+@then("the resolved metadata is empty")
+def the_resolved_metadata_is_empty(tck_state: TckState) -> None:
+    """Assert the last evaluation carried no flag metadata.
+
+    The other half of the specification's pair, and the one that catches a
+    provider inventing entries: a scenario cannot state an absence by listing
+    nothing, because an unlisted entry is deliberately not checked.
+    """
+    metadata = _require_metadata(tck_state)
+    if metadata:
+        msg = (
+            f"the resolved metadata carries {dict(metadata)!r}, expected none. "
+            f"Metadata a backend did not send is metadata an application cannot "
+            f"act on"
+        )
+        raise AssertionError(msg)
+
+
+def _require_metadata(tck_state: TckState) -> FlagMetadata:
+    """The flag metadata of the last evaluation, or a clear failure.
+
+    ``None`` is refused rather than read as empty: the specification types the
+    field as a map, and a provider that answers with nothing at all is a
+    different finding from one that answers with no entries.
+    """
+    record = tck_state.require_evaluation()
+    if record.flag_metadata is None:
+        msg = (
+            "the evaluation details carried no flag metadata at all, expected a "
+            "map. An absent map and an empty one are not the same answer, and only "
+            "the empty one is what a flag without metadata resolves to"
+        )
+        raise AssertionError(msg)
+    return record.flag_metadata
+
+
+def _parse_metadata_value(type_name: str, raw: str) -> typing.Any:
+    """Convert an expected metadata value, refusing a type metadata cannot carry."""
+    if type_name not in _METADATA_TYPES:
+        names = ", ".join(_METADATA_TYPES)
+        msg = (
+            f"unknown metadata type {type_name!r}: flag metadata is {names}. A "
+            f"structured value cannot travel in metadata, so a table asking for "
+            f"one is asking the wrong question"
+        )
+        raise ValueError(msg)
+    return parse_table_value(type_name, raw)
+
+
+def _is_metadata_type(type_name: str, value: typing.Any) -> bool:
+    """Whether a resolved entry is of the type its row declared.
+
+    ``bool`` is excluded from ``Integer`` and ``Float`` explicitly, because
+    Python makes it a subclass of ``int``: without that, a provider sending
+    ``True`` would satisfy a row asking for ``1``.
+    """
+    wanted = _METADATA_TYPES[type_name]
+    if wanted is bool:
+        return isinstance(value, bool)
+    return isinstance(value, wanted) and not isinstance(value, bool)
 
 
 @when("the resolved value is remembered")

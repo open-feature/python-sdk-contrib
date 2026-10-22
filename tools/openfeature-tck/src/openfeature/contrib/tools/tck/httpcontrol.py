@@ -93,6 +93,12 @@ class HttpControl:
     a disconnect is recorded and the scenario that follows one is prepared with
     ``/start``.
 
+    **And after a served configuration, ``/start`` on this suite's own.** For the
+    same half of the same reason: ``/reset`` restores flag state and says nothing
+    about *which* configuration is being served, so a scenario that asked for
+    another one has to be taken off it explicitly -- see
+    :meth:`serve_configuration`.
+
     Safe to share between suites, and it should be shared whenever they drive the
     same backend: the disconnect bookkeeping is only correct if every operation
     against one backend goes through one instance of this class.
@@ -137,6 +143,9 @@ class HttpControl:
         # Set by any operation that may have left the backend down, so the next
         # prepare_scenario starts it rather than merely resetting flag state.
         self._backend_maybe_down = False
+        # A configuration one scenario asked for, which the next scenario has to
+        # be taken off again. None while this suite's own is what is served.
+        self._scenario_configuration: str | None = None
 
     @property
     def backend_type(self) -> BackendType:
@@ -219,10 +228,23 @@ class HttpControl:
         """Bring the backend to the state every scenario starts from.
 
         Prefers ``/reset`` and falls back to ``/start`` -- see the class
-        documentation for why, and for why a disconnect forces ``/start``.
+        documentation for why, and for why a disconnect or a served configuration
+        forces ``/start``.
         """
         with self._lock:
+            served = self._scenario_configuration
             must_start = self._backend_maybe_down or self._reset_supported is False
+
+        if served is not None:
+            # This suite's configuration, not the last scenario's: that is what
+            # preparing means. `/reset` would leave the served one in place.
+            self._start_configuration(self._backend_configuration)
+            with self._lock:
+                # Cleared only now the start has succeeded, so a failure is
+                # retried by the next scenario rather than downgraded to
+                # `/reset`, which does not change what is being served.
+                self._scenario_configuration = None
+            return
 
         if must_start:
             self._start()
@@ -273,9 +295,28 @@ class HttpControl:
 
         Starting with the configuration already in effect restores the same
         baseline, so the provider observes a change in availability and never a
-        change in flag values.
+        change in flag values. "In effect" includes a configuration this scenario
+        served: losing the connection is not how a scenario changes what the
+        backend serves.
         """
         self._start()
+
+    def serve_configuration(self, configuration: str) -> None:
+        """Restart the backend on one of its own named flag configurations.
+
+        Optional on a backend control and absent from the protocol -- see
+        :func:`~.control.serve_configuration`, which is how a step reaches it.
+
+        ``POST /start?config=...`` with the name given, which also seeds that
+        configuration's flag state. It takes effect before the provider connects,
+        because the step that names a configuration is the step that creates the
+        provider; :meth:`reconnect` brings this configuration back rather than the
+        suite's, and :meth:`prepare_scenario` takes the next scenario off it.
+        """
+        self._require("/start", {"config": configuration})
+        with self._lock:
+            self._scenario_configuration = configuration
+            self._backend_maybe_down = False
 
     # No binding for `POST /restart`: no shipped scenario reaches it, and a
     # binding nothing can call misreports the contract by implying every backend
@@ -284,7 +325,13 @@ class HttpControl:
     # flag-state preservation `/restart` has and `/stop` + `/start` does not.
 
     def _start(self) -> None:
-        self._require("/start", {"config": self._backend_configuration})
+        """Start the backend on the configuration in effect: the scenario's, else this suite's."""
+        with self._lock:
+            configuration = self._scenario_configuration or self._backend_configuration
+        self._start_configuration(configuration)
+
+    def _start_configuration(self, configuration: str) -> None:
+        self._require("/start", {"config": configuration})
         with self._lock:
             self._backend_maybe_down = False
 

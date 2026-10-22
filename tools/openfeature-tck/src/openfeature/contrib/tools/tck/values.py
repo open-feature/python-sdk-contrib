@@ -7,7 +7,14 @@ import typing
 
 from openfeature.flag_evaluation import FlagType
 
-__all__ = ["describe", "parse_flag_type", "parse_value", "values_equal"]
+__all__ = [
+    "TABLE_TYPE_NAMES",
+    "describe",
+    "parse_flag_type",
+    "parse_table_value",
+    "parse_value",
+    "values_equal",
+]
 
 _BY_NAME: dict[str, FlagType] = {
     "boolean": FlagType.BOOLEAN,
@@ -16,6 +23,26 @@ _BY_NAME: dict[str, FlagType] = {
     "float": FlagType.FLOAT,
     "object": FlagType.OBJECT,
 }
+
+TABLE_TYPE_NAMES = (
+    "Boolean",
+    "Float",
+    "Integer",
+    "Long",
+    "Object",
+    "String",
+    "StringList",
+)
+"""The type vocabulary of a data table, which is wider than a flag declaration's.
+
+``Long`` and ``StringList`` are here and not in :func:`parse_flag_type` because
+they are not flag types: the client has no accessor that asks for either, so no
+scenario can declare a flag of one. A table is a different question -- what a
+context entry carries, or what a structured value holds -- and those are the
+types a targeting operator takes.
+"""
+
+_LIST_SEPARATOR = ","
 
 
 def parse_flag_type(raw: str) -> FlagType:
@@ -59,6 +86,43 @@ def parse_value(flag_type: FlagType, raw: str) -> typing.Any:
         return json.loads(raw.replace('\\"', '"'))
     msg = f"unknown flag type {flag_type!r}"
     raise ValueError(msg)
+
+
+def parse_table_value(type_name: str, raw: str) -> typing.Any:
+    """Convert a value written in a data table, by the type its row declares.
+
+    The wider vocabulary of :data:`TABLE_TYPE_NAMES`, keyed on the name a
+    scenario wrote rather than on a :class:`FlagType`, because two of the names
+    are not flag types at all.
+
+    **One function, where the Java and Go bindings have two.** There a context
+    entry is converted differently from a flag value: an ``Integer`` too wide for
+    32 bits widens to a long instead of being refused, since a flag's default is
+    bounded by the accessor that reads it back while nothing reads a context
+    entry back through one, and a targeting operator may hash a 64-bit number.
+    Python's ``int`` is arbitrary-precision, so both bindings' ``Integer`` and
+    ``Long`` are ``int(raw)`` here and the distinction has nothing to express.
+    ``Long`` stays in the vocabulary regardless: a feature file written against a
+    binding where the two differ has to run here unchanged.
+    """
+    name = type_name.strip()
+    lowered = name.lower()
+
+    if lowered == "long":
+        return int(raw)
+
+    if lowered == "stringlist":
+        # A context key an operator reads as a list. An empty cell is the empty
+        # list rather than [""], which is a list containing nothing a rule can
+        # match and reads in a table exactly like the empty one.
+        return [] if not raw else [part.strip() for part in raw.split(_LIST_SEPARATOR)]
+
+    if lowered not in _BY_NAME:
+        names = ", ".join(TABLE_TYPE_NAMES)
+        msg = f"unknown value type {type_name!r}: expected one of {names}"
+        raise ValueError(msg)
+
+    return parse_value(_BY_NAME[lowered], raw)
 
 
 def _as_number(value: typing.Any) -> float | None:

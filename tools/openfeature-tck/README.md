@@ -322,6 +322,23 @@ provider withheld, and a report saying so would describe a question the suite ne
 filter cannot express this: it narrows the whole run, canonical scenarios included, and `not @slow`
 leaves an untagged scenario running where `include_tags` must skip it.
 
+### Naming a backend configuration
+
+An extension scenario that needs other flags than the canonical set can ask the backend to serve one
+of its own named configurations:
+
+```gherkin
+Given a stable provider with "metadata" configuration
+```
+
+One step rather than two, because the ordering is the whole difficulty: the backend has to be serving
+that configuration **before** the provider connects, and a separate `Given` could be written after
+`a stable provider` and watch the provider connect to the wrong flags. The name is the backend's own —
+the control API takes `config` as a free string defaulting to `default` — so only a control that can
+serve more than one answers it; `InProcessControl` has a single in-process flag set and reports the
+missing operation instead. The scenario after yours is taken back to the suite's own configuration,
+because `POST /reset` restores flag state and says nothing about what is being served.
+
 **Your scenarios cannot stand in for ours.** Canonical features are identified by their path under
 `gherkin/` and yours under `extensions/`, and `extensions.py` refuses a file of yours under the
 reserved prefix, or two that would share one uri. Both are reachable here, because pytest-bdd names a

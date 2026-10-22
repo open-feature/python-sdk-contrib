@@ -36,6 +36,13 @@ class InProcessControl:
     using it leaves :attr:`Capability.STALE` and
     :attr:`Capability.UNAVAILABLE_INIT` undeclared.
 
+    **Named configurations.** Deliberately absent too, for the same reason: this
+    control serves one in-process flag set, so there is no second configuration
+    for a scenario to name. An extension scenario that names one reaches
+    :func:`~.control.serve_configuration`, which reports the missing operation
+    rather than quietly serving the baseline and asserting against the wrong
+    flags.
+
     **Ownership of the provider.** This type both seeds the flags and creates
     the provider serving them, because in-process they are the same object:
     :meth:`change_flag` has to reach the live instance to emit an event from it.

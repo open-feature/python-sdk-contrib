@@ -12,9 +12,11 @@ from pytest_bdd import given, parsers, then, when
 from openfeature import api
 from openfeature.evaluation_context import EvaluationContext
 
+from ..control import serve_configuration
 from ..state import LifecycleRecord, TckState
 
 __all__ = [
+    "a_provider_with_configuration",
     "a_stable_provider",
     "an_unavailable_provider",
     "the_provider_is_initialized_again",
@@ -97,6 +99,35 @@ def an_unavailable_provider(tck_state: TckState) -> None:
 
     tck_state.provider = provider
     tck_state.client = api.get_client(config.domain)
+
+
+@given(
+    parsers.re(
+        r"^an? (?P<flavour>stable|unavailable) provider with "
+        r'"(?P<configuration>[^"]*)" configuration$'
+    )
+)
+def a_provider_with_configuration(
+    tck_state: TckState, flavour: str, configuration: str
+) -> None:
+    """Register the provider against one of the backend's own named configurations.
+
+    One step rather than two, because the order was the whole difficulty: the
+    backend has to be serving that configuration before the provider connects to
+    it, and a scenario that said so in a separate ``Given`` could put it after
+    "a stable provider" and watch the provider connect to the wrong flags. Here
+    it cannot.
+
+    The name is the backend's own -- see :func:`~.control.serve_configuration` --
+    so this is for extension scenarios. A canonical scenario names no
+    configuration: the baseline every control serves is what it is written
+    against.
+    """
+    serve_configuration(tck_state.config.control, configuration)
+    if flavour == "stable":
+        a_stable_provider(tck_state)
+    else:
+        an_unavailable_provider(tck_state)
 
 
 @when("the provider is shut down")
