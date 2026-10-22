@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.6.0...openfeature-provider-flagd/v0.6.1) (2026-10-22)
+
+
+### 🐛 Bug Fixes
+
+* **flagd:** use custom channel credentials in rpc resolver ([#453](https://github.com/open-feature/python-sdk-contrib/issues/453)) ([cb7ce59](https://github.com/open-feature/python-sdk-contrib/commit/cb7ce59192e6c79af7d14734a91fe84045721873))
+
 ## [0.6.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-flagd/v0.5.2...openfeature-provider-flagd/v0.6.0) (2026-10-15)
 
 
