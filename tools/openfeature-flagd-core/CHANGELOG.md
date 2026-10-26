@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-flagd-core/v1.0.0...openfeature-flagd-core/v2.0.0) (2026-10-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* bucket on any context type; (fractional re-assignment) ([#415](https://github.com/open-feature/python-sdk-contrib/issues/415))
+
+### ✨ New Features
+
+* bucket on any context type; (fractional re-assignment) ([#415](https://github.com/open-feature/python-sdk-contrib/issues/415)) ([e4681b0](https://github.com/open-feature/python-sdk-contrib/commit/e4681b04effebe20d03c180243660bda22b46f63))
+
 ## [1.0.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-flagd-core/v0.1.0...openfeature-flagd-core/v1.0.0) (2026-04-30)
 
 
