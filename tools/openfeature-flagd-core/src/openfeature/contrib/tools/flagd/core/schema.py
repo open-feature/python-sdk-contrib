@@ -40,10 +40,15 @@ def _validator() -> Draft7Validator:
 def validate_flag_configuration(configuration: Mapping[str, typing.Any]) -> list[str]:
     """Validate a flag configuration against the flagd JSON schema.
 
-    Returns a human-readable description of every schema violation, or an
-    empty list if the configuration is valid.
+    Returns a description of every schema violation, or an empty list if the
+    configuration is valid. Each description names the location and the failed
+    schema keyword only: ``jsonschema`` messages embed the offending instance,
+    which could leak variant values or targeting literals into logs.
     """
     errors = sorted(
         _validator().iter_errors(configuration), key=lambda error: error.json_path
     )
-    return [f"{error.json_path}: {error.message}" for error in errors]
+    return [
+        f"{error.json_path}: does not match the schema ('{error.validator}')"
+        for error in errors
+    ]

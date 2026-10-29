@@ -113,6 +113,25 @@ def test_errors_point_to_the_invalid_field() -> None:
     assert all(error.startswith("$.flags['mixed-flag']") for error in errors)
 
 
+def test_errors_do_not_include_flag_values() -> None:
+    config = {
+        "flags": {
+            "secret-flag": {
+                "state": "ENABLED",
+                "variants": {"on": True, "off": "secret-variant-value"},
+                "defaultVariant": "on",
+                "targeting": {"in": [{"var": "email"}, ["secret@example.com"]]},
+            }
+        }
+    }
+
+    errors = validate_flag_configuration(config)
+
+    assert errors
+    assert not any("secret-variant-value" in error for error in errors)
+    assert not any("secret@example.com" in error for error in errors)
+
+
 def test_valid_config_does_not_warn(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
         FlagdCore().set_flags(json.dumps(VALID_CONFIG))
