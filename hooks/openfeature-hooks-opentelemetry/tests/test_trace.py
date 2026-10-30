@@ -17,7 +17,7 @@ def mock_get_current_span(monkeypatch):
     monkeypatch.setattr(trace, "get_current_span", Mock())
 
 
-def test_finally_after(mock_get_current_span):
+def test_trace_finally_after(mock_get_current_span):
     # Given
     hook = TracingHook()
     hook_context = HookContext(
@@ -56,7 +56,7 @@ def test_finally_after(mock_get_current_span):
     )
 
 
-def test_after_evaluation_error(mock_get_current_span):
+def test_trace_after_evaluation_error(mock_get_current_span):
     # Given
     hook = TracingHook()
     hook_context = HookContext(
@@ -94,7 +94,7 @@ def test_after_evaluation_error(mock_get_current_span):
     )
 
 
-def test_error(mock_get_current_span):
+def test_trace_error(mock_get_current_span):
     # Given
     hook = TracingHook()
     hook_context = HookContext(
@@ -121,7 +121,7 @@ def test_error(mock_get_current_span):
     mock_span.record_exception.assert_called_once_with(exception, attributes)
 
 
-def test_error_exclude_exceptions(mock_get_current_span):
+def test_trace_error_exclude_exceptions(mock_get_current_span):
     # Given
     hook = TracingHook(exclude_exceptions=True)
     hook_context = HookContext(
@@ -141,7 +141,7 @@ def test_error_exclude_exceptions(mock_get_current_span):
     mock_span.record_exception.assert_not_called()
 
 
-def test_error_no_provider_metadata(mock_get_current_span):
+def test_trace_error_no_provider_metadata(mock_get_current_span):
     # Given
     hook = TracingHook()
     hook_context = HookContext(
