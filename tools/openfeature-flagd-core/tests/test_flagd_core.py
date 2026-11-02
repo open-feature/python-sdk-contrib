@@ -133,6 +133,30 @@ class TestFloatResolution:
         with pytest.raises(TypeMismatchError):
             core.resolve_float_value("boolean", 0.5)
 
+    @pytest.mark.parametrize("boolean_value", [True, False])
+    def test_targeted_boolean_cannot_resolve_as_float(
+        self, boolean_value: bool
+    ) -> None:
+        core = FlagdCore()
+        core.set_flags(
+            json.dumps(
+                {
+                    "flags": {
+                        "boolean": {
+                            "state": "ENABLED",
+                            "variants": {"true": True, "false": False, "fallback": 0.5},
+                            "defaultVariant": "fallback",
+                            "targeting": {"==": [{"var": "enabled"}, True]},
+                        }
+                    }
+                }
+            )
+        )
+        context = EvaluationContext(attributes={"enabled": boolean_value})
+
+        with pytest.raises(TypeMismatchError):
+            core.resolve_float_value("boolean", 0.5, context)
+
     def test_resolve_float(self, core: FlagdCore) -> None:
         result = core.resolve_float_value("float-flag", 0.0)
         assert result.value == 0.5
