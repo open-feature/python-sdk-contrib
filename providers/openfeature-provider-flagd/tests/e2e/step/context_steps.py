@@ -31,6 +31,8 @@ def update_context(
     evaluation_context: EvaluationContext, key: str, type_info: str, value: str
 ):
     """a context containing a key and value."""
+    if type_info == "String":
+        value = value.replace("\\\\", "\\")
     evaluation_context.attributes[key] = type_cast[type_info](value)
 
 

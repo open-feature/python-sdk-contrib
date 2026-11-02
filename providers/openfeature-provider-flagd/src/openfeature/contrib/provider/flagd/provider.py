@@ -83,6 +83,7 @@ class FlagdProvider(AbstractProvider):
         :param stream_deadline_ms: the maximum time to wait before a request times out
         :param keep_alive_time: the number of milliseconds to keep alive
         :param resolver_type: the type of resolver to use
+        :param channel_credentials: custom gRPC channel credentials, including mTLS credentials
         """
         if deadline_ms is None and timeout is not None:
             deadline_ms = timeout * 1000

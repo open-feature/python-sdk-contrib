@@ -135,10 +135,10 @@ The provider supports multiple caching strategies to optimize performance. To di
 
 ```python
 # LRU cache (default) - size-based eviction only
-cache_config=CacheConfig(cache_type="lru", size=500)
+cache_config = CacheConfig(cache_type="lru", size=500)
 
 # TTL cache - expires after 60 seconds
-cache_config=CacheConfig(cache_type="ttl", ttl=60, size=500)
+cache_config = CacheConfig(cache_type="ttl", ttl=60, size=500)
 
 # No caching - pass cache_config=None to the provider config
 provider_config = AwsSsmProviderConfig(cache_config=None)

@@ -90,3 +90,14 @@ def assert_handler_run_within(event_type, event_handles, time: int):
 
     for event in event_handles:
         event_handles.remove(event)
+
+
+@then(
+    parsers.cfparse(
+        "the {event_type} event handler should not have been executed",
+    )
+)
+def assert_handler_not_run(event_type: str, event_handles: list):
+    handles = assert_handlers(event_handles, event_type, 30)
+    found = any(h["type"] == event_type for h in handles)
+    assert not found
