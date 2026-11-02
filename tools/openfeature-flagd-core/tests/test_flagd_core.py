@@ -113,6 +113,26 @@ class TestIntegerResolution:
 
 
 class TestFloatResolution:
+    @pytest.mark.parametrize("boolean_value", [True, False])
+    def test_boolean_flag_cannot_resolve_as_float(self, boolean_value: bool) -> None:
+        core = FlagdCore()
+        core.set_flags(
+            json.dumps(
+                {
+                    "flags": {
+                        "boolean": {
+                            "state": "ENABLED",
+                            "variants": {"value": boolean_value},
+                            "defaultVariant": "value",
+                        }
+                    }
+                }
+            )
+        )
+
+        with pytest.raises(TypeMismatchError):
+            core.resolve_float_value("boolean", 0.5)
+
     def test_resolve_float(self, core: FlagdCore) -> None:
         result = core.resolve_float_value("float-flag", 0.0)
         assert result.value == 0.5
