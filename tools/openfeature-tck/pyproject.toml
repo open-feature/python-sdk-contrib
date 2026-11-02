@@ -22,6 +22,21 @@ dependencies = [
     # Same runner the flagd provider and the flagd testkit already use, so an
     # adopting module gains no new test framework.
     "pytest-bdd>=8.1.0,<9.0.0",
+    # The conformance report's results are a Cucumber Messages stream rather
+    # than a format this package defines. These two are the reference
+    # implementations of the halves of that protocol: cucumber-messages is the
+    # official Python types, published from the same repository as the protocol
+    # itself, and gherkin-official is the parser that produces the
+    # gherkinDocument and pickle messages. pytest-bdd already depends on
+    # gherkin-official, so only the first is genuinely new -- and it has no
+    # dependencies of its own.
+    #
+    # pytest-bdd ships no Messages emitter (its cucumber_json.py is the legacy
+    # JSON format), so the stream is assembled here; assembling it from typed
+    # messages rather than hand-written dicts is what keeps it from drifting
+    # away from the protocol.
+    "cucumber-messages>=34.0.0,<35.0.0",
+    "gherkin-official>=29.0.0",
 ]
 requires-python = ">=3.10"
 
@@ -69,6 +84,10 @@ artifacts = [
     "src/openfeature/contrib/tools/tck/gherkin/",
     "src/openfeature/contrib/tools/tck/flag_data/",
     "src/openfeature/contrib/tools/tck/control-api.yaml",
+    # Which spec revision those assets came from, generated beside them. The
+    # submodule is not in the wheel, so a conformance report emitted by an
+    # installed copy has no other way to name the revision it ran against.
+    "src/openfeature/contrib/tools/tck/spec_revision.json",
 ]
 
 [tool.hatch.build.hooks.custom]
@@ -92,6 +111,21 @@ fixed_format_cache = true
 pretty = true
 strict = true
 disallow_any_generics = false
+# cucumber-messages and gherkin-official ship no py.typed. Both are annotated
+# internally, so following them gives real types for the messages this package
+# builds rather than the Any a plain `ignore_missing_imports` would hand back --
+# which is the point of using the typed library at all.
+follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+# gherkin-official has no annotations at all, so following it turns every call
+# into a `no-untyped-call` error rather than into a type. pytest-bdd silences
+# the same import the same way. cucumber-messages is the opposite case -- fully
+# annotated, only missing py.typed -- and is followed, which is where the value
+# of using it rather than hand-written dicts actually lands.
+module = ["gherkin.*"]
+follow_untyped_imports = false
+ignore_missing_imports = true
 
 # testcontainers 4.14 ships no py.typed for `testcontainers.compose`, so the one
 # lazy import in compose.py cannot be checked against it. Scoped to that module
