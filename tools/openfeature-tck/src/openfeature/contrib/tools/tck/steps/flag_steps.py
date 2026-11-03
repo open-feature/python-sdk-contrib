@@ -164,7 +164,7 @@ def the_flag_was_evaluated_with_details(tck_state: TckState) -> None:
         # default for the parameter is `None`, so a scenario that declared no
         # context sends what a two-argument call would.
         details = calls[flag_type](key, default, tck_state.evaluation_context)
-    except BaseException as exc:  # recorded here, asserted on by its own step
+    except Exception as exc:  # recorded here, asserted on by its own step
         record.raised = exc
         record.value = default
     else:
