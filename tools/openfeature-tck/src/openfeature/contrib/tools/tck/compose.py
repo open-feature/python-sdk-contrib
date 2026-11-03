@@ -381,8 +381,8 @@ def run_compose_backend(
         raise FileNotFoundError(msg)
 
     stack = _docker_compose(compose_file)
-    stack.start()
     try:
+        stack.start()
         endpoint = BackendEndpoint(
             stack=typing.cast("ComposeStack", stack),
             backend_service=backend.backend_service,
