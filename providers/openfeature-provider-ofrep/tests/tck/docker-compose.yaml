@@ -1,0 +1,14 @@
+# The backend the OFREP conformance suite runs against: the unmodified flagd testbed
+# image, serving flagd's OFREP API and its launchpad control API.
+#
+# Not flagd-testbed's own compose file, which the flagd adoption uses: that adds an
+# envoy sidecar, names its service `flagd`, and bind-mounts a flags directory the
+# launchpad writes into. None of that is needed to drive OFREP.
+services:
+  backend:
+    image: ghcr.io/open-feature/flagd-testbed:v3.10.3
+    ports:
+      - 8013   # flagd RPC evaluation (gRPC)
+      - 8015   # flagd in-process sync (gRPC)
+      - 8016   # flagd's OFREP HTTP API
+      - 8080   # launchpad control API
