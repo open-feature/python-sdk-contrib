@@ -232,13 +232,13 @@ api.set_provider(
 ## Provider conformance suite
 
 This provider runs the [OpenFeature Provider Conformance Suite][tck] against a flagd-testbed stack,
-once per resolver, in `tests/tck`. The suite owns the container stack: `tests/tck/conftest.py`
-declares a Compose file and the two ports the resolvers connect to, and nothing else.
+once per resolver, in `tests/tck`. Each run adds flagd-testbed's own scenarios, `tck-extensions/` in
+the `openfeature/test-harness` submodule, to the canonical ones; `tests/tck/steps.py` defines the
+flagd steps they use. The stack is the testbed's `docker-compose.yaml`, so the image follows the
+submodule pin.
 
-`tests/tck/docker-compose.yaml` is one definition of the backend for the whole repository, and the
-OFREP adoption carries a byte-identical copy — each provider package publishes its own distribution
-and must not read the other's files, so the two are kept in step by `diff` rather than by sharing a
-path. Change one, copy it to the other.
+`config.feature` is not part of that run: it needs no backend, and `tests/test_config_feature.py`
+runs it in the default build.
 
 **It is excluded from the default build, and a maintainer runs it by hand before merging a change to
 it.**
@@ -254,13 +254,9 @@ with the reason in a comment above them. Why a conformance suite is not a requir
 
 Two things that are this provider's rather than the policy's:
 
-- **Docker is not what decides it.** `tests/e2e` needs Docker too and does run in the default build.
-  What decides it is the run: **8 failed, 119 passed, 3 skipped**, being three canonical flags that
-  no released flagd-testbed seeds yet, failing on each resolver, plus two genuine provider-side
-  gaps — one per resolver, and only one of them carries a known-deviation entry.
-  `tests/tck/conftest.py` accounts for all eight individually, with the flag or requirement each one
-  turns on, so a reviewer running the suite can tell a new failure from a known one and the number
-  above is what to expect.
+- **The run is not green.** It is **9 failed, 644 passed, 75 skipped**, and
+  `tests/tck/conftest.py` accounts for each failure, so a reviewer running the suite can tell a new
+  failure from a known one.
 - **The default build still collects the suite** — `poe test` and `poe test-cov` end in
   `pytest tests/tck --collect-only`, which imports every module and starts no container. An excluded
   suite that has quietly stopped importing against the harness is worse than one that runs and

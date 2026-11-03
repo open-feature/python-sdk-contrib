@@ -9,6 +9,8 @@ one.
 
 from __future__ import annotations
 
+import typing
+
 import pytest
 from pytest_bdd import scenarios
 
@@ -111,6 +113,7 @@ IN_PROCESS_CAPABILITIES = frozenset(
 IN_PROCESS_SUITE = ResolverSuite(
     name="flagd-in-process",
     resolver_type=ResolverType.IN_PROCESS,
+    tag="@in-process",
     backend_port=IN_PROCESS_PORT,
     capabilities=IN_PROCESS_CAPABILITIES,
     # In-process transfers and applies the whole ruleset before reporting ready,
@@ -120,9 +123,13 @@ IN_PROCESS_SUITE = ResolverSuite(
 
 
 @pytest.fixture(scope="session")
-def tck_config(tck_backend: RunningBackend, closed_port: int) -> TckConfig:
+def tck_config(
+    tck_backend: RunningBackend,
+    closed_port: int,
+    provider_options: dict[str, typing.Any],
+) -> TckConfig:
     """The whole of this adoption's wiring."""
-    return build_config(IN_PROCESS_SUITE, tck_backend, closed_port)
+    return build_config(IN_PROCESS_SUITE, tck_backend, closed_port, provider_options)
 
 
 scenarios(*feature_paths())

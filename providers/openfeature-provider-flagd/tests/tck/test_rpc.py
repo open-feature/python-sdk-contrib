@@ -7,6 +7,8 @@ lifecycle the evaluation stream drives.
 
 from __future__ import annotations
 
+import typing
+
 import pytest
 from pytest_bdd import scenarios
 
@@ -149,6 +151,7 @@ KNOWN_DEVIATIONS = (
 RPC_SUITE = ResolverSuite(
     name="flagd-rpc",
     resolver_type=ResolverType.RPC,
+    tag="@rpc",
     backend_port=RPC_PORT,
     capabilities=RPC_CAPABILITIES,
     known_deviations=KNOWN_DEVIATIONS,
@@ -159,9 +162,13 @@ RPC_SUITE = ResolverSuite(
 
 
 @pytest.fixture(scope="session")
-def tck_config(tck_backend: RunningBackend, closed_port: int) -> TckConfig:
+def tck_config(
+    tck_backend: RunningBackend,
+    closed_port: int,
+    provider_options: dict[str, typing.Any],
+) -> TckConfig:
     """The whole of this adoption's wiring."""
-    return build_config(RPC_SUITE, tck_backend, closed_port)
+    return build_config(RPC_SUITE, tck_backend, closed_port, provider_options)
 
 
 scenarios(*feature_paths())

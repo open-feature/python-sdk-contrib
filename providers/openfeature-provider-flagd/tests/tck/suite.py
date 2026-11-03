@@ -10,7 +10,9 @@ resolver plus a running endpoint into a ``TckConfig``; what differs lives in
 
 from __future__ import annotations
 
+import typing
 from dataclasses import dataclass
+from pathlib import Path
 
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
@@ -22,7 +24,20 @@ from openfeature.contrib.tools.tck import (
 )
 from openfeature.provider import FeatureProvider
 
-__all__ = ["IN_PROCESS_PORT", "RPC_PORT", "ResolverSuite", "build_config"]
+__all__ = [
+    "ENVOY_FORBIDDEN_PORT",
+    "ENVOY_ROUTING_PORT",
+    "ENVOY_SERVICE",
+    "EXCLUDED_TAGS",
+    "IN_PROCESS_PORT",
+    "RPC_PORT",
+    "TESTBED",
+    "ResolverSuite",
+    "build_config",
+]
+
+TESTBED = Path(__file__).parents[2] / "openfeature" / "test-harness"
+"""The flagd-testbed submodule: its Compose file, its TCK extensions, its certificates."""
 
 RPC_PORT = 8013
 IN_PROCESS_PORT = 8015
@@ -30,6 +45,18 @@ IN_PROCESS_PORT = 8015
 
 Named here rather than in ``conftest.py`` so that the declaration and the
 resolver that uses it cannot drift apart.
+"""
+
+ENVOY_SERVICE = "envoy"
+ENVOY_ROUTING_PORT = 9211
+ENVOY_FORBIDDEN_PORT = 9212
+"""The testbed's envoy sidecar: a listener routing to flagd, and one answering every call with 403."""
+
+EXCLUDED_TAGS = ("@targetURI", "@fractional-v2")
+"""Extension scenarios neither resolver runs.
+
+``@targetURI``: this provider has no target URI option. ``@fractional-v2``: the
+superseded bucketing, which the v3 rows of the same outlines replace.
 """
 
 DEADLINE_MS = 5000
@@ -65,7 +92,7 @@ so too short a value turns a scenario about staleness into one about failure.
 """
 
 STREAM_DEADLINE_MS = 0
-"""Disable periodic stream recycling, as the existing e2e suites do.
+"""Disable periodic stream recycling.
 
 It removes a source of background reconnects from a suite whose whole subject
 is what a reconnect looks like.
@@ -102,6 +129,9 @@ class ResolverSuite:
 
     resolver_type: ResolverType
 
+    tag: str
+    """The extension tag selecting this resolver's flagd-testbed scenarios."""
+
     backend_port: int
     """Container-internal port, resolved to a host port once the stack is up."""
 
@@ -128,6 +158,7 @@ def build_config(
     suite: ResolverSuite,
     backend: RunningBackend,
     closed_port: int,
+    options: typing.Mapping[str, typing.Any],
 ) -> TckConfig:
     """Wire one resolver up to the running testbed.
 
@@ -135,34 +166,39 @@ def build_config(
     The host comes from the endpoint rather than being written as
     ``"localhost"``, because with a remote Docker daemon, Docker Desktop on some
     platforms or a rootless setup it is neither localhost nor predictable.
+
+    ``options`` are the ones the current extension scenario set, read each time
+    a provider is built and applied over these defaults.
     """
     endpoint = backend.endpoint
 
     def new_provider() -> FeatureProvider:
-        return FlagdProvider(
-            resolver_type=suite.resolver_type,
-            host=endpoint.host,
-            port=endpoint.port(suite.backend_port),
-            deadline_ms=DEADLINE_MS,
-            stream_deadline_ms=STREAM_DEADLINE_MS,
-            retry_backoff_ms=RETRY_BACKOFF_MS,
-            retry_backoff_max_ms=RETRY_BACKOFF_MAX_MS,
-            retry_grace_period=RETRY_GRACE_PERIOD_SECONDS,
-        )
+        defaults: dict[str, typing.Any] = {
+            "resolver_type": suite.resolver_type,
+            "host": endpoint.host,
+            "port": endpoint.port(suite.backend_port),
+            "deadline_ms": DEADLINE_MS,
+            "stream_deadline_ms": STREAM_DEADLINE_MS,
+            "retry_backoff_ms": RETRY_BACKOFF_MS,
+            "retry_backoff_max_ms": RETRY_BACKOFF_MAX_MS,
+            "retry_grace_period": RETRY_GRACE_PERIOD_SECONDS,
+        }
+        return FlagdProvider(**{**defaults, **options})
 
     def new_unavailable_provider() -> FeatureProvider:
         # A closed port on localhost, never the backend under test: that has to
         # stay up for every other scenario.
-        return FlagdProvider(
-            resolver_type=suite.resolver_type,
-            host="localhost",
-            port=closed_port,
-            deadline_ms=UNAVAILABLE_DEADLINE_MS,
-            stream_deadline_ms=STREAM_DEADLINE_MS,
-            retry_backoff_ms=UNAVAILABLE_BACKOFF_MS,
-            retry_backoff_max_ms=UNAVAILABLE_BACKOFF_MS,
-            retry_grace_period=UNAVAILABLE_GRACE_PERIOD_SECONDS,
-        )
+        defaults: dict[str, typing.Any] = {
+            "resolver_type": suite.resolver_type,
+            "host": "localhost",
+            "port": closed_port,
+            "deadline_ms": UNAVAILABLE_DEADLINE_MS,
+            "stream_deadline_ms": STREAM_DEADLINE_MS,
+            "retry_backoff_ms": UNAVAILABLE_BACKOFF_MS,
+            "retry_backoff_max_ms": UNAVAILABLE_BACKOFF_MS,
+            "retry_grace_period": UNAVAILABLE_GRACE_PERIOD_SECONDS,
+        }
+        return FlagdProvider(**{**defaults, **options})
 
     return TckConfig(
         name=suite.name,
@@ -170,6 +206,8 @@ def build_config(
         new_provider=new_provider,
         new_unavailable_provider=new_unavailable_provider,
         capabilities=suite.capabilities,
+        include_tags=(suite.tag,),
+        exclude_tags=EXCLUDED_TAGS,
         known_deviations=suite.known_deviations,
         event_timeout=EVENT_TIMEOUT,
         ready_timeout=suite.ready_timeout,

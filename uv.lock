@@ -248,18 +248,6 @@ wheels = [
 ]
 
 [[package]]
-name = "asserts"
-version = "0.14.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/e7/31db2db2ee9c499e9cb027367a5a37631221ab316ff304f8eff3f5792c9a/asserts-0.14.0.tar.gz", hash = "sha256:d267a3af64915215b70b5a306662cb2ef895ec359b39585308e91bd3134fa1ab", size = 12935, upload-time = "2025-11-17T16:19:14.743Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/87/999ca201ec238725acbf09e52c84dca8051a3c09800cea0ee35ac882be9e/asserts-0.14.0-py3-none-any.whl", hash = "sha256:c9cf22949bf5581b53203079eec91654e82d30ee1b9834f322b96ecf61e80878", size = 13268, upload-time = "2025-11-17T16:19:13.52Z" },
-]
-
-[[package]]
 name = "async-timeout"
 version = "5.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1928,7 +1916,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "asserts" },
     { name = "coverage", extra = ["toml"] },
     { name = "grpcio-health-checking" },
     { name = "mypy" },
@@ -1954,7 +1941,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "asserts", specifier = ">=0.14.0,<0.15.0" },
     { name = "coverage", extras = ["toml"], specifier = ">=7.10.0,<8.0.0" },
     { name = "grpcio-health-checking", specifier = ">=1.82.1,<2.0.0" },
     { name = "mypy", specifier = ">=1.18.0,<2.0.0" },
