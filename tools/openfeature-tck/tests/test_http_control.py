@@ -345,7 +345,7 @@ def test_the_control_reports_which_api_it_drives_the_backend_through() -> None:
     Every operation on this class is an HTTP request to the normative control
     API, so this is the one control that can answer the question flatly, and
     leaving it to default to ``"custom"`` would understate the run. A report
-    whose ``backend.controlApi`` says otherwise for a provider with a real
+    whose ``backend.backendType`` says otherwise for a provider with a real
     backend is claiming something it should not.
     """
     with _StubControlApi() as stub:
