@@ -109,7 +109,7 @@ class FileWatcher(FlagStateConnector):
         self.last_modified = modified_time or os.path.getmtime(self.file_path)
 
     def handle_error(self, error_message: str) -> None:
-        logger.exception(error_message)
+        logger.exception(error_message)  # noqa: LOG004
         self.should_emit_ready_on_success = True
         self.emit_provider_error(
             ProviderEventDetails(

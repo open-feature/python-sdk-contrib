@@ -84,6 +84,7 @@ class FlagdProvider(AbstractProvider):
         :param stream_deadline_ms: the maximum time to wait before a request times out
         :param keep_alive_time: the number of milliseconds to keep alive
         :param resolver_type: the type of resolver to use
+        :param channel_credentials: custom gRPC channel credentials, including mTLS credentials
         :param client_interceptors: gRPC client interceptors applied to the channel. Metadata keys added by interceptors must be valid lowercase gRPC metadata keys. An interceptor that adds ``flagd-selector`` can duplicate the provider's selector metadata.
         """
         if deadline_ms is None and timeout is not None:

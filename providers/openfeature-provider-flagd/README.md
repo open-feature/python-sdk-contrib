@@ -38,9 +38,11 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
-api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.IN_PROCESS,
-))
+api.set_provider(
+    FlagdProvider(
+        resolver_type=ResolverType.IN_PROCESS,
+    )
+)
 ```
 
 In the above example, in-process handlers attempt to connect to a sync service on address `localhost:8013` to obtain [flag definitions](https://github.com/open-feature/schemas/blob/main/json/flags.json).
@@ -63,10 +65,12 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
-api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.FILE,
-    offline_flag_source_path="my-flag.json",
-))
+api.set_provider(
+    FlagdProvider(
+        resolver_type=ResolverType.FILE,
+        offline_flag_source_path="my-flag.json",
+    )
+)
 ```
 
 Provider will attempt to detect file changes using polling.
@@ -92,6 +96,7 @@ The default options can be defined in the FlagdProvider constructor.
 | max_cache_size           | FLAGD_MAX_CACHE_SIZE           | int                        | 1000                          | rpc                 |
 | retry_backoff_ms         | FLAGD_RETRY_BACKOFF_MS         | int                        | 1000                          | rpc                 |
 | offline_flag_source_path | FLAGD_OFFLINE_FLAG_SOURCE_PATH | str                        | null                          | in-process          |
+| channel_credentials      | -                              | `grpc.ChannelCredentials`  | null                          | rpc & in-process    |
 | sync_metadata_disabled   | -                              | bool                       | null                          | in-process          |
 | fatal_status_codes       | FLAGD_FATAL_STATUS_CODES       | sequence of gRPC status code names | empty                 | rpc & in-process    |
 | client_interceptors      | -                              | sequence of gRPC client interceptors | null                | rpc & in-process    |
@@ -109,6 +114,44 @@ The default options can be defined in the FlagdProvider constructor.
 > [!NOTE]
 > Some configurations are only applicable for RPC resolver.
 
+### Custom channel credentials
+
+Pass custom `grpc.ChannelCredentials` to `channel_credentials` to control the TLS setup. The provider uses these credentials in both resolver modes. They take precedence over `tls` and `cert_path`, and the provider creates a secure channel even when `tls` is `False`.
+
+To trust a private server certificate authority (CA), supply only the root certificates:
+
+```python
+import grpc
+
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+with open("ca.pem", "rb") as ca_file:
+    credentials = grpc.ssl_channel_credentials(root_certificates=ca_file.read())
+
+provider = FlagdProvider(channel_credentials=credentials)
+```
+
+When flagd requires mutual TLS (mTLS), also supply the client key and certificate:
+
+```python
+import grpc
+
+from openfeature.contrib.provider.flagd import FlagdProvider
+
+with (
+    open("ca.pem", "rb") as ca_file,
+    open("client-key.pem", "rb") as key_file,
+    open("client-cert.pem", "rb") as cert_file,
+):
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=ca_file.read(),
+        private_key=key_file.read(),
+        certificate_chain=cert_file.read(),
+    )
+
+provider = FlagdProvider(channel_credentials=credentials)
+```
+
 ### Custom gRPC interceptors
 
 `client_interceptors` are synchronous gRPC client interceptors applied to the channel in the order provided. Use them for infrastructure concerns such as custom headers or credentials. Flagd-specific options like `selector` stay first-class and do not need a custom interceptor.
@@ -116,6 +159,7 @@ The default options can be defined in the FlagdProvider constructor.
 Metadata keys added by an interceptor must be valid lowercase gRPC metadata keys. If an interceptor adds `flagd-selector` while `selector` is set, the request contains duplicate keys. gRPC permits duplicate metadata keys.
 
 `grpc.aio` interceptors are not supported. Passing an object that does not implement one of the synchronous client interceptor interfaces raises `TypeError` when the provider creates its channel.
+
 Unexpected exceptions from the RPC `EventStream` or in-process `SyncFlags` stream are logged and retried after `retry_backoff_max_ms`. The provider emits `STALE` while either stream reconnects. If a stream does not recover within `retry_grace_period`, the provider emits `ERROR`. After recovery, an RPC `provider_ready` message or the first in-process flag update emits `READY` and cancels the pending error.
 
 ```python
@@ -167,10 +211,12 @@ from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 from openfeature.contrib.provider.flagd.config import ResolverType
 
-api.set_provider(FlagdProvider(
-    resolver_type=ResolverType.IN_PROCESS,
-    selector="my-flag-source",  # Passed via both header and request body
-))
+api.set_provider(
+    FlagdProvider(
+        resolver_type=ResolverType.IN_PROCESS,
+        selector="my-flag-source",  # Passed via both header and request body
+    )
+)
 ```
 
 The selector is automatically passed via:
@@ -222,10 +268,12 @@ You may optionally supply an X.509 certificate in PEM format. Otherwise, the def
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
 
-api.set_provider(FlagdProvider(
-    tls=True,                        # use TLS
-    cert_path="etc/cert/ca.crt"      # PEM cert
-))
+api.set_provider(
+    FlagdProvider(
+        tls=True,  # use TLS
+        cert_path="etc/cert/ca.crt",  # PEM cert
+    )
+)
 ```
 
 ## License
