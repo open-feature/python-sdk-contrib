@@ -125,8 +125,11 @@ def parse_table_value(type_name: str, raw: str) -> typing.Any:
     return parse_value(_BY_NAME[lowered], raw)
 
 
-def _as_number(value: typing.Any) -> float | None:
-    """Return a numeric value as a float, or None if it is not numeric.
+def _as_number(value: typing.Any) -> int | float | None:
+    """Return a numeric value unchanged, or None if it is not numeric.
+
+    Unchanged rather than as a float: Python compares an ``int`` with a ``float``
+    exactly, and converting would make 2**53 + 1 equal 2**53.
 
     Booleans are deliberately excluded: Python makes ``bool`` a subclass of
     ``int``, so an unguarded numeric comparison would report ``True`` and ``1``
@@ -135,7 +138,7 @@ def _as_number(value: typing.Any) -> float | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        return value
     return None
 
 
