@@ -294,7 +294,7 @@ feature files:
 ```python
 TckConfig(
     # ...
-    include_tags=("@rpc",),          # run only extension scenarios tagged for this mode
+    include_tags=("@rpc",),  # run only extension scenarios tagged for this mode
     exclude_tags=("@fractional-v2",),  # never run these ones
 )
 ```
