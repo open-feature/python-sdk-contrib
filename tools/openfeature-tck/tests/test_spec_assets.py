@@ -131,6 +131,45 @@ def test_the_assets_on_disk_are_the_revision_the_pin_names() -> None:
         f"claims. Run `poe sync-spec-assets`"
     )
 
+    # The submodule at the pin is half of it; the copies are what a run loads.
+    stale = [
+        str(dest)
+        for source, dest in _asset_pairs()
+        if not dest.is_file() or dest.read_bytes() != source.read_bytes()
+    ]
+    assert not stale, (
+        f"{len(stale)} asset copies differ from the submodule at the pin, so "
+        f"this run would test against another revision's scenarios: "
+        f"{stale[:5]}. Run `poe sync-spec-assets`"
+    )
+    extra = [
+        str(path)
+        for _, dest_name in hatch_build_sync.TREES
+        for path in (hatch_build_sync.DEST_BASE / dest_name).rglob("*")
+        if path.is_file()
+        and path.name != "DO-NOT-EDIT.txt"
+        and path not in {dest for _, dest in _asset_pairs()}
+    ]
+    assert not extra, (
+        f"asset copies with no source at the pin: {extra[:5]}. Run `poe sync-spec-assets`"
+    )
+
+
+def _asset_pairs() -> list[tuple[Path, Path]]:
+    """Every source file under the pinned assets, with the copy the sync makes of it."""
+    pairs = [
+        (hatch_build_sync.SPEC_ASSETS / src, hatch_build_sync.DEST_BASE / dest)
+        for src, dest in hatch_build_sync.FILES
+    ]
+    for src_name, dest_name in hatch_build_sync.TREES:
+        src_root = hatch_build_sync.SPEC_ASSETS / src_name
+        pairs.extend(
+            (path, hatch_build_sync.DEST_BASE / dest_name / path.relative_to(src_root))
+            for path in src_root.rglob("*")
+            if path.is_file()
+        )
+    return pairs
+
 
 def test_the_pin_is_read_through_the_submodule_when_git_cannot_find_the_repo() -> None:
     """The route that keeps the revision check in force in a linked worktree.
