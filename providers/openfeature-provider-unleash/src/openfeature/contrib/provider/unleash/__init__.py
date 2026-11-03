@@ -138,8 +138,9 @@ class UnleashProvider(AbstractProvider):
 
     def track(
         self,
-        event_name: str,
-        event_details: dict | None = None,
+        tracking_event_name: str,
+        evaluation_context: EvaluationContext | None = None,
+        tracking_event_details: Any = None,
     ) -> None:
         """No-op tracking method.
 
