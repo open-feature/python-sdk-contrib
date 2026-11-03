@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures
-import contextlib
+import threading
 import time
 from collections.abc import Callable
 
@@ -93,9 +93,21 @@ def an_unavailable_provider(tck_state: TckState) -> None:
     # The waiting variant for the same reason as the stable provider. The SDK's
     # registry already converts a raising initialize into PROVIDER_ERROR, so the
     # suppression is belt and braces: a provider that raises anyway must not take
-    # the scenario down with it.
-    with contextlib.suppress(Exception):
-        api.set_provider_and_wait(provider, config.domain)
+    # the scenario down with it. A provider that never settles is a failure,
+    # though, so the timeout is not suppressed with it.
+    try:
+        _call_within(
+            lambda: api.set_provider_and_wait(provider, config.domain),
+            config.ready_timeout,
+        )
+    except TimeoutError:
+        msg = (
+            f"the unavailable provider did not settle into an error state within "
+            f"{config.ready_timeout}s"
+        )
+        raise AssertionError(msg) from None
+    except Exception:  # noqa: S110 -- see above
+        pass
 
     tck_state.provider = provider
     tck_state.client = api.get_client(config.domain)
@@ -246,14 +258,19 @@ def _call_within(call: Callable[[], object], timeout: float) -> None:
     The worker is deliberately not cancelled on timeout -- Python cannot
     interrupt a thread blocked in a socket call -- so it is left to finish or die
     with the process. Acceptable because a timeout already means the scenario is
-    failing.
+    failing. It is a daemon thread rather than an executor's, because both an
+    executor's shutdown and interpreter exit join executor workers.
     """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(call)
+    future: concurrent.futures.Future[object] = concurrent.futures.Future()
+
+    def run() -> None:
         try:
-            future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError from None
-        finally:
-            # Do not block __exit__ on a worker that is still stuck.
-            pool.shutdown(wait=False)
+            future.set_result(call())
+        except BaseException as exc:  # handed to the caller, not swallowed
+            future.set_exception(exc)
+
+    threading.Thread(target=run, name="tck-provider-call", daemon=True).start()
+    try:
+        future.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError from None
