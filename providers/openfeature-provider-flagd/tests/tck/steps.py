@@ -60,6 +60,16 @@ def the_provider_connects_to_the_forbidden_listener(
     )
 
 
+def _cell(value: str) -> str:
+    r"""An Examples cell as written: pytest-bdd 8 doubles every backslash in one.
+
+    The fractional outline hashes ``A\u0000B`` as those eight characters, as
+    Cucumber and godog pass it. The steps below take their values from cells
+    only; a backslash written in the step text itself would be halved too.
+    """
+    return value.replace("\\\\", "\\")
+
+
 def _add_attribute(tck_state: TckState, key: str, value: typing.Any) -> None:
     context = tck_state.evaluation_context or EvaluationContext()
     tck_state.evaluation_context = EvaluationContext(
@@ -79,7 +89,7 @@ def a_context_containing_a_key(
 ) -> None:
     # An attribute even when the key is "targetingKey": the fractional scenarios
     # pass a non-string there and expect it not to count as the targeting key.
-    _add_attribute(tck_state, key, parse_table_value(type_name, raw))
+    _add_attribute(tck_state, key, parse_table_value(type_name, _cell(raw)))
 
 
 @given(
@@ -91,7 +101,7 @@ def a_context_containing_a_key(
 def a_context_containing_a_nested_property(
     tck_state: TckState, outer: str, inner: str, value: str
 ) -> None:
-    _add_attribute(tck_state, outer, {inner: value})
+    _add_attribute(tck_state, outer, {inner: _cell(value)})
 
 
 @then("the client should be in fatal state")

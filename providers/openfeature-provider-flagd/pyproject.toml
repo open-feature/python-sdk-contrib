@@ -129,7 +129,7 @@ strict = true
 # linked from tools/openfeature-tck/README.md -- and is deliberately not
 # restated here.
 #
-# What is local to this package: a full run is 9 failed, 644 passed, 75
+# What is local to this package: a full run is 5 failed, 648 passed, 75
 # skipped, and tests/tck/conftest.py accounts for every failure.
 #
 # The suite is still *collected* on every default build, so it cannot quietly

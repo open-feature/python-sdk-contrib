@@ -1,20 +1,17 @@
-r"""One testbed stack, declared rather than wired, and shared by both suites.
+"""One testbed stack, declared rather than wired, and shared by both suites.
 
 One flagd process serves both resolver ports -- 8013 for RPC, 8015 for sync --
 so one stack and one ``HttpControl`` serve both suites.
 
-**A full run is ``9 failed, 644 passed, 75 skipped``**, 364 scenarios per
+**A full run is ``5 failed, 648 passed, 75 skipped``**, 364 scenarios per
 resolver: the canonical set plus flagd-testbed's ``tck-extensions``. In-process
-fails 5, RPC 4, for three causes:
+fails 3, RPC 2, for two causes:
 
 * ``boolean-flag`` requested as a Float resolves to ``1.0`` on in-process alone,
   because ``bool`` is a subclass of ``int``: python-sdk-contrib#417.
 * The two custom-certificate scenarios, on both resolvers. The TCK resolves the
   stack's host as ``0.0.0.0``, a bind address the server certificate does not
   name, so TLS verification fails; ``localhost`` passes both.
-* Two UTF-8 rows of the fractional outline, on both resolvers: the cells
-  ``A\u0000B`` and ``e\u0301`` reach the step as written, because Gherkin does
-  not decode ``\u`` escapes, so the bucket is computed over other bytes.
 
 The skips are the extension scenarios selected for the other resolver, the
 ``@targetURI`` and ``@fractional-v2`` exclusions in ``suite.py``,

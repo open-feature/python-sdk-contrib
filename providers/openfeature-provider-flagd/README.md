@@ -254,7 +254,7 @@ with the reason in a comment above them. Why a conformance suite is not a requir
 
 Two things that are this provider's rather than the policy's:
 
-- **The run is not green.** It is **9 failed, 644 passed, 75 skipped**, and
+- **The run is not green.** It is **5 failed, 648 passed, 75 skipped**, and
   `tests/tck/conftest.py` accounts for each failure, so a reviewer running the suite can tell a new
   failure from a known one.
 - **The default build still collects the suite** — `poe test` and `poe test-cov` end in
