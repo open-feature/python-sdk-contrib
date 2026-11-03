@@ -399,7 +399,9 @@ it mattered. It also has one environment fewer to abandon — a worktree whose `
 outside the running process's filesystem namespace, such as a Windows worktree driven from WSL, no
 longer defeats it, because the pin is read by naming the superproject that git could not find. What
 remains exempt is an unpacked sdist, which has no submodule, no pin and nothing that could have
-drifted from one.
+drifted from one. The sync itself still only warns in a checkout whose superproject it cannot reach,
+and copies unverified; the test run then fails on the unreadable pin, so sync from a shell that can
+see the superproject.
 
 [appendix-a]: https://github.com/open-feature/spec/blob/main/specification/appendix-a-included-utilities.md
 [appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
