@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-unleash/v0.1.2...openfeature-provider-unleash/v0.2.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364))
+
+### chore
+
+* drop Python 3.9 support ([#364](https://github.com/open-feature/python-sdk-contrib/issues/364)) ([0ecd1d4](https://github.com/open-feature/python-sdk-contrib/commit/0ecd1d4c41e96f90b019a76ce9c3b1f70f2a23a4))
+
+
+### 🐛 Bug Fixes
+
+* **unleash:** accept the arguments the client passes to track ([#474](https://github.com/open-feature/python-sdk-contrib/issues/474)) ([9a57dbb](https://github.com/open-feature/python-sdk-contrib/commit/9a57dbb59f126bdce24b39b968bb06971e3b7909)), closes [#433](https://github.com/open-feature/python-sdk-contrib/issues/433)
+
 ## [0.1.2](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-provider-unleash/v0.1.1...openfeature-provider-unleash/v0.1.2) (2026-03-14)
 
 
