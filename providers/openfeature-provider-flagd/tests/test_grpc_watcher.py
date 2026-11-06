@@ -15,7 +15,6 @@ from openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher
 from openfeature.contrib.provider.flagd.resolvers.process.flags import FlagStore
 from openfeature.event import ProviderEventDetails
 from openfeature.schemas.protobuf.flagd.sync.v1.sync_pb2 import (
-    GetMetadataResponse,
     SyncFlagsResponse,
 )
 from openfeature.schemas.protobuf.flagd.sync.v1.sync_pb2_grpc import FlagSyncServiceStub
@@ -68,8 +67,6 @@ class TestGrpcWatcher(unittest.TestCase):
                 emit_provider_stale=emit_provider_stale,
             )
         self.mock_stub = MagicMock(spec=FlagSyncServiceStub)
-        self.mock_metadata = GetMetadataResponse(metadata={"attribute": "value1"})
-        self.mock_stub.GetMetadata = Mock(return_value=self.mock_metadata)
         self.grpc_watcher.stub = self.mock_stub
         self.grpc_watcher.active = True
 
@@ -109,39 +106,6 @@ class TestGrpcWatcher(unittest.TestCase):
             self.provider_details.message, "gRPC sync connection established"
         )
         self.assertEqual(self.context, MessageToDict(sync_context))
-
-    def test_listen_with_sync_metadata_only(self):
-        mock_stream_no_sync_context = iter(
-            [
-                SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}'),
-            ]
-        )
-        self.mock_stub.SyncFlags = Mock(return_value=mock_stream_no_sync_context)
-
-        self.run_listen_and_shutdown_after()
-
-        self.assertEqual(
-            self.provider_details.message, "gRPC sync connection established"
-        )
-        self.assertEqual(self.context, MessageToDict(self.mock_metadata.metadata))
-
-    def test_listen_with_sync_metadata_disabled_in_config(self):
-        self.grpc_watcher.config.sync_metadata_disabled = True
-        mock_stream_no_sync_context = iter(
-            [
-                SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}'),
-            ]
-        )
-        self.mock_stub.SyncFlags = Mock(return_value=mock_stream_no_sync_context)
-
-        self.run_listen_and_shutdown_after()
-
-        self.mock_stub.GetMetadata.assert_not_called()
-
-        self.assertEqual(
-            self.provider_details.message, "gRPC sync connection established"
-        )
-        self.assertEqual(self.context, {})
 
     def test_uses_max_retry_backoff_for_application_level_reconnect_delay(self):
         self.assertEqual(self.grpc_watcher.retry_backoff_max_seconds, 5)
