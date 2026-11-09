@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 from time import sleep
@@ -11,7 +12,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.flags import (
     _validate_metadata,
 )
 from openfeature.event import EventDetails, ProviderEvent
-from openfeature.exception import ErrorCode, ParseError
+from openfeature.exception import ErrorCode, OpenFeatureError, ParseError
 
 
 def create_client(file_name):
@@ -21,7 +22,10 @@ def create_client(file_name):
         offline_flag_source_path=f"{path}/{file_name}",
     )
 
-    api.set_provider(provider)
+    # Some of these flag files are deliberately broken, so init may fail; what
+    # the evaluation returns afterwards is the assertion.
+    with contextlib.suppress(OpenFeatureError):
+        api.set_provider_and_wait(provider)
     return api.get_client()
 
 
