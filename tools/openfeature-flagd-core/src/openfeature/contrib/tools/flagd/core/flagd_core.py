@@ -219,8 +219,8 @@ class FlagdCore:
                 f"Expected type {type_name} but got {type(value).__name__}"
             )
 
-        # For integer type, reject bool (since bool is subclass of int)
-        if flag_type == "integer" and isinstance(value, bool):
+        # Reject bool for numeric types (since bool is a subclass of int).
+        if flag_type in ("integer", "float") and isinstance(value, bool):
             raise TypeMismatchError(
                 f"Expected type {type_name} but got {type(value).__name__}"
             )
