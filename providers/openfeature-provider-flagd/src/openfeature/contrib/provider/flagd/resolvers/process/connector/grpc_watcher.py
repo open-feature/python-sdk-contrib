@@ -6,7 +6,6 @@ import typing
 
 import grpc
 from google.protobuf.json_format import MessageToDict
-from grpc import StatusCode
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEventDetails
@@ -226,27 +225,9 @@ class GrpcWatcher(FlagStateConnector):
 
         return (("flagd-selector", self.selector),)
 
-    def _fetch_metadata(self) -> sync_pb2.GetMetadataResponse | None:
-        if self.config.sync_metadata_disabled:
-            return None
-
-        context_values_request = sync_pb2.GetMetadataRequest()
-        try:
-            context_values_response: sync_pb2.GetMetadataResponse = (
-                self.stub.GetMetadata(context_values_request, wait_for_ready=True)
-            )
-            return context_values_response
-        except grpc.RpcError as e:
-            if e.code() == StatusCode.UNIMPLEMENTED:
-                logger.debug(f"Error getting sync metadata: {e}")
-                return None
-            else:
-                raise e
-
     def _handle_flag_response(
         self,
         flag_rsp: sync_pb2.SyncFlagsResponse,
-        context_values_response: sync_pb2.GetMetadataResponse | None,
     ) -> bool:
         """Process a single flag response. Returns True if the loop should terminate."""
         flag_str = flag_rsp.flag_configuration
@@ -257,8 +238,6 @@ class GrpcWatcher(FlagStateConnector):
             context_values = {}
             if flag_rsp.sync_context:
                 context_values = MessageToDict(flag_rsp.sync_context)
-            elif context_values_response:
-                context_values = MessageToDict(context_values_response)["metadata"]
             self.emit_provider_ready(
                 ProviderEventDetails(message="gRPC sync connection established"),
                 context_values,
@@ -299,11 +278,10 @@ class GrpcWatcher(FlagStateConnector):
 
         while self.active:
             try:
-                context_values_response = self._fetch_metadata()
                 request = sync_pb2.SyncFlagsRequest(**request_args)
                 logger.debug("Setting up gRPC sync flags connection")
                 for flag_rsp in self.stub.SyncFlags(request, **call_args):
-                    if self._handle_flag_response(flag_rsp, context_values_response):
+                    if self._handle_flag_response(flag_rsp):
                         return
             except grpc.RpcError as e:
                 if self._handle_rpc_error(e):
