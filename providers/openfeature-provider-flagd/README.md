@@ -229,6 +229,42 @@ api.set_provider(
 )
 ```
 
+## Provider conformance suite
+
+This provider runs the [OpenFeature Provider Conformance Suite][tck] against a flagd-testbed stack,
+once per resolver, in `tests/tck`. Each run adds flagd-testbed's own scenarios, `tck-extensions/` in
+the `openfeature/test-harness` submodule, to the canonical ones; `tests/tck/steps.py` defines the
+flagd steps they use. The stack is the testbed's `docker-compose.yaml`, so the image follows the
+submodule pin.
+
+`config.feature` is not part of that run: it needs no backend, and `tests/test_config_feature.py`
+runs it in the default build.
+
+**It is excluded from the default build, and a maintainer runs it by hand before merging a change to
+it.**
+
+```
+poe test-tck        # both resolvers, needs Docker
+poe test            # everything else, which is what CI runs
+```
+
+The exclusion lives in `pyproject.toml`: `--ignore=tests/tck` on the two tasks `build.yml` reaches,
+with the reason in a comment above them. Why a conformance suite is not a required gate is
+[Appendix F, "Running the suite in CI"][appendix-f], and is not restated here.
+
+Two things that are this provider's rather than the policy's:
+
+- **The run is not green.** It is **5 failed, 648 passed, 75 skipped**, and
+  `tests/tck/conftest.py` accounts for each failure, so a reviewer running the suite can tell a new
+  failure from a known one.
+- **The default build still collects the suite** — `poe test` and `poe test-cov` end in
+  `pytest tests/tck --collect-only`, which imports every module and starts no container. An excluded
+  suite that has quietly stopped importing against the harness is worse than one that runs and
+  fails, and `mypy` here is configured over `src` alone, so nothing else would notice.
+
+[tck]: ../../tools/openfeature-tck/README.md
+[appendix-f]: https://github.com/open-feature/spec/blob/main/specification/appendix-f-provider-conformance.md
+
 ## License
 
 Apache 2.0 - See [LICENSE](./LICENSE) for more information.
