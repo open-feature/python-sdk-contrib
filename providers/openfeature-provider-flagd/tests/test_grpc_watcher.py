@@ -16,6 +16,7 @@ from openfeature.contrib.provider.flagd.resolvers.process.flags import FlagStore
 from openfeature.event import ProviderEventDetails
 from openfeature.schemas.protobuf.flagd.sync.v1.sync_pb2 import (
     GetMetadataResponse,
+    SyncFlagsRequest,
     SyncFlagsResponse,
 )
 from openfeature.schemas.protobuf.flagd.sync.v1.sync_pb2_grpc import FlagSyncServiceStub
@@ -27,6 +28,24 @@ class FakeRpcError(grpc.RpcError):
 
     def details(self):
         return "stream unavailable"
+
+
+class _ClientCallDetails(grpc.ClientCallDetails):
+    def __init__(self, details, metadata):
+        self.method = details.method
+        self.timeout = details.timeout
+        self.metadata = metadata
+        self.credentials = details.credentials
+        self.wait_for_ready = details.wait_for_ready
+        self.compression = details.compression
+
+
+class _MetadataInterceptor(grpc.UnaryStreamClientInterceptor):
+    def intercept_unary_stream(self, continuation, client_call_details, request):
+        metadata = list(client_call_details.metadata or [])
+        metadata.append(("x-envoy-upstream-rq-timeout-ms", "0"))
+        details = _ClientCallDetails(client_call_details, metadata)
+        return continuation(details, request)
 
 
 class TestGrpcWatcher(unittest.TestCase):
@@ -49,8 +68,8 @@ class TestGrpcWatcher(unittest.TestCase):
 
         flag_store = Mock(spec=FlagStore)
         flag_store.update.return_value = None
-        emit_provider_error = Mock()
-        emit_provider_stale = Mock()
+        self.emit_provider_error = Mock()
+        self.emit_provider_stale = Mock()
         channel = Mock(spec=Channel)
         self.provider_done = False
         self.provider_details: ProviderEventDetails | None = None
@@ -64,8 +83,8 @@ class TestGrpcWatcher(unittest.TestCase):
                 config=config,
                 flag_store=flag_store,
                 emit_provider_ready=self.provider_ready,
-                emit_provider_error=emit_provider_error,
-                emit_provider_stale=emit_provider_stale,
+                emit_provider_error=self.emit_provider_error,
+                emit_provider_stale=self.emit_provider_stale,
             )
         self.mock_stub = MagicMock(spec=FlagSyncServiceStub)
         self.mock_metadata = GetMetadataResponse(metadata={"attribute": "value1"})
@@ -170,6 +189,49 @@ class TestGrpcWatcher(unittest.TestCase):
 
         wait_before_reconnect.assert_called_once()
 
+    def test_listen_backs_off_after_unexpected_error(self):
+        self.grpc_watcher.connected = True
+        self.mock_stub.SyncFlags = Mock(side_effect=RuntimeError("interceptor failed"))
+
+        with (
+            patch.object(
+                self.grpc_watcher,
+                "_wait_before_reconnect",
+                side_effect=lambda: setattr(self.grpc_watcher, "active", False),
+            ) as wait_before_reconnect,
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.threading.Timer"
+            ) as timer_class,
+        ):
+            self.grpc_watcher.listen()
+
+        wait_before_reconnect.assert_called_once()
+        self.assertFalse(self.grpc_watcher.connected)
+        self.emit_provider_stale.assert_called_once()
+        timer_class.assert_called_once_with(5, self.grpc_watcher.emit_error)
+        timer_class.return_value.start.assert_called_once()
+
+    def test_recovered_sync_flags_cancel_error_timer(self):
+        timer = Mock(spec=threading.Timer)
+        timer.is_alive.return_value = True
+        self.grpc_watcher.timer = timer
+        events = []
+        timer.cancel.side_effect = lambda: events.append("cancel")
+        self.grpc_watcher.emit_provider_ready = Mock(
+            side_effect=lambda *_args: events.append("ready")
+        )
+
+        should_stop = self.grpc_watcher._handle_flag_response(
+            SyncFlagsResponse(flag_configuration='{"flag_key": "flag_value"}'),
+            self.mock_metadata,
+        )
+
+        self.assertFalse(should_stop)
+        self.assertTrue(self.grpc_watcher.connected)
+        self.assertIsNone(self.grpc_watcher.timer)
+        timer.cancel.assert_called_once()
+        self.assertEqual(events, ["cancel", "ready"])
+
     def test_selector_passed_via_both_metadata_and_body(self):
         """Test that selector is passed via both gRPC metadata header and request body for backward compatibility"""
         self.grpc_watcher.selector = "test-selector"
@@ -197,3 +259,76 @@ class TestGrpcWatcher(unittest.TestCase):
         self.assertIn("metadata", kwargs)
         metadata = kwargs["metadata"]
         self.assertEqual(metadata, (("flagd-selector", "test-selector"),))
+
+    def test_client_interceptor_adds_metadata_to_sync_flags(self):
+        raw_channel = Mock(spec=Channel)
+        raw_sync_flags = Mock(return_value=iter(()))
+        raw_channel.unary_stream.return_value = raw_sync_flags
+        config = Config(tls=False, client_interceptors=[_MetadataInterceptor()])
+
+        with patch(
+            "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.grpc.insecure_channel",
+            return_value=raw_channel,
+        ):
+            watcher = GrpcWatcher(
+                config=config,
+                flag_store=Mock(spec=FlagStore),
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+            )
+
+        watcher.stub.SyncFlags(
+            SyncFlagsRequest(), metadata=(("flagd-selector", "test-selector"),)
+        )
+
+        self.assertEqual(
+            raw_sync_flags.call_args.kwargs["metadata"],
+            [
+                ("flagd-selector", "test-selector"),
+                ("x-envoy-upstream-rq-timeout-ms", "0"),
+            ],
+        )
+
+    def test_generate_channel_rejects_invalid_client_interceptor(self):
+        raw_channel = Mock(spec=Channel)
+        config = Config(tls=False, client_interceptors=[object()])
+
+        with (
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.grpc.insecure_channel",
+                return_value=raw_channel,
+            ),
+            self.assertRaises(TypeError),
+        ):
+            GrpcWatcher(
+                config=config,
+                flag_store=Mock(spec=FlagStore),
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+            )
+
+    def test_generate_channel_skips_intercept_channel_when_no_interceptors(self):
+        raw_channel = Mock(spec=Channel)
+        config = Config(tls=False)
+
+        with (
+            patch(
+                "openfeature.contrib.provider.flagd.resolvers.process.connector.grpc_watcher.grpc.insecure_channel",
+                return_value=raw_channel,
+            ),
+            patch(
+                "openfeature.contrib.provider.flagd.config.grpc.intercept_channel",
+            ) as intercept_channel,
+        ):
+            watcher = GrpcWatcher(
+                config=config,
+                flag_store=Mock(spec=FlagStore),
+                emit_provider_ready=Mock(),
+                emit_provider_error=Mock(),
+                emit_provider_stale=Mock(),
+            )
+
+        self.assertIs(watcher.channel, raw_channel)
+        intercept_channel.assert_not_called()
