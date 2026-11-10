@@ -1,10 +1,14 @@
 import json
+import logging
 import re
 from collections.abc import Mapping
 
 from openfeature.exception import ParseError
 
+from ..schema import validate_flag_configuration
 from .flag import Flag, _validate_metadata
+
+logger = logging.getLogger("openfeature.contrib")
 
 
 class FlagStore:
@@ -29,6 +33,17 @@ class FlagStore:
                     transposed,
                 )
             flags = json.loads(transposed)
+
+        # Like the other flagd cores, an invalid configuration is only reported:
+        # rejecting it would block updates to every other flag in the set.
+        schema_errors = validate_flag_configuration(
+            {**flags_data, "flags": flags} if evaluators else flags_data
+        )
+        if schema_errors:
+            logger.warning(
+                "Flag configuration does not match the flagd schema, applying it anyway:\n%s",
+                "\n".join(schema_errors),
+            )
 
         if not isinstance(flags, dict):
             raise ParseError("`flags` key of configuration must be a dictionary")
