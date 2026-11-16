@@ -50,7 +50,7 @@ In the above example, in-process handlers attempt to connect to a sync service o
 <!--
 #### Sync-metadata
 
-To support the injection of contextual data configured in flagd for in-process evaluation, the provider exposes a `getSyncMetadata` accessor which provides the most recent value returned by the [GetMetadata RPC](https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.FlagSyncService.GetMetadata).
+To support the injection of contextual data configured in flagd for in-process evaluation, the provider exposes a `getSyncMetadata` accessor which provides the most recent value returned by the [sync_context](https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.SyncFlagsResponse) carried by the SyncFlags stream (emitted by flagd v0.12.6 and above; the deprecated [GetMetadata RPC](https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.FlagSyncService.GetMetadata) is no longer used).
 The value is updated with every (re)connection to the sync implementation.
 This can be used to enrich evaluations with such data.
 If the `in-process` mode is not used, and before the provider is ready, the `getSyncMetadata` returns an empty map.

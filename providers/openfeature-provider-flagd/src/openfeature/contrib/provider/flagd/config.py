@@ -272,10 +272,8 @@ class Config:
 
         self.channel_credentials = channel_credentials
 
-        # TODO: remove the metadata call entirely after https://github.com/open-feature/flagd/issues/1584
-        # This is a temporary stop-gap solutions to support servers that don't implement sync.GetMetadata
-        # (see: https://buf.build/open-feature/flagd/docs/main:flagd.sync.v1#flagd.sync.v1.FlagSyncService.GetMetadata).
-        # Using this option disables call to sync.GetMetadata
-        # Disabling will prevent static context from flagd being used in evaluations.
-        # GetMetadata and this option will be removed.
+        # Kept for backwards compatibility. The provider no longer calls the deprecated
+        # sync.GetMetadata RPC; sync metadata is carried by SyncFlagsResponse.sync_context
+        # (emitted by flagd v0.12.6 and above). Setting this option has no effect and it
+        # will be removed in a future release.
         self.sync_metadata_disabled = sync_metadata_disabled
