@@ -17,7 +17,8 @@ logger = logging.getLogger("openfeature.contrib")
 
 @dataclass
 class Fraction:
-    variant: str | float | int | bool | None
+    # whatever the variant expression evaluated to, the resolver decides what to do with it
+    variant: typing.Any
     weight: int = 1
 
 
@@ -54,7 +55,7 @@ def normalize_numbers(data: typing.Any) -> typing.Any:
     return data
 
 
-def fractional(data: dict, *args: typing.Any) -> str | float | int | bool | None:
+def fractional(data: dict, *args: typing.Any) -> typing.Any:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
