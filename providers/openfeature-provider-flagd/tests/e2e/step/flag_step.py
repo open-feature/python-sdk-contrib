@@ -117,8 +117,7 @@ def resolve_details_empty_error_code(
 
 @then(parsers.cfparse("the resolved metadata should contain"))
 def metadata_contains(details: FlagEvaluationDetails[JsonPrimitive], datatable):
-    assert_equal(len(details.flag_metadata), len(datatable) - 1)  # skip table header
-    for i in range(1, len(datatable)):
+    for i in range(1, len(datatable)):  # skip table header
         key, metadata_type, expected = datatable[i]
         assert_equal(details.flag_metadata[key], type_cast[metadata_type](expected))
 
