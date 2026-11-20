@@ -10,18 +10,22 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ParseError
 
 from .custom_ops import (
+    divide,
     ends_with,
     fractional,
+    resolve,
     sem_ver,
     starts_with,
 )
 
 OPERATORS = {
     **builtins.BUILTINS,
+    "/": divide,
     "fractional": fractional,
     "starts_with": starts_with,
     "ends_with": ends_with,
     "sem_ver": sem_ver,
+    "resolve": resolve,
 }
 
 

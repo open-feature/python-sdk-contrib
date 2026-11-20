@@ -33,6 +33,7 @@ class TestProviderType(Enum):
     SSL = "ssl"
     SOCKET = "socket"
     METADATA = "metadata"
+    RESOLVE = "resolve"
     SYNCPAYLOAD = "syncpayload"
     FORBIDDEN = "forbidden"
 
@@ -79,6 +80,10 @@ def get_default_options_for_provider(
         return options, wait
     elif t == TestProviderType.METADATA:
         launchpad = "metadata"
+    elif t == TestProviderType.RESOLVE and resolver_type != ResolverType.FILE:
+        # file mode reads the harness flag file directly, so it doesn't need the
+        # "resolve" launchpad config, which the released testbed image lacks
+        launchpad = "resolve"
     elif t == TestProviderType.SYNCPAYLOAD:
         launchpad = "sync-payload"
 

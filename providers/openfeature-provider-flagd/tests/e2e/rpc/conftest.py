@@ -12,6 +12,9 @@ feature_list = [
     "~deprecated",
     "~fractional-v1",
     "~fractional-v2",
+    # the released testbed image has no "resolve" launchpad config, and its flagd
+    # does not support resolve yet
+    "~resolve",
 ]
 
 

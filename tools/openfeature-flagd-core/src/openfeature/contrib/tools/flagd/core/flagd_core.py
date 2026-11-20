@@ -1,4 +1,5 @@
 import json
+import logging
 import threading
 import typing
 from collections.abc import Mapping, Sequence
@@ -15,8 +16,14 @@ from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Re
 from .model.flag import Flag
 from .model.flag_store import FlagStore
 from .targeting import targeting
+from .targeting.custom_ops import ResolveResult
 
 T = typing.TypeVar("T")
+
+logger = logging.getLogger("openfeature.contrib")
+
+# flag set metadata keys a resolve rule can't override; the schema only catches literal keys
+RESERVED_METADATA_KEYS = frozenset({"flagSetId", "version"})
 
 # Type map for each resolve method
 _TYPE_MAP: dict[str, tuple[type | tuple[type, ...], str]] = {
@@ -37,6 +44,36 @@ def _merge_metadata(
         for key, value in flag_metadata.items():
             metadata[key] = value
     return metadata
+
+
+def _merge_rule_metadata(
+    metadata: Mapping[str, float | int | str | bool],
+    rule_metadata: Mapping[str, float | int | str | bool],
+) -> Mapping[str, float | int | str | bool]:
+    merged = dict(metadata)
+    for key, value in rule_metadata.items():
+        if key in RESERVED_METADATA_KEYS:
+            logger.debug(f"Ignoring reserved resolve metadata key {key}")
+            continue
+        merged[key] = value
+    return merged
+
+
+def _targeting_match(
+    resolved: typing.Any, metadata: Mapping[str, float | int | str | bool]
+) -> tuple[str, str, Mapping[str, float | int | str | bool]]:
+    """Variant, reason and metadata of a non-null targeting result."""
+    if isinstance(resolved, ResolveResult):
+        reason = Reason.TARGETING_MATCH if resolved.reason is None else resolved.reason
+        return (
+            resolved.variant,
+            reason,
+            _merge_rule_metadata(metadata, resolved.metadata),
+        )
+    # convert to string to support shorthand
+    if isinstance(resolved, bool):
+        return str(resolved).lower(), Reason.TARGETING_MATCH, metadata
+    return str(resolved), Reason.TARGETING_MATCH, metadata
 
 
 def _default_resolve(
@@ -151,26 +188,20 @@ class FlagdCore:
                 return result
 
             try:
-                variant = targeting(flag.key, flag.targeting, evaluation_context)
-                if variant is None:
-                    result = _default_resolve(
-                        flag, default_value, metadata, Reason.DEFAULT
-                    )
-                    self._check_type(result, flag_type)
-                    return result
-
-                if isinstance(variant, bool):
-                    variant = str(variant).lower()
-                elif not isinstance(variant, str):
-                    variant = str(variant)
-
-                if variant not in flag.variants:
-                    raise GeneralError(
-                        f"Resolved variant {variant} not in variants config."
-                    )
-
+                resolved = targeting(flag.key, flag.targeting, evaluation_context)
             except ReferenceError as e:
                 raise ParseError(f"Invalid targeting {flag.targeting}") from e
+
+            if resolved is None:
+                result = _default_resolve(flag, default_value, metadata, Reason.DEFAULT)
+                self._check_type(result, flag_type)
+                return result
+
+            variant, reason, metadata = _targeting_match(resolved, metadata)
+            if variant not in flag.variants:
+                raise GeneralError(
+                    f"Resolved variant {variant} not in variants config."
+                )
 
             variant, value = flag.get_variant(variant)
             if value is None:
@@ -181,7 +212,7 @@ class FlagdCore:
             result = FlagResolutionDetails(
                 value,
                 variant=variant,
-                reason=Reason.TARGETING_MATCH,
+                reason=reason,
                 flag_metadata=metadata,
             )
             self._check_type(result, flag_type)
@@ -195,11 +226,9 @@ class FlagdCore:
         """Validate the resolved value type matches the expected flag type."""
         if flag_type is None:
             return
-        # Skip type check when value is the caller's default (no variant resolved)
-        # This happens for DEFAULT reason with no variant, or DISABLED flags
-        if result.reason == Reason.DISABLED:
-            return
-        if result.reason == Reason.DEFAULT and result.variant is None:
+        # Skip type check when value is the caller's default (no variant resolved).
+        # Not by reason: a resolve rule may return any reason, DISABLED included.
+        if result.variant is None:
             return
 
         type_info = _TYPE_MAP.get(flag_type)
