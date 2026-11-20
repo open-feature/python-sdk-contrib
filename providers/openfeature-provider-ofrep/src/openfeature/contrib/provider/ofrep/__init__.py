@@ -9,7 +9,8 @@ from typing import Any, NoReturn
 from urllib.parse import urljoin
 
 import requests
-from requests.exceptions import JSONDecodeError
+from requests.exceptions import InvalidHeader, JSONDecodeError
+from requests.utils import check_header_validity
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
@@ -262,16 +263,23 @@ def _parse_env_headers(value: str | None) -> dict[str, str]:
     headers: dict[str, str] = {}
     if value is None:
         return headers
-    for pair in value.split(","):
+    for position, pair in enumerate(value.split(","), start=1):
         if not pair.strip():
             continue
         name, separator, header_value = pair.partition("=")
         name = name.strip()
         if not separator or not name:
             raise ValueError(
-                f"Invalid {ENV_HEADERS} entry {pair.strip()!r}: expected key=value"
+                f"Invalid {ENV_HEADERS} entry {position}: expected key=value"
             )
-        headers[name] = header_value.strip()
+        header_value = header_value.strip()
+        try:
+            check_header_validity((name, header_value))
+        except InvalidHeader:
+            raise ValueError(
+                f"Invalid {ENV_HEADERS} entry {position}: invalid header name or value"
+            ) from None
+        headers[name] = header_value
     return headers
 
 

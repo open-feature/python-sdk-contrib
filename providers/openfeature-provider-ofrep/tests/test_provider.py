@@ -95,11 +95,22 @@ def test_provider_invalid_timeout_env(clean_env, value):
         OFREPProvider("http://localhost:8080")
 
 
-@pytest.mark.parametrize("value", ("novalue", "=value", "a=b,broken"))
+@pytest.mark.parametrize(
+    "value",
+    (
+        "novalue",
+        "=value",
+        "a=b,broken",
+        "X-Test=one\r\ntwo",
+        "Authorization: Bearer secret-token",
+    ),
+)
 def test_provider_invalid_headers_env(clean_env, value):
     clean_env.setenv("OFREP_HEADERS", value)
-    with pytest.raises(ValueError, match="OFREP_HEADERS"):
+    with pytest.raises(ValueError, match="OFREP_HEADERS") as exc_info:
         OFREPProvider("http://localhost:8080")
+    assert "secret-token" not in str(exc_info.value)
+    assert "two" not in str(exc_info.value)
 
 
 @pytest.mark.parametrize(
