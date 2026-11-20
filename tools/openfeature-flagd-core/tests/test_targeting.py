@@ -1,5 +1,10 @@
+import math
+
+import pytest
+
 from openfeature.contrib.tools.flagd.core.targeting import targeting
 from openfeature.contrib.tools.flagd.core.targeting.custom_ops import (
+    divide,
     ends_with,
     fractional,
     normalize_numbers,
@@ -271,3 +276,29 @@ class TestNormalizeNumbers:
         norm = normalize_numbers(huge)
         assert norm == huge
         assert isinstance(norm, float)
+
+
+class TestDivide:
+    def test_divides(self) -> None:
+        assert divide({}, 1, 4) == 0.25
+
+    @pytest.mark.parametrize(
+        ("dividend", "divisor", "expected"),
+        [
+            (1, 0, math.inf),
+            (-1, 0, -math.inf),
+            (1, -0.0, -math.inf),
+            (2.5, 0.0, math.inf),
+        ],
+    )
+    def test_divide_by_zero_is_infinite(self, dividend, divisor, expected) -> None:
+        assert divide({}, dividend, divisor) == expected
+
+    @pytest.mark.parametrize("dividend", [0, 0.0, math.nan])
+    def test_divide_zero_or_nan_by_zero_is_nan(self, dividend) -> None:
+        assert math.isnan(divide({}, dividend, 0))
+
+    def test_targeting_divides_by_zero_like_javascript(self) -> None:
+        rule = {"if": [{">": [{"/": [{"var": "hits"}, 0]}, 1]}, "big", "small"]}
+        ctx = EvaluationContext(attributes={"hits": 1})
+        assert targeting("test-flag", rule, ctx) == "big"

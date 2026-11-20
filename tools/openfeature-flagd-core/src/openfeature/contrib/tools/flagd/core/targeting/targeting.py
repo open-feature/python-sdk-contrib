@@ -10,6 +10,7 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ParseError
 
 from .custom_ops import (
+    divide,
     ends_with,
     fractional,
     sem_ver,
@@ -18,6 +19,7 @@ from .custom_ops import (
 
 OPERATORS = {
     **builtins.BUILTINS,
+    "/": divide,
     "fractional": fractional,
     "starts_with": starts_with,
     "ends_with": ends_with,

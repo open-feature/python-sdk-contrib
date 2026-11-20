@@ -1,4 +1,5 @@
 import logging
+import math
 import typing
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -6,6 +7,7 @@ from dataclasses import dataclass
 import cbor2
 import mmh3
 import semver
+from json_logic.builtins import to_number
 
 MAX_WEIGHT_SUM = 2_147_483_647  # MaxInt32
 
@@ -102,6 +104,24 @@ def fractional(data: dict, *args: typing.Any) -> str | float | int | bool | None
         if bucket < range_end:
             return fraction.variant
     return None
+
+
+def divide(
+    data: dict, a: typing.Any = None, b: typing.Any = None, *_: typing.Any
+) -> float:
+    """JsonLogic ``/`` that divides by zero like JavaScript, the JsonLogic reference.
+
+    The builtin raises ZeroDivisionError, which fails the whole evaluation; JavaScript,
+    and the Go and Java flagd cores, return Infinity or NaN.
+    """
+    dividend: float = to_number(a)
+    divisor: float = to_number(b)
+    try:
+        return dividend / divisor
+    except ZeroDivisionError:
+        if dividend == 0 or math.isnan(dividend):
+            return math.nan
+        return math.copysign(math.inf, dividend) * math.copysign(1, divisor)
 
 
 def _parse_fraction(arg: JsonLogicArg) -> Fraction:
