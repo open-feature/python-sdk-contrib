@@ -13,6 +13,7 @@ from .custom_ops import (
     divide,
     ends_with,
     fractional,
+    resolve,
     sem_ver,
     starts_with,
 )
@@ -24,6 +25,7 @@ OPERATORS = {
     "starts_with": starts_with,
     "ends_with": ends_with,
     "sem_ver": sem_ver,
+    "resolve": resolve,
 }
 
 
