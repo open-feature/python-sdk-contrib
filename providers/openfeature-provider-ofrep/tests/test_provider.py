@@ -23,6 +23,85 @@ def test_provider_init():
     )
 
 
+@pytest.fixture
+def clean_env(monkeypatch):
+    for name in ("OFREP_ENDPOINT", "OFREP_HEADERS", "OFREP_TIMEOUT_MS"):
+        monkeypatch.delenv(name, raising=False)
+    return monkeypatch
+
+
+def test_provider_defaults_without_env(clean_env):
+    provider = OFREPProvider("http://localhost:8080")
+    assert provider.base_url == "http://localhost:8080"
+    assert provider.timeout == 5.0
+    assert provider.headers_factory is None
+
+
+def test_provider_requires_endpoint(clean_env):
+    with pytest.raises(ValueError, match="OFREP_ENDPOINT"):
+        OFREPProvider()
+
+
+def test_provider_blank_endpoint_env_is_unset(clean_env):
+    clean_env.setenv("OFREP_ENDPOINT", "  ")
+    with pytest.raises(ValueError, match="OFREP_ENDPOINT"):
+        OFREPProvider()
+
+
+def test_provider_config_from_env(clean_env, requests_mock):
+    clean_env.setenv("OFREP_ENDPOINT", "http://env-host:2321")
+    clean_env.setenv("OFREP_HEADERS", "Authorization=Bearer a=b, X-Test = 1 ,")
+    clean_env.setenv("OFREP_TIMEOUT_MS", "2500")
+    provider = OFREPProvider()
+    assert provider.base_url == "http://env-host:2321"
+    assert provider.timeout == 2.5
+
+    requests_mock.post(
+        "http://env-host:2321/ofrep/v1/evaluate/flags/flag_key",
+        json={"key": "flag_key", "reason": "STATIC", "variant": "on", "value": True},
+    )
+    assert provider.resolve_boolean_details("flag_key", False).value is True
+    sent = requests_mock.last_request
+    assert sent.timeout == 2.5
+    assert sent.headers["Authorization"] == "Bearer a=b"
+    assert sent.headers["X-Test"] == "1"
+
+
+def test_provider_arguments_take_precedence_over_env(clean_env, requests_mock):
+    clean_env.setenv("OFREP_ENDPOINT", "http://env-host:2321")
+    clean_env.setenv("OFREP_HEADERS", "X-Env=1")
+    clean_env.setenv("OFREP_TIMEOUT_MS", "2500")
+    provider = OFREPProvider(
+        "http://localhost:8080",
+        headers_factory=lambda: {"X-Arg": "2"},
+        timeout=1.0,
+    )
+    assert provider.base_url == "http://localhost:8080"
+    assert provider.timeout == 1.0
+
+    requests_mock.post(
+        "http://localhost:8080/ofrep/v1/evaluate/flags/flag_key",
+        json={"key": "flag_key", "reason": "STATIC", "variant": "on", "value": True},
+    )
+    provider.resolve_boolean_details("flag_key", False)
+    assert requests_mock.last_request.headers["X-Arg"] == "2"
+    assert "X-Env" not in requests_mock.last_request.headers
+
+
+@pytest.mark.parametrize("value", ("abc", "0", "-5", "nan", "inf"))
+def test_provider_invalid_timeout_env(clean_env, value):
+    clean_env.setenv("OFREP_TIMEOUT_MS", value)
+    with pytest.raises(ValueError, match="OFREP_TIMEOUT_MS"):
+        OFREPProvider("http://localhost:8080")
+
+
+@pytest.mark.parametrize("value", ("novalue", "=value", "a=b,broken"))
+def test_provider_invalid_headers_env(clean_env, value):
+    clean_env.setenv("OFREP_HEADERS", value)
+    with pytest.raises(ValueError, match="OFREP_HEADERS"):
+        OFREPProvider("http://localhost:8080")
+
+
 @pytest.mark.parametrize(
     "flag_type, resolved_value, default_value, get_method",
     (
