@@ -205,6 +205,34 @@ class TestFractional:
             result = fractional({}, key, ["a", 50], ["b", 50])
             assert result in ("a", "b")
 
+    def test_fractional_computed_variant_expression(self) -> None:
+        """A bucket variant can be any JSON Logic expression, its result is returned."""
+        rule = {
+            "fractional": [
+                {"var": "targetingKey"},
+                [{"cat": ["r", "ed"]}, 1],
+                [{"cat": ["bl", "ue"]}, 0],
+            ]
+        }
+        ctx = EvaluationContext(targeting_key="user-1")
+        assert targeting("test-flag", rule, ctx) == "red"
+
+    def test_fractional_computed_variant_selected_by_weight(self) -> None:
+        rule = {
+            "fractional": [
+                {"var": "targetingKey"},
+                [{"cat": ["r", "ed"]}, 0],
+                [{"cat": ["bl", "ue"]}, 1],
+            ]
+        }
+        ctx = EvaluationContext(targeting_key="user-1")
+        assert targeting("test-flag", rule, ctx) == "blue"
+
+    def test_fractional_non_scalar_variant_passed_through(self) -> None:
+        """The variant isn't type checked, e.g. the result of a resolve expression."""
+        resolved = {"variant": "red", "reason": "SPLIT"}
+        assert fractional({}, "key", [resolved, 1]) == resolved
+
     def test_fractional_top_level_array_not_explicit_key(self) -> None:
         """Top-level array is reserved for variant buckets (shorthand syntax) per ADR."""
         # When no targetingKey in context, shorthand fails and returns None
