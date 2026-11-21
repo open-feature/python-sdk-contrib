@@ -102,6 +102,7 @@ def test_provider_invalid_timeout_env(clean_env, value):
         "=value",
         "a=b,broken",
         "X-Test=one\r\ntwo",
+        "X:Test=value",
         "Authorization: Bearer secret-token",
     ),
 )

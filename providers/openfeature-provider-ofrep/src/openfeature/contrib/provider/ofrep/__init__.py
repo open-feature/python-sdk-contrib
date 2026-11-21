@@ -50,6 +50,8 @@ ENV_TIMEOUT_MS = "OFREP_TIMEOUT_MS"
 
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
+_HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+
 
 class OFREPProvider(AbstractProvider):
     def __init__(
@@ -273,6 +275,10 @@ def _parse_env_headers(value: str | None) -> dict[str, str]:
                 f"Invalid {ENV_HEADERS} entry {position}: expected key=value"
             )
         header_value = header_value.strip()
+        if not _HEADER_NAME_PATTERN.match(name):
+            raise ValueError(
+                f"Invalid {ENV_HEADERS} entry {position}: invalid header name or value"
+            )
         try:
             check_header_validity((name, header_value))
         except InvalidHeader:
