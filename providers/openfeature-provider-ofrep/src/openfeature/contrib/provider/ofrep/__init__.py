@@ -1,4 +1,6 @@
 import logging
+import math
+import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
@@ -7,7 +9,8 @@ from typing import Any, NoReturn
 from urllib.parse import urljoin
 
 import requests
-from requests.exceptions import JSONDecodeError
+from requests.exceptions import InvalidHeader, JSONDecodeError
+from requests.utils import check_header_validity
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import (
@@ -41,15 +44,47 @@ TypeMap = dict[
 
 _HTTP_AUTH_ERRORS: dict[int, str] = {401: "unauthorized", 403: "forbidden"}
 
+ENV_ENDPOINT = "OFREP_ENDPOINT"
+ENV_HEADERS = "OFREP_HEADERS"
+ENV_TIMEOUT_MS = "OFREP_TIMEOUT_MS"
+
+DEFAULT_TIMEOUT_SECONDS = 5.0
+
+_HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+
 
 class OFREPProvider(AbstractProvider):
     def __init__(
         self,
-        base_url: str,
+        base_url: str | None = None,
         *,
         headers_factory: Callable[[], dict[str, str]] | None = None,
-        timeout: float = 5.0,
+        timeout: float | None = None,
     ):
+        """
+        Arguments take precedence over the ``OFREP_ENDPOINT``, ``OFREP_HEADERS``
+        and ``OFREP_TIMEOUT_MS`` environment variables.
+
+        :param base_url: The OFREP server endpoint. Defaults to ``OFREP_ENDPOINT``.
+        :param headers_factory: Returns the headers to send with each request.
+            When set, ``OFREP_HEADERS`` is ignored.
+        :param timeout: Request timeout in seconds. Defaults to
+            ``OFREP_TIMEOUT_MS`` (milliseconds), or 5 seconds when unset.
+        :raises ValueError: If no endpoint is configured or an environment
+            variable has an invalid value.
+        """
+        if base_url is None:
+            base_url = _get_env(ENV_ENDPOINT)
+        if base_url is None:
+            raise ValueError(
+                f"base_url is required: pass it explicitly or set {ENV_ENDPOINT}"
+            )
+        if headers_factory is None:
+            env_headers = _parse_env_headers(_get_env(ENV_HEADERS))
+            if env_headers:
+                headers_factory = lambda: dict(env_headers)  # noqa: E731
+        if timeout is None:
+            timeout = _parse_env_timeout(_get_env(ENV_TIMEOUT_MS))
         self.base_url = base_url
         self.headers_factory = headers_factory
         self.timeout = timeout
@@ -218,6 +253,57 @@ class OFREPProvider(AbstractProvider):
             raise FlagNotFoundError(error_details) from exception
         elif status > 400:
             raise OpenFeatureError(ErrorCode.GENERAL, response.text) from exception
+
+
+def _get_env(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
+def _parse_env_headers(value: str | None) -> dict[str, str]:
+    """Parse ``key=value`` pairs separated by commas (e.g. ``a=b,c=d``)."""
+    headers: dict[str, str] = {}
+    if value is None:
+        return headers
+    for position, pair in enumerate(value.split(","), start=1):
+        if not pair.strip():
+            continue
+        name, separator, header_value = pair.partition("=")
+        name = name.strip()
+        if not separator or not name:
+            raise ValueError(
+                f"Invalid {ENV_HEADERS} entry {position}: expected key=value"
+            )
+        header_value = header_value.strip()
+        if not _HEADER_NAME_PATTERN.match(name):
+            raise ValueError(
+                f"Invalid {ENV_HEADERS} entry {position}: invalid header name or value"
+            )
+        try:
+            check_header_validity((name, header_value))
+        except InvalidHeader:
+            raise ValueError(
+                f"Invalid {ENV_HEADERS} entry {position}: invalid header name or value"
+            ) from None
+        headers[name] = header_value
+    return headers
+
+
+def _parse_env_timeout(value: str | None) -> float:
+    """Convert ``OFREP_TIMEOUT_MS`` to seconds."""
+    if value is None:
+        return DEFAULT_TIMEOUT_SECONDS
+    try:
+        timeout_ms = float(value)
+    except ValueError:
+        raise ValueError(
+            f"Invalid {ENV_TIMEOUT_MS} {value!r}: expected a number of milliseconds"
+        ) from None
+    if not math.isfinite(timeout_ms) or timeout_ms <= 0:
+        raise ValueError(
+            f"Invalid {ENV_TIMEOUT_MS} {value!r}: must be a positive number"
+        )
+    return timeout_ms / 1000
 
 
 def _build_request_data(
