@@ -99,7 +99,23 @@ def coerced_flag(targeting: dict) -> dict:
                 {},
                 id=f"{reason} reason keeps value and variant",
             )
-            for reason in ("FALLBACK", "DISABLED", "ERROR", "DEFAULT", "STATIC")
+            for reason in ("FALLBACK", "STATIC")
+        ),
+        # flagd reserves these reasons; a rule returning one keeps TARGETING_MATCH
+        *(
+            pytest.param(
+                resolve_flag({"resolve": ["blue", reason_arg, [["details", "kept"]]]}),
+                {"reason": reason},
+                "blue",
+                Reason.TARGETING_MATCH,
+                {"details": "kept"},
+                id=f"reserved {kind} {reason} reason keeps targeting match",
+            )
+            for reason in ("ERROR", "DISABLED", "DEFAULT")
+            for kind, reason_arg in (
+                ("literal", reason),
+                ("computed", {"var": "reason"}),
+            )
         ),
         pytest.param(
             resolve_flag({"resolve": ["green", None, [["details", "pilot"]]]}),
@@ -526,7 +542,7 @@ def test_resolve_missing_variant_fails_like_a_plain_string(targeting, context) -
 
 def test_resolve_reason_does_not_skip_type_check() -> None:
     core = FlagdCore()
-    core.set_flags(resolve_flag({"resolve": ["red", "DISABLED"]}))
+    core.set_flags(resolve_flag({"resolve": ["red", "FALLBACK"]}))
     with pytest.raises(TypeMismatchError):
         core.resolve_boolean_value("color", False)
 

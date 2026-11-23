@@ -24,6 +24,8 @@ logger = logging.getLogger("openfeature.contrib")
 
 # flag set metadata keys a resolve rule can't override; the schema only catches literal keys
 RESERVED_METADATA_KEYS = frozenset({"flagSetId", "version"})
+# reasons flagd sets itself; a resolve rule returning one keeps TARGETING_MATCH
+RESERVED_REASONS = frozenset({"ERROR", "DISABLED", "DEFAULT"})
 
 # Type map for each resolve method
 _TYPE_MAP: dict[str, tuple[type | tuple[type, ...], str]] = {
@@ -64,7 +66,12 @@ def _targeting_match(
 ) -> tuple[str, str, Mapping[str, float | int | str | bool]]:
     """Variant, reason and metadata of a non-null targeting result."""
     if isinstance(resolved, ResolveResult):
-        reason = Reason.TARGETING_MATCH if resolved.reason is None else resolved.reason
+        reason = resolved.reason
+        if reason in RESERVED_REASONS:
+            logger.debug(f"Ignoring reserved resolve reason {reason}")
+            reason = None
+        if reason is None:
+            reason = Reason.TARGETING_MATCH
         return (
             resolved.variant,
             reason,
