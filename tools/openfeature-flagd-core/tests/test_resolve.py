@@ -89,7 +89,7 @@ def coerced_flag(targeting: dict) -> dict:
             {},
             id="custom reason",
         ),
-        # the reason is free-form; flagd's own reason names must not change the value or variant
+        # any other reason passes through and doesn't change the value or variant
         *(
             pytest.param(
                 resolve_flag({"resolve": ["blue", reason]}),
@@ -99,9 +99,10 @@ def coerced_flag(targeting: dict) -> dict:
                 {},
                 id=f"{reason} reason keeps value and variant",
             )
-            for reason in ("FALLBACK", "STATIC")
+            for reason in ("SPLIT", "FALLTHROUGH")
         ),
-        # flagd reserves these reasons; a rule returning one keeps TARGETING_MATCH
+        # every OpenFeature and flagd reason but TARGETING_MATCH and SPLIT is reserved;
+        # a rule returning one keeps TARGETING_MATCH
         *(
             pytest.param(
                 resolve_flag({"resolve": ["blue", reason_arg, [["details", "kept"]]]}),
@@ -111,7 +112,16 @@ def coerced_flag(targeting: dict) -> dict:
                 {"details": "kept"},
                 id=f"reserved {kind} {reason} reason keeps targeting match",
             )
-            for reason in ("ERROR", "DISABLED", "DEFAULT")
+            for reason in (
+                "ERROR",
+                "DISABLED",
+                "DEFAULT",
+                "FALLBACK",
+                "STATIC",
+                "UNKNOWN",
+                "CACHED",
+                "STALE",
+            )
             for kind, reason_arg in (
                 ("literal", reason),
                 ("computed", {"var": "reason"}),
@@ -527,9 +537,9 @@ def test_resolve_malformed_computed_arguments(targeting, context) -> None:
     ("targeting", "context"),
     [
         pytest.param({"resolve": ["missing"]}, None, id="missing variant"),
-        pytest.param({"resolve": ["", "FALLBACK"]}, None, id="empty variant"),
+        pytest.param({"resolve": ["", "ALLOWLIST"]}, None, id="empty variant"),
         pytest.param(
-            {"resolve": [{"var": "pick"}, "FALLBACK"]},
+            {"resolve": [{"var": "pick"}, "ALLOWLIST"]},
             {"pick": ""},
             id="computed empty variant",
         ),
@@ -542,7 +552,7 @@ def test_resolve_missing_variant_fails_like_a_plain_string(targeting, context) -
 
 def test_resolve_reason_does_not_skip_type_check() -> None:
     core = FlagdCore()
-    core.set_flags(resolve_flag({"resolve": ["red", "FALLBACK"]}))
+    core.set_flags(resolve_flag({"resolve": ["red", "ALLOWLIST"]}))
     with pytest.raises(TypeMismatchError):
         core.resolve_boolean_value("color", False)
 

@@ -25,7 +25,9 @@ logger = logging.getLogger("openfeature.contrib")
 # flag set metadata keys a resolve rule can't override; the schema only catches literal keys
 RESERVED_METADATA_KEYS = frozenset({"flagSetId", "version"})
 # reasons flagd sets itself; a resolve rule returning one keeps TARGETING_MATCH
-RESERVED_REASONS = frozenset({"ERROR", "DISABLED", "DEFAULT"})
+RESERVED_REASONS = frozenset(
+    {"ERROR", "DISABLED", "DEFAULT", "FALLBACK", "STATIC", "UNKNOWN", "CACHED", "STALE"}
+)
 
 # Type map for each resolve method
 _TYPE_MAP: dict[str, tuple[type | tuple[type, ...], str]] = {
