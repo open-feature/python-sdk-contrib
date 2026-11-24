@@ -43,12 +43,28 @@ def setup_provider_old(
     container: FlagdContainer,
     resolver_type: ResolverType,
     option_values: dict,
+    request: pytest.FixtureRequest,
 ) -> OpenFeatureClient:
-    setup_provider(container, resolver_type, "stable", dict)
+    setup_provider(container, resolver_type, "stable", dict, request)
+
+
+def file_flag_source(container, option_values: dict, resolve_scenario: bool) -> str:
+    harness_flags = Path(__file__).parents[3] / "openfeature" / "test-harness" / "flags"
+    if "selector" in option_values:
+        return str(harness_flags / option_values["selector"].replace("rawflags/", ""))
+    if resolve_scenario:
+        # the released testbed image's allFlags.json predates the resolve flags,
+        # so read them from the harness directly
+        return str(harness_flags / "custom-ops.json")
+    return os.path.join(container.flagDir.name, "allFlags.json")
 
 
 def get_default_options_for_provider(
-    provider_type: str, resolver_type: ResolverType, container, option_values: dict
+    provider_type: str,
+    resolver_type: ResolverType,
+    container,
+    option_values: dict,
+    resolve_scenario: bool = False,
 ) -> tuple[dict, bool]:
     launchpad = "default"
     t = TestProviderType(provider_type)
@@ -88,16 +104,9 @@ def get_default_options_for_provider(
         launchpad = "sync-payload"
 
     if resolver_type == ResolverType.FILE:
-        if "selector" in option_values:
-            path = option_values["selector"]
-            path = path.replace("rawflags/", "")
-            options["offline_flag_source_path"] = os.path.join(
-                Path(__file__).parents[3], "openfeature", "test-harness", "flags", path
-            )
-        else:
-            options["offline_flag_source_path"] = os.path.join(
-                container.flagDir.name, "allFlags.json"
-            )
+        options["offline_flag_source_path"] = file_flag_source(
+            container, option_values, resolve_scenario
+        )
 
     requests.post(
         f"{container.get_launchpad_url()}/start?config={launchpad}", timeout=1
@@ -114,9 +123,14 @@ def setup_provider(
     resolver_type: ResolverType,
     provider_type: str,
     option_values: dict,
+    request: pytest.FixtureRequest,
 ) -> OpenFeatureClient:
     default_options, wait = get_default_options_for_provider(
-        provider_type, resolver_type, container, option_values
+        provider_type,
+        resolver_type,
+        container,
+        option_values,
+        resolve_scenario=request.node.get_closest_marker("resolve") is not None,
     )
 
     combined_options = {**default_options, **option_values}
