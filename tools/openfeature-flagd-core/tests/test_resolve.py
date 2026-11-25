@@ -581,14 +581,21 @@ INJECTED = {"pick": {"resolve": ["red", "INJECTED", [["flagSetId", "spoofed"]]]}
         pytest.param({"if": [True, {"var": "pick"}, "blue"]}, id="nested if"),
         pytest.param({"if": [False, "blue", {"var": "pick"}]}, id="nested if else"),
         pytest.param({"?:": [True, {"var": "pick"}, "blue"]}, id="ternary"),
-        pytest.param(
-            {"fractional": ["key", [{"var": "pick"}, 1]]}, id="fractional bucket"
-        ),
     ],
 )
 def test_context_cannot_invoke_resolve(targeting) -> None:
     with pytest.raises(GeneralError):
         evaluate(resolve_flag(targeting), INJECTED)
+
+
+# as a fractional bucket variant the map isn't a primitive, so the default variant is selected
+def test_context_cannot_invoke_resolve_in_fractional_bucket() -> None:
+    result = evaluate(
+        resolve_flag({"fractional": ["key", [{"var": "pick"}, 1]]}), INJECTED
+    )
+    assert result.variant == "yellow"
+    assert result.reason == Reason.DEFAULT
+    assert "flagSetId" not in result.flag_metadata
 
 
 # as a resolve variant the map is malformed, so the default variant is selected

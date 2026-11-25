@@ -18,8 +18,7 @@ logger = logging.getLogger("openfeature.contrib")
 
 @dataclass
 class Fraction:
-    # whatever the variant expression evaluated to, the resolver decides what to do with it
-    variant: typing.Any
+    variant: "str | float | int | bool | ResolveResult | None"
     weight: int = 1
 
 
@@ -127,6 +126,11 @@ def _parse_fraction(arg: JsonLogicArg) -> Fraction:
         )
 
     variant = arg[0]
+    # any other result (e.g. an object or array) makes fractional return None
+    if variant is not None and not isinstance(
+        variant, (str, int, float, bool, ResolveResult)
+    ):
+        raise ValueError("Fractional variant must be a primitive or a resolve result")
 
     weight = None
     if len(arg) == 2:
