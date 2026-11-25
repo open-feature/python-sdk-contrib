@@ -123,6 +123,15 @@ def test_unleash_provider_all_methods_implemented():
         provider.shutdown()
 
 
+def test_unleash_provider_track_takes_the_sdk_arguments():
+    """The client calls track with three positional arguments; it must no-op."""
+    provider = UnleashProvider(
+        url="http://localhost:4242", app_name="test-app", api_token="test-token"
+    )
+
+    assert provider.track("event", EvaluationContext("user"), None) is None
+
+
 def test_unleash_provider_hooks():
     """Test that UnleashProvider returns empty hooks list."""
     provider = UnleashProvider(
