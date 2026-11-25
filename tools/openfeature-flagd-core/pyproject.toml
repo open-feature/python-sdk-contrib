@@ -1,6 +1,6 @@
 [build-system]
-requires = ["uv_build~=0.13.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "openfeature-flagd-core"
@@ -44,10 +44,12 @@ dev = [
 openfeature-flagd-api = { workspace = true }
 openfeature-flagd-api-testkit = { workspace = true }
 
-[tool.uv.build-backend]
-module-name = "openfeature"
-module-root = "src"
-namespace = true
+[tool.hatch.build.targets.wheel]
+packages = ["src/openfeature"]
+# Include generated schema files even though they are gitignored
+artifacts = ["src/openfeature/contrib/tools/flagd/core/schemas/"]
+
+[tool.hatch.build.hooks.custom]
 
 [tool.mypy]
 mypy_path = "src"
@@ -77,8 +79,8 @@ omit = ["tests/**"]
 [tool.poe.tasks]
 sync-test-harness = "python ../openfeature-flagd-api-testkit/hatch_build_sync.py"
 sync-schemas = "python sync_schemas.py"
-test = ["sync-test-harness", {cmd = "pytest tests"}]
-test-cov = ["sync-test-harness", {cmd = "coverage run -m pytest tests"}]
+test = ["sync-test-harness", "sync-schemas", {cmd = "pytest tests"}]
+test-cov = ["sync-test-harness", "sync-schemas", {cmd = "coverage run -m pytest tests"}]
 cov-report = "coverage xml"
 cov = [
     "test-cov",

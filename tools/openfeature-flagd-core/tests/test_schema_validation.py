@@ -13,9 +13,6 @@ SCHEMAS_SUBMODULE = (
     Path(__file__).parents[3]
     / "providers/openfeature-provider-flagd/openfeature/schemas/json"
 )
-BUNDLED_SCHEMAS = (
-    Path(__file__).parents[1] / "src/openfeature/contrib/tools/flagd/core/schemas"
-)
 
 requires_submodule = pytest.mark.skipif(
     not SCHEMAS_SUBMODULE.exists(), reason="schemas submodule is not checked out"
@@ -96,14 +93,6 @@ def test_invalid_schema_fixtures_fail(path: Path) -> None:
     assert (
         validate_flag_configuration(json.loads(path.read_text(encoding="utf-8"))) != []
     )
-
-
-@requires_submodule
-@pytest.mark.parametrize("name", ["flags.json", "targeting.json"])
-def test_bundled_schemas_match_submodule(name: str) -> None:
-    bundled = json.loads((BUNDLED_SCHEMAS / name).read_text(encoding="utf-8"))
-    upstream = json.loads((SCHEMAS_SUBMODULE / name).read_text(encoding="utf-8"))
-    assert bundled == upstream, f"Run `poe sync-schemas` to update {name}"
 
 
 def test_errors_point_to_the_invalid_field() -> None:

@@ -1,7 +1,7 @@
 """Copy the flagd JSON schemas from the schemas submodule into the package.
 
-Used by `poe sync-schemas` after the submodule has been updated. The copies
-are committed, because uv_build does not support build hooks yet.
+Used by `poe sync-schemas` for local development and CI testing.
+The hatch build hook (hatch_build.py) handles inclusion in wheel/sdist.
 """
 
 import shutil
