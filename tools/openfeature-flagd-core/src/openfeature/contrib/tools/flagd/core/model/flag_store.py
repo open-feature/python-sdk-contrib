@@ -36,9 +36,13 @@ class FlagStore:
 
         # Like the other flagd cores, an invalid configuration is only reported:
         # rejecting it would block updates to every other flag in the set.
-        schema_errors = validate_flag_configuration(
-            {**flags_data, "flags": flags} if evaluators else flags_data
-        )
+        try:
+            schema_errors = validate_flag_configuration(
+                {**flags_data, "flags": flags} if evaluators else flags_data
+            )
+        except Exception as error:
+            # type name only; messages may embed flag values
+            schema_errors = [f"validation failed ({type(error).__name__})"]
         if schema_errors:
             logger.warning(
                 "Flag configuration does not match the flagd schema, applying it anyway:\n%s",

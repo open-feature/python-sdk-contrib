@@ -188,3 +188,27 @@ def test_invalid_flag_does_not_block_other_flags(
 
     assert len(_schema_warnings(caplog)) == 1
     assert core.resolve_boolean_value("my-flag", False).value is True
+
+
+def test_deeply_nested_config_is_still_applied(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    rule: dict = {"var": "role"}
+    for _ in range(200):
+        rule = {"!": [rule]}
+    config = {
+        "flags": {
+            "nested-flag": {
+                "state": "ENABLED",
+                "variants": {"on": True, "off": False},
+                "defaultVariant": "off",
+                "targeting": {"if": [rule, "on", "off"]},
+            }
+        }
+    }
+    core = FlagdCore()
+    with caplog.at_level(logging.WARNING):
+        core.set_flags(json.dumps(config))
+
+    assert len(_schema_warnings(caplog)) == 1
+    assert core.resolve_boolean_value("nested-flag", True).value is False
