@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 import threading
@@ -24,10 +25,6 @@ logger = logging.getLogger("openfeature.contrib")
 
 # flag set metadata keys a resolve rule can't override; the schema only catches literal keys
 RESERVED_METADATA_KEYS = frozenset({"flagSetId", "version"})
-# reasons flagd sets itself; a resolve rule returning one keeps TARGETING_MATCH
-RESERVED_REASONS = frozenset(
-    {"ERROR", "DISABLED", "DEFAULT", "FALLBACK", "STATIC", "UNKNOWN", "CACHED", "STALE"}
-)
 
 # Type map for each resolve method
 _TYPE_MAP: dict[str, tuple[type | tuple[type, ...], str]] = {
@@ -65,24 +62,20 @@ def _merge_rule_metadata(
 
 def _targeting_match(
     resolved: typing.Any, metadata: Mapping[str, float | int | str | bool]
-) -> tuple[str, str, Mapping[str, float | int | str | bool]]:
-    """Variant, reason and metadata of a non-null targeting result."""
+) -> tuple[str | None, str | None, Mapping[str, float | int | str | bool]]:
+    """Variant, rule reason and metadata of a targeting result."""
+    if resolved is None:
+        return None, None, metadata
     if isinstance(resolved, ResolveResult):
-        reason = resolved.reason
-        if reason in RESERVED_REASONS:
-            logger.debug(f"Ignoring reserved resolve reason {reason}")
-            reason = None
-        if reason is None:
-            reason = Reason.TARGETING_MATCH
         return (
             resolved.variant,
-            reason,
+            resolved.reason,
             _merge_rule_metadata(metadata, resolved.metadata),
         )
     # convert to string to support shorthand
     if isinstance(resolved, bool):
-        return str(resolved).lower(), Reason.TARGETING_MATCH, metadata
-    return str(resolved), Reason.TARGETING_MATCH, metadata
+        return str(resolved).lower(), None, metadata
+    return str(resolved), None, metadata
 
 
 def _default_resolve(
@@ -92,6 +85,7 @@ def _default_resolve(
     reason: Reason,
 ) -> FlagResolutionDetails:
     variant, value = flag.default
+    # no variant means no value (code default), whatever the reason
     if variant is None:
         return FlagResolutionDetails(
             default_value,
@@ -201,12 +195,14 @@ class FlagdCore:
             except ReferenceError as e:
                 raise ParseError(f"Invalid targeting {flag.targeting}") from e
 
-            if resolved is None:
+            variant, reason, metadata = _targeting_match(resolved, metadata)
+            if variant is None:
                 result = _default_resolve(flag, default_value, metadata, Reason.DEFAULT)
+                if reason is not None:
+                    result = dataclasses.replace(result, reason=reason)
                 self._check_type(result, flag_type)
                 return result
 
-            variant, reason, metadata = _targeting_match(resolved, metadata)
             if variant not in flag.variants:
                 raise GeneralError(
                     f"Resolved variant {variant} not in variants config."
@@ -221,7 +217,7 @@ class FlagdCore:
             result = FlagResolutionDetails(
                 value,
                 variant=variant,
-                reason=reason,
+                reason=Reason.TARGETING_MATCH if reason is None else reason,
                 flag_metadata=metadata,
             )
             self._check_type(result, flag_type)

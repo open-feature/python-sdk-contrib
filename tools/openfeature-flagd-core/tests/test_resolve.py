@@ -101,16 +101,15 @@ def coerced_flag(targeting: dict) -> dict:
             )
             for reason in ("SPLIT", "FALLTHROUGH")
         ),
-        # every OpenFeature and flagd reason but TARGETING_MATCH and SPLIT is reserved;
-        # a rule returning one keeps TARGETING_MATCH
+        # standard reasons are plain strings and don't change the value or variant
         *(
             pytest.param(
                 resolve_flag({"resolve": ["blue", reason_arg, [["details", "kept"]]]}),
                 {"reason": reason},
                 "blue",
-                Reason.TARGETING_MATCH,
+                reason,
                 {"details": "kept"},
-                id=f"reserved {kind} {reason} reason keeps targeting match",
+                id=f"standard {kind} {reason} reason passes through",
             )
             for reason in (
                 "ERROR",
@@ -471,7 +470,6 @@ NON_FINITE_METADATA = {
 @pytest.mark.parametrize(
     ("targeting", "context"),
     [
-        pytest.param({"resolve": [{"var": "pick"}]}, None, id="null variant"),
         pytest.param(
             {"resolve": [{"var": "pick"}]}, {"pick": {"a": 1}}, id="object variant"
         ),
@@ -508,12 +506,12 @@ NON_FINITE_METADATA = {
         ),
         pytest.param(
             {"if": [True, {"resolve": [{"var": "pick"}]}, "blue"]},
-            None,
+            {"pick": {"a": 1}},
             id="inside an if result",
         ),
         pytest.param(
             {"fractional": ["key", [{"resolve": [{"var": "pick"}]}, 1], ["blue", 0]]},
-            None,
+            {"pick": {"a": 1}},
             id="inside a fractional bucket",
         ),
         pytest.param(NON_FINITE_METADATA, {"big": 1e308}, id="+Inf metadata"),
@@ -530,6 +528,106 @@ def test_resolve_malformed_computed_arguments(targeting, context) -> None:
     assert "share" not in result.flag_metadata
     assert "details" not in result.flag_metadata
     json.dumps(result.flag_metadata, allow_nan=False)
+
+
+DISABLED_WITH_OVERRIDES = {
+    "if": [
+        {"in": [{"var": "targetingKey"}, ["alice"]]},
+        "red",
+        {"resolve": [None, "DISABLED"]},
+    ]
+}
+
+
+def no_default_flag(targeting: typing.Any) -> dict:
+    flags = resolve_flag(targeting)
+    del flags["flags"]["color"]["defaultVariant"]
+    return flags
+
+
+# a null variant behaves like a plain null targeting result
+@pytest.mark.parametrize(
+    ("flags", "targeting_key", "value", "variant", "reason", "metadata"),
+    [
+        pytest.param(
+            resolve_flag({"resolve": [None]}),
+            None,
+            "#FFFF00",
+            "yellow",
+            Reason.DEFAULT,
+            {},
+            id="default variant",
+        ),
+        pytest.param(
+            resolve_flag({"resolve": [{"var": "pick"}, "FALLTHROUGH"]}),
+            None,
+            "#FFFF00",
+            "yellow",
+            "FALLTHROUGH",
+            {},
+            id="computed null with reason and default variant",
+        ),
+        pytest.param(
+            resolve_flag({"resolve": [None, "OFF", [["details", "kept"]]]}),
+            None,
+            "#FFFF00",
+            "yellow",
+            "OFF",
+            {"details": "kept"},
+            id="default variant with reason and metadata",
+        ),
+        pytest.param(
+            no_default_flag({"resolve": [None]}),
+            None,
+            "default",
+            None,
+            Reason.DEFAULT,
+            {},
+            id="no default variant",
+        ),
+        pytest.param(
+            no_default_flag({"resolve": [None, "OFF", [["details", "kept"]]]}),
+            None,
+            "default",
+            None,
+            "OFF",
+            {"details": "kept"},
+            id="no default variant with reason and metadata",
+        ),
+        pytest.param(
+            no_default_flag(DISABLED_WITH_OVERRIDES),
+            "alice",
+            "#FF0000",
+            "red",
+            Reason.TARGETING_MATCH,
+            {},
+            id="disabled with overrides match",
+        ),
+        pytest.param(
+            no_default_flag(DISABLED_WITH_OVERRIDES),
+            "bob",
+            "default",
+            None,
+            Reason.DISABLED,
+            {},
+            id="disabled with overrides no match",
+        ),
+    ],
+)
+def test_resolve_null_variant(
+    flags, targeting_key, value, variant, reason, metadata
+) -> None:
+    core = FlagdCore()
+    core.set_flags(json.dumps(flags))
+    result = core.resolve_string_value(
+        "color", "default", EvaluationContext(targeting_key)
+    )
+    assert result.value == value
+    assert result.variant == variant
+    assert result.reason == reason
+    assert result.error_code is None
+    for key, expected in metadata.items():
+        assert result.flag_metadata[key] == expected
 
 
 # variant keys are never empty, so an empty variant is missing too

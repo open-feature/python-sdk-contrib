@@ -29,8 +29,9 @@ class ResolveResult:
     No JSON input decodes to this type, so evaluation context data can't forge one.
     """
 
-    variant: str
-    # None keeps TARGETING_MATCH
+    # None behaves like a plain null targeting result
+    variant: str | None
+    # None keeps the reason of the equivalent plain result
     reason: str | None = None
     # merged over flag set and flag metadata
     metadata: Mapping[str, str | bool | int | float] = field(default_factory=dict)
@@ -239,7 +240,7 @@ def normalize_version(arg: typing.Any) -> semver.Version:
 
 
 def resolve(data: dict, *args: typing.Any) -> ResolveResult | None:
-    """Terminal ``resolve`` operator: ``["variant", "reason"?, [["key", value], ...]?]``.
+    """Terminal ``resolve`` operator: ``["variant"|null, "reason"?, [["key", value], ...]?]``.
 
     Placement is enforced by the targeting schema. Malformed (computed) arguments return
     None like the other custom operators, so the flag falls back to its default variant.
@@ -248,10 +249,12 @@ def resolve(data: dict, *args: typing.Any) -> ResolveResult | None:
         logger.debug("resolve takes 1 to 3 arguments")
         return None
 
-    variant = _resolve_variant_key(args[0])
-    if variant is None:
-        logger.debug("resolve variant must be a string, boolean, or finite number")
-        return None
+    variant = None
+    if args[0] is not None:
+        variant = _resolve_variant_key(args[0])
+        if variant is None:
+            logger.debug("resolve variant must be a string, boolean, or finite number")
+            return None
 
     reason = args[1] if len(args) > 1 else None
     if reason is not None and not isinstance(reason, str):
@@ -294,9 +297,10 @@ def _resolve_metadata(
             return None
         key, value = pair
         # NaN and Infinity (e.g. a computed 1/0) can't be encoded as JSON
-        if not isinstance(value, (str, bool, int)) and not (
+        valid_value = isinstance(value, (str, bool, int)) or (
             isinstance(value, float) and math.isfinite(value)
-        ):
+        )
+        if not valid_value:
             logger.debug(
                 "resolve metadata value must be a string, finite number, or boolean"
             )

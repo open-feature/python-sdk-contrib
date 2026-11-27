@@ -3,6 +3,7 @@ from contextlib import suppress
 from unittest.mock import MagicMock, Mock, patch
 
 import grpc
+import pytest
 from grpc import Channel
 
 from openfeature.contrib.provider.flagd.config import CacheType, Config
@@ -61,6 +62,41 @@ def test_unary_call_omits_metadata_when_no_selector():
 
     kwargs = mock_stub.ResolveBoolean.call_args.kwargs
     assert "metadata" not in kwargs
+
+
+@pytest.mark.parametrize("reason", ["DEFAULT", "DISABLED", "OFF_BY_POLICY"])
+def test_resolve_without_variant_uses_default_value(reason):
+    # no variant means no value (code default), whatever the reason
+    resolver = _make_resolver(None)
+    mock_stub = MagicMock()
+    mock_stub.ResolveString = Mock(
+        return_value=evaluation_pb2.ResolveStringResponse(reason=reason)
+    )
+    resolver.stub = mock_stub
+
+    result = resolver._resolve("flag", FlagType.STRING, "fallback", None)
+
+    assert result.value == "fallback"
+    assert result.variant is None
+    assert result.reason == reason
+
+
+def test_resolve_with_variant_and_disabled_reason_uses_value():
+    # a reason does not change the outcome, so a variant's value is used
+    resolver = _make_resolver(None)
+    mock_stub = MagicMock()
+    mock_stub.ResolveString = Mock(
+        return_value=evaluation_pb2.ResolveStringResponse(
+            value="on-value", variant="on", reason="DISABLED"
+        )
+    )
+    resolver.stub = mock_stub
+
+    result = resolver._resolve("flag", FlagType.STRING, "fallback", None)
+
+    assert result.value == "on-value"
+    assert result.variant == "on"
+    assert result.reason == "DISABLED"
 
 
 def test_event_stream_includes_selector_metadata_when_configured():
