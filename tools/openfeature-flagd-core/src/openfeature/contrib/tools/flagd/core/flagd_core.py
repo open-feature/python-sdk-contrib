@@ -85,7 +85,7 @@ def _default_resolve(
     reason: Reason,
 ) -> FlagResolutionDetails:
     variant, value = flag.default
-    # no variant means no value (code default), whatever the reason
+    # no variant means no value (code default); reasons only affect telemetry and side effects such as caching
     if variant is None:
         return FlagResolutionDetails(
             default_value,

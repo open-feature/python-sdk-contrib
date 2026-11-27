@@ -66,7 +66,7 @@ def test_unary_call_omits_metadata_when_no_selector():
 
 @pytest.mark.parametrize("reason", ["DEFAULT", "DISABLED", "OFF_BY_POLICY"])
 def test_resolve_without_variant_uses_default_value(reason):
-    # no variant means no value (code default), whatever the reason
+    # no variant means no value (code default); reasons only affect telemetry and side effects such as caching
     resolver = _make_resolver(None)
     mock_stub = MagicMock()
     mock_stub.ResolveString = Mock(
