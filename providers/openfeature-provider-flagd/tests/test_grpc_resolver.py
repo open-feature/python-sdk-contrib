@@ -147,3 +147,21 @@ class TestGrpcResolver(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_handle_changed_flags_ignores_uncached_flags():
+    config = Config(host="localhost", port=8013, tls=False, cache=CacheType.LRU)
+    emit_changed = Mock()
+    resolver = GrpcResolver(
+        config=config,
+        emit_provider_ready=Mock(),
+        emit_provider_error=Mock(),
+        emit_provider_stale=Mock(),
+        emit_provider_configuration_changed=emit_changed,
+    )
+    resolver.cache["cached"] = "value"
+
+    resolver.handle_changed_flags({"flags": {"cached": {}, "uncached": {}}})
+
+    assert "cached" not in resolver.cache
+    emit_changed.assert_called_once()

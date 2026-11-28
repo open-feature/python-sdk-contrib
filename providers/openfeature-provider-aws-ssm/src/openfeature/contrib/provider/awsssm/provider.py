@@ -37,7 +37,7 @@ class AwsSsmProvider(AbstractProvider):
             if cache_config.cache_type == "lru":
                 self.cache = LRUCache(maxsize=cache_config.size)
             elif cache_config.cache_type == "ttl":
-                self.cache = TTLCache(maxsize=cache_config.size, ttl=cache_config.ttl)
+                self.cache = TTLCache(maxsize=cache_config.size, global_ttl=cache_config.ttl)
 
     def get_metadata(self) -> Metadata:
         """

@@ -304,7 +304,7 @@ class GrpcResolver:
 
         if self.cache:
             for flag in changed_flags:
-                self.cache.pop(flag)
+                self.cache.pop(flag, None)
 
         self.emit_provider_configuration_changed(ProviderEventDetails(changed_flags))
 
