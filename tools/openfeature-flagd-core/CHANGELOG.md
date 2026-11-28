@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-flagd-core/v2.0.0...openfeature-flagd-core/v2.1.0) (2026-11-28)
+
+
+### ✨ New Features
+
+* **flagd-core:** validate flag configs against the flagd JSON schema ([#471](https://github.com/open-feature/python-sdk-contrib/issues/471)) ([499a16e](https://github.com/open-feature/python-sdk-contrib/commit/499a16e62fcca20cc05fb7237de4684b8320b0e9))
+
 ## [2.0.0](https://github.com/open-feature/python-sdk-contrib/compare/openfeature-flagd-core/v1.0.0...openfeature-flagd-core/v2.0.0) (2026-10-15)
 
 
