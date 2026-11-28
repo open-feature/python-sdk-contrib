@@ -205,6 +205,11 @@ class TestFractional:
             result = fractional({}, key, ["a", 50], ["b", 50])
             assert result in ("a", "b")
 
+    def test_fractional_non_primitive_variant(self) -> None:
+        """A bucket variant that evaluates to an object or array returns None."""
+        for variant in [{"variant": "a"}, ["a"]]:
+            assert fractional({}, "key", [variant, 50], ["b", 50]) is None
+
     def test_fractional_top_level_array_not_explicit_key(self) -> None:
         """Top-level array is reserved for variant buckets (shorthand syntax) per ADR."""
         # When no targetingKey in context, shorthand fails and returns None

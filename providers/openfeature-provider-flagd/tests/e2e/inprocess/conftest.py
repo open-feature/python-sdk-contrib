@@ -10,6 +10,9 @@ feature_list = [
     "~deprecated",
     "~fractional-v1",
     "~fractional-v2",
+    # the released testbed image predates the resolve flags, and its flagd does not
+    # support resolve yet
+    "~resolve",
 ]
 
 

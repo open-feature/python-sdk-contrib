@@ -1,7 +1,8 @@
 import logging
+import math
 import typing
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 
 import cbor2
 import mmh3
@@ -17,8 +18,23 @@ logger = logging.getLogger("openfeature.contrib")
 
 @dataclass
 class Fraction:
-    variant: str | float | int | bool | None
+    variant: "str | float | int | bool | ResolveResult | None"
     weight: int = 1
+
+
+@dataclass(frozen=True)
+class ResolveResult:
+    """Result of the terminal ``resolve`` operator.
+
+    No JSON input decodes to this type, so evaluation context data can't forge one.
+    """
+
+    # None behaves like a plain null targeting result
+    variant: str | None
+    # None keeps the reason of the equivalent plain result
+    reason: str | None = None
+    # merged over flag set and flag metadata
+    metadata: Mapping[str, str | bool | int | float] = field(default_factory=dict)
 
 
 def _resolve_bucket_by(data: dict, args: tuple) -> tuple[typing.Any, tuple]:
@@ -54,7 +70,7 @@ def normalize_numbers(data: typing.Any) -> typing.Any:
     return data
 
 
-def fractional(data: dict, *args: typing.Any) -> str | float | int | bool | None:
+def fractional(data: dict, *args: typing.Any) -> typing.Any:
     if not args:
         logger.error("No arguments provided to fractional operator.")
         return None
@@ -111,6 +127,11 @@ def _parse_fraction(arg: JsonLogicArg) -> Fraction:
         )
 
     variant = arg[0]
+    # any other result (e.g. an object or array) makes fractional return None
+    if variant is not None and not isinstance(
+        variant, (str, int, float, bool, ResolveResult)
+    ):
+        raise ValueError("Fractional variant must be a primitive or a resolve result")
 
     weight = None
     if len(arg) == 2:
@@ -216,3 +237,73 @@ def normalize_version(arg: typing.Any) -> semver.Version:
         version = numeric_part + ".0" * (2 - dot_count) + version[len(numeric_part) :]
 
     return semver.Version.parse(version)
+
+
+def resolve(data: dict, *args: typing.Any) -> ResolveResult | None:
+    """Terminal ``resolve`` operator: ``["variant"|null, "reason"?, [["key", value], ...]?]``.
+
+    Placement is enforced by the targeting schema. Malformed (computed) arguments return
+    None like the other custom operators, so the flag falls back to its default variant.
+    """
+    if not 1 <= len(args) <= 3:
+        logger.debug("resolve takes 1 to 3 arguments")
+        return None
+
+    variant = None
+    if args[0] is not None:
+        variant = _resolve_variant_key(args[0])
+        if variant is None:
+            logger.debug("resolve variant must be a string, boolean, or finite number")
+            return None
+
+    reason = args[1] if len(args) > 1 else None
+    if reason is not None and not isinstance(reason, str):
+        logger.debug("resolve reason must be a string or null")
+        return None
+
+    pairs = args[2] if len(args) > 2 else None
+    metadata = {} if pairs is None else _resolve_metadata(pairs)
+    if metadata is None:
+        return None
+
+    return ResolveResult(variant, reason, metadata)
+
+
+def _resolve_variant_key(value: typing.Any) -> str | None:
+    # coerce like a plain targeting result
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int) or (isinstance(value, float) and math.isfinite(value)):
+        return str(value)
+    return None
+
+
+def _resolve_metadata(
+    pairs: typing.Any,
+) -> dict[str, str | bool | int | float] | None:
+    if not isinstance(pairs, (list, tuple)):
+        logger.debug("resolve metadata must be an array of [key, value] pairs")
+        return None
+    metadata: dict[str, str | bool | int | float] = {}
+    for pair in pairs:
+        if (
+            not isinstance(pair, (list, tuple))
+            or len(pair) != 2
+            or not isinstance(pair[0], str)
+        ):
+            logger.debug("resolve metadata pair must be a [string, value] array")
+            return None
+        key, value = pair
+        # NaN and Infinity (e.g. a computed 1/0) can't be encoded as JSON
+        valid_value = isinstance(value, (str, bool, int)) or (
+            isinstance(value, float) and math.isfinite(value)
+        )
+        if not valid_value:
+            logger.debug(
+                "resolve metadata value must be a string, finite number, or boolean"
+            )
+            return None
+        metadata[key] = value
+    return metadata

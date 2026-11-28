@@ -272,6 +272,29 @@ class TestTargeting:
         assert result.variant == "bye"
         assert result.reason == Reason.TARGETING_MATCH
 
+    @pytest.mark.parametrize(("matches", "variant"), [(True, "true"), (False, "false")])
+    def test_boolean_targeting_result_selects_string_key(
+        self, matches: bool, variant: str
+    ) -> None:
+        """A boolean targeting result selects the "true" / "false" variant key."""
+        c = FlagdCore()
+        c.set_flags(
+            {
+                "flags": {
+                    "bool-keys": {
+                        "state": "ENABLED",
+                        "variants": {"true": "yes", "false": "no"},
+                        "defaultVariant": "false",
+                        "targeting": {"==": [{"var": "x"}, "match"]},
+                    }
+                }
+            }
+        )
+        ctx = EvaluationContext(attributes={"x": "match" if matches else "other"})
+        result = c.resolve_string_value("bool-keys", "fallback", ctx)
+        assert result.variant == variant
+        assert result.reason == Reason.TARGETING_MATCH
+
     def test_targeting_returns_none_falls_to_default(self, core: FlagdCore) -> None:
         """When targeting returns None, fall back to flag's default variant."""
         c = FlagdCore()

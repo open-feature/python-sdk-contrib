@@ -471,13 +471,8 @@ class GrpcResolver:
                 raise ParseError(message) from e
             raise GeneralError(message) from e
 
-        # When no default variant is configured, the server returns an empty/zero proto
-        # value with reason=DEFAULT. For DISABLED flags the server omits the variant too.
-        # In both cases, return the caller's code default value.
-        if (
-            response.reason in (Reason.DEFAULT, Reason.DISABLED)
-            and not response.variant
-        ):
+        # no variant means no value (code default); reasons only affect telemetry and side effects such as caching
+        if not response.variant:
             value = default_value
 
         # Got a valid flag and valid type. Return it.
